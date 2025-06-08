@@ -36,7 +36,7 @@
                         <td class="py-4 px-6" th:text="${role.roleName}">ROLE_USER</td>
                         <td class="py-4 px-6" th:text="${role.roleDesc}">일반 사용자 역할</td>
                         <td class="py-4 px-6" th:text="${role.isExpression}">N</td>
-                        <td class="py-4 px-6" th:text="${role.permissions != null ? #sets.size(role.permissions) : 0}">0</td>
+                        <td class="py-4 px-6" th:text="${role.rolePermissions != null ? #sets.size(role.permissions) : 0}">0</td>
                         <td class="py-4 px-6">
                             <a th:href="@{/admin/roles/{id}(id=${role.id})}" class="text-app-accent hover:underline mr-3">수정</a>
                             <a th:href="@{/admin/roles/delete/{id}(id=${role.id})}" class="text-error hover:underline" onclick="return confirm('정말로 이 역할을 삭제하시겠습니까?');">삭제</a>

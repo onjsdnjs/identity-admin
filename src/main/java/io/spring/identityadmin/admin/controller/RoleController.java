@@ -72,7 +72,7 @@ public class RoleController {
 	@PostMapping("/{id}/edit") // 수정 요청을 처리할 새로운 매핑 추가
 //	@PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_UPDATE')") // 권한 설정 예시
 	public String updateRole(@PathVariable Long id, @ModelAttribute("role") RoleDto roleDto, RedirectAttributes ra) {
-		roleDto.setId(String.valueOf(id)); // ID를 DTO에 설정
+		roleDto.setId(id); // ID를 DTO에 설정
 		Role role = modelMapper.map(roleDto, Role.class);
 		// RoleService의 updateRole 메서드는 permissionIds를 받도록 수정되었습니다.
 		roleService.updateRole(role, roleDto.getPermissionIds());
