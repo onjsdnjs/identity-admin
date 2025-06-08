@@ -16,12 +16,13 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
     @Query("select r from Role r where r.isExpression = 'N'")
     List<Role> findAllRolesWithoutExpression();
 
-    /**
-     * ID로 Role 엔티티를 조회하면서 연관된 Permissions를 즉시 가져옵니다.
-     * `LEFT JOIN FETCH`를 사용하여 Role이 Permissions를 가지고 있지 않아도 Role 자체는 가져옵니다.
-     * @param id 조회할 Role ID
-     * @return 해당 Role 엔티티 (Optional)
-     */
     @Query("SELECT r FROM Role r LEFT JOIN FETCH r.rolePermissions p WHERE r.id = :id")
-    Optional<Role> findByIdWithPermissions(Long id); // 이 메서드를 추가합니다.
+    Optional<Role> findByIdWithPermissions(Long id);
+
+    /**
+     * N+1 문제 해결을 위해 모든 Role과 연관된 Permission을 함께 조회합니다.
+     * @return Role 리스트
+     */
+    @Query("SELECT DISTINCT r FROM Role r LEFT JOIN FETCH r.rolePermissions")
+    List<Role> findAllWithPermissions();
 }

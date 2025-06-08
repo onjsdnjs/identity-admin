@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RoleDto{
-    private String id;
+    private Long id;
     private String roleName;
     private String roleDesc;
     private String isExpression;
