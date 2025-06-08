@@ -1,6 +1,6 @@
 package io.spring.identityadmin.admin.repository;
 
-import io.springsecurity.springsecurity6x.entity.RoleHierarchyEntity;
+import io.spring.identityadmin.entity.RoleHierarchyEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

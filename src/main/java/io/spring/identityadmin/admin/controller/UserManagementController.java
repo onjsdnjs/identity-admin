@@ -1,13 +1,12 @@
 package io.spring.identityadmin.admin.controller; // 패키지명 변경: io.springsecurity.springsecurity6x.controller 로 변경 권장
 
-import io.springsecurity.springsecurity6x.admin.service.GroupService;
-import io.springsecurity.springsecurity6x.admin.service.RoleService;
-import io.springsecurity.springsecurity6x.admin.service.UserManagementService;
-import io.springsecurity.springsecurity6x.domain.dto.UserDto;
-import io.springsecurity.springsecurity6x.entity.Group;
-import io.springsecurity.springsecurity6x.entity.Role;
-import io.springsecurity.springsecurity6x.entity.Users;
-import io.springsecurity.springsecurity6x.security.enums.AuthType;
+import io.spring.identityadmin.admin.service.GroupService;
+import io.spring.identityadmin.admin.service.RoleService;
+import io.spring.identityadmin.admin.service.UserManagementService;
+import io.spring.identityadmin.domain.dto.UserDto;
+import io.spring.identityadmin.entity.Group;
+import io.spring.identityadmin.entity.Role;
+import io.spring.identityadmin.entity.Users;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -68,17 +67,17 @@ public class UserManagementController {
 		}
 
 		// MFA 팩터 목록 (UI 드롭다운용)
-		List<String> allMfaFactors = Arrays.stream(AuthType.values())
+		/*List<String> allMfaFactors = Arrays.stream(AuthType.values())
 				.filter(type -> type != AuthType.FORM && type != AuthType.REST && type != AuthType.PRIMARY && type != AuthType.MFA)
 				.map(AuthType::name)
 				.collect(Collectors.toList());
-
+*/
 
 		model.addAttribute("user", userDto);
 		model.addAttribute("roleList", roleList); // 이 목록은 Role-Permission 관계에서 참고용
 		model.addAttribute("groupList", groupList); // 그룹 목록
 		model.addAttribute("selectedGroupIds", selectedGroupIds); // 사용자에게 할당된 그룹 ID 목록
-		model.addAttribute("allMfaFactors", allMfaFactors); // 모든 MFA 팩터 타입 (드롭다운 옵션)
+//		model.addAttribute("allMfaFactors", allMfaFactors); // 모든 MFA 팩터 타입 (드롭다운 옵션)
 
 		return "admin/userdetails";
 	}

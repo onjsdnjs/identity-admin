@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.authorization.pip;
 
-import io.springsecurity.springsecurity6x.repository.UserRepository;
-import io.springsecurity.springsecurity6x.security.authorization.context.AuthorizationContext;
+import io.spring.identityadmin.repository.UserRepository;
+import io.spring.identityadmin.security.authorization.context.AuthorizationContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

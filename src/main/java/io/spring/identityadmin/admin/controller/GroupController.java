@@ -1,9 +1,9 @@
 package io.spring.identityadmin.admin.controller;
 
-import io.springsecurity.springsecurity6x.admin.service.GroupService;
-import io.springsecurity.springsecurity6x.admin.service.RoleService;
-import io.springsecurity.springsecurity6x.domain.dto.GroupDto;
-import io.springsecurity.springsecurity6x.entity.Group;
+import io.spring.identityadmin.admin.service.GroupService;
+import io.spring.identityadmin.admin.service.RoleService;
+import io.spring.identityadmin.domain.dto.GroupDto;
+import io.spring.identityadmin.entity.Group;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;

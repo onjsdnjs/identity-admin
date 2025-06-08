@@ -1,10 +1,10 @@
 package io.spring.identityadmin.admin.service.impl;
 
-import io.springsecurity.springsecurity6x.admin.repository.GroupRepository;
-import io.springsecurity.springsecurity6x.admin.service.UserManagementService;
-import io.springsecurity.springsecurity6x.domain.dto.UserDto;
-import io.springsecurity.springsecurity6x.entity.*;
-import io.springsecurity.springsecurity6x.repository.UserRepository;
+import io.spring.identityadmin.admin.repository.GroupRepository;
+import io.spring.identityadmin.admin.service.UserManagementService;
+import io.spring.identityadmin.domain.dto.UserDto;
+import io.spring.identityadmin.entity.*;
+import io.spring.identityadmin.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;

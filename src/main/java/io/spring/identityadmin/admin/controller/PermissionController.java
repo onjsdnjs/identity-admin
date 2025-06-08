@@ -1,8 +1,8 @@
 package io.spring.identityadmin.admin.controller;
 
-import io.springsecurity.springsecurity6x.admin.service.PermissionService;
-import io.springsecurity.springsecurity6x.domain.dto.PermissionDto;
-import io.springsecurity.springsecurity6x.entity.Permission;
+import io.spring.identityadmin.admin.service.PermissionService;
+import io.spring.identityadmin.domain.dto.PermissionDto;
+import io.spring.identityadmin.entity.Permission;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;

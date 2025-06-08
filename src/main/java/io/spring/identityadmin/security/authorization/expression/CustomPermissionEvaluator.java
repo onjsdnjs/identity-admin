@@ -1,9 +1,9 @@
 package io.spring.identityadmin.security.authorization.expression;
 
-import io.springsecurity.springsecurity6x.admin.repository.PermissionRepository;
-import io.springsecurity.springsecurity6x.admin.service.DocumentService;
-import io.springsecurity.springsecurity6x.entity.Permission;
-import io.springsecurity.springsecurity6x.security.core.auth.PermissionAuthority;
+import io.spring.identityadmin.admin.repository.PermissionRepository;
+import io.spring.identityadmin.admin.service.DocumentService;
+import io.spring.identityadmin.entity.Permission;
+import io.spring.identityadmin.security.authorization.auth.PermissionAuthority;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.expression.EvaluationContext;

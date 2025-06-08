@@ -1,6 +1,6 @@
 package io.spring.identityadmin.admin.repository;
 
-import io.springsecurity.springsecurity6x.entity.Resources;
+import io.spring.identityadmin.entity.Resources;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;

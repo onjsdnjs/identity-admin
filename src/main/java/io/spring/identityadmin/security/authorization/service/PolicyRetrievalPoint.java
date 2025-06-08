@@ -1,6 +1,6 @@
 package io.spring.identityadmin.security.authorization.service;
 
-import io.springsecurity.springsecurity6x.entity.policy.Policy;
+import io.spring.identityadmin.entity.policy.Policy;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 

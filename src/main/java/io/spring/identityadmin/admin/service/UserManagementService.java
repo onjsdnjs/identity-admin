@@ -1,7 +1,8 @@
 package io.spring.identityadmin.admin.service;
 
-import io.springsecurity.springsecurity6x.domain.dto.UserDto;
-import io.springsecurity.springsecurity6x.entity.Users;
+
+import io.spring.identityadmin.domain.dto.UserDto;
+import io.spring.identityadmin.entity.Users;
 
 import java.util.List;
 

@@ -1,9 +1,12 @@
 package io.spring.identityadmin.security.authorization.service;
 
-import io.springsecurity.springsecurity6x.domain.dto.PolicyDto;
-import io.springsecurity.springsecurity6x.entity.policy.*;
-import io.springsecurity.springsecurity6x.repository.PolicyRepository;
-import io.springsecurity.springsecurity6x.security.authorization.manager.CustomDynamicAuthorizationManager;
+import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.entity.policy.Policy;
+import io.spring.identityadmin.entity.policy.PolicyCondition;
+import io.spring.identityadmin.entity.policy.PolicyRule;
+import io.spring.identityadmin.entity.policy.PolicyTarget;
+import io.spring.identityadmin.repository.PolicyRepository;
+import io.spring.identityadmin.security.authorization.manager.CustomDynamicAuthorizationManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

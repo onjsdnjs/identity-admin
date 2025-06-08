@@ -1,7 +1,8 @@
 package io.spring.identityadmin.admin.service.impl;
 
-import io.springsecurity.springsecurity6x.admin.repository.PermissionRepository;
-import io.springsecurity.springsecurity6x.entity.Permission;
+import io.spring.identityadmin.admin.repository.PermissionRepository;
+import io.spring.identityadmin.admin.service.PermissionService;
+import io.spring.identityadmin.entity.Permission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -16,7 +17,7 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true) // 기본적으로 읽기 전용 트랜잭션 적용
-public class PermissionServiceImpl implements io.springsecurity.springsecurity6x.admin.service.PermissionService {
+public class PermissionServiceImpl implements PermissionService {
     private final PermissionRepository permissionRepository;
 
     /**

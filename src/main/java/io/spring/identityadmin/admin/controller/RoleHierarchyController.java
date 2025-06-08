@@ -1,8 +1,8 @@
 package io.spring.identityadmin.admin.controller;
 
-import io.springsecurity.springsecurity6x.admin.service.impl.RoleHierarchyService;
-import io.springsecurity.springsecurity6x.domain.dto.RoleHierarchyDto;
-import io.springsecurity.springsecurity6x.entity.RoleHierarchyEntity;
+import io.spring.identityadmin.admin.service.impl.RoleHierarchyService;
+import io.spring.identityadmin.domain.dto.RoleHierarchyDto;
+import io.spring.identityadmin.entity.RoleHierarchyEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;

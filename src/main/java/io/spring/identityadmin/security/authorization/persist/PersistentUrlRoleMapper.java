@@ -1,8 +1,8 @@
 package io.spring.identityadmin.security.authorization.persist;
 
-import io.springsecurity.springsecurity6x.admin.repository.ResourcesRepository;
-import io.springsecurity.springsecurity6x.entity.Resources;
-import io.springsecurity.springsecurity6x.entity.ResourcesRole;
+import io.spring.identityadmin.admin.repository.ResourcesRepository;
+import io.spring.identityadmin.entity.Resources;
+import io.spring.identityadmin.entity.ResourcesRole;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.Cacheable;

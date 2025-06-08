@@ -1,10 +1,10 @@
 package io.spring.identityadmin.admin.controller; // 패키지명 확인
 
-import io.springsecurity.springsecurity6x.admin.service.ResourcesService;
-import io.springsecurity.springsecurity6x.admin.service.RoleService;
-import io.springsecurity.springsecurity6x.domain.dto.ResourcesDto;
-import io.springsecurity.springsecurity6x.entity.Resources;
-import io.springsecurity.springsecurity6x.entity.Role;
+import io.spring.identityadmin.admin.service.ResourcesService;
+import io.spring.identityadmin.admin.service.RoleService;
+import io.spring.identityadmin.domain.dto.ResourcesDto;
+import io.spring.identityadmin.entity.Resources;
+import io.spring.identityadmin.entity.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;

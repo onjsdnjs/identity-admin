@@ -1,11 +1,11 @@
 package io.spring.identityadmin.admin.service.impl;
 
-import io.springsecurity.springsecurity6x.admin.repository.ResourcesRepository;
-import io.springsecurity.springsecurity6x.admin.service.ResourcesService;
-import io.springsecurity.springsecurity6x.entity.Resources;
-import io.springsecurity.springsecurity6x.entity.ResourcesRole;
-import io.springsecurity.springsecurity6x.entity.Role;
-import io.springsecurity.springsecurity6x.security.authorization.manager.CustomDynamicAuthorizationManager;
+import io.spring.identityadmin.admin.repository.ResourcesRepository;
+import io.spring.identityadmin.admin.service.ResourcesService;
+import io.spring.identityadmin.entity.Resources;
+import io.spring.identityadmin.entity.ResourcesRole;
+import io.spring.identityadmin.entity.Role;
+import io.spring.identityadmin.security.authorization.manager.CustomDynamicAuthorizationManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;

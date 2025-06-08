@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.authorization.aop;
 
-import io.springsecurity.springsecurity6x.security.authorization.expression.CustomWebSecurityExpressionHandler;
-import io.springsecurity.springsecurity6x.security.authorization.service.MethodResourceService;
+import io.spring.identityadmin.security.authorization.expression.CustomWebSecurityExpressionHandler;
+import io.spring.identityadmin.security.authorization.service.MethodResourceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -26,7 +26,7 @@ public class MethodSecurityAspect {
     private final CustomWebSecurityExpressionHandler expressionHandler;
     private final SpelExpressionParser expressionParser = new SpelExpressionParser();
 
-    @Around("execution(public * io.springsecurity.springsecurity6x.admin.service..*.*(..))")
+    @Around("execution(public * io.spring.identityadmin.admin.service..*.*(..))")
     public Object checkMethodAccess(ProceedingJoinPoint joinPoint) throws Throwable {
 
         String fullMethodName = getFullMethodName(joinPoint);

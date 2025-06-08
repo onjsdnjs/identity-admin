@@ -1,8 +1,8 @@
 package io.spring.identityadmin.security.authorization.expression;
 
-import io.springsecurity.springsecurity6x.security.authorization.context.AuthorizationContext;
-import io.springsecurity.springsecurity6x.security.authorization.pip.AttributeInformationPoint;
-import io.springsecurity.springsecurity6x.security.authorization.risk.RiskEngine;
+import io.spring.identityadmin.security.authorization.context.AuthorizationContext;
+import io.spring.identityadmin.security.authorization.pip.AttributeInformationPoint;
+import io.spring.identityadmin.security.authorization.risk.RiskEngine;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.FilterInvocation;
 import org.springframework.security.web.access.expression.WebSecurityExpressionRoot;

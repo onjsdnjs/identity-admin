@@ -1,7 +1,7 @@
 package io.spring.identityadmin.admin.service;
 
-import io.springsecurity.springsecurity6x.entity.Resources;
-import io.springsecurity.springsecurity6x.entity.Role;
+import io.spring.identityadmin.entity.Resources;
+import io.spring.identityadmin.entity.Role;
 
 import java.util.List;
 import java.util.Set;

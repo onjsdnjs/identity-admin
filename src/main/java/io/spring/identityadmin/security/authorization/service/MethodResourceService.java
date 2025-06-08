@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.authorization.service;
 
-import io.springsecurity.springsecurity6x.admin.repository.MethodResourceRepository;
-import io.springsecurity.springsecurity6x.entity.*;
+import io.spring.identityadmin.admin.repository.MethodResourceRepository;
+import io.spring.identityadmin.entity.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;

@@ -1,9 +1,9 @@
 package io.spring.identityadmin.security.authorization.manager;
 
-import io.springsecurity.springsecurity6x.entity.policy.Policy;
-import io.springsecurity.springsecurity6x.entity.policy.PolicyTarget;
-import io.springsecurity.springsecurity6x.security.authorization.resolver.ExpressionAuthorizationManagerResolver;
-import io.springsecurity.springsecurity6x.security.authorization.service.PolicyRetrievalPoint;
+import io.spring.identityadmin.entity.policy.Policy;
+import io.spring.identityadmin.entity.policy.PolicyTarget;
+import io.spring.identityadmin.security.authorization.resolver.ExpressionAuthorizationManagerResolver;
+import io.spring.identityadmin.security.authorization.service.PolicyRetrievalPoint;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

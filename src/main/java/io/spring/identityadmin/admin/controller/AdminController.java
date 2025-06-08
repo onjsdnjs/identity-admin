@@ -1,6 +1,6 @@
 package io.spring.identityadmin.admin.controller;
 
-import io.springsecurity.springsecurity6x.admin.service.PermissionService;
+import io.spring.identityadmin.admin.service.PermissionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;

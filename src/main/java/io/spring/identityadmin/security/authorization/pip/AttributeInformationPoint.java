@@ -1,5 +1,6 @@
 package io.spring.identityadmin.security.authorization.pip;
-import io.springsecurity.springsecurity6x.security.authorization.context.AuthorizationContext;
+
+import io.spring.identityadmin.security.authorization.context.AuthorizationContext;
 
 import java.util.Map;
 

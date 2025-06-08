@@ -1,6 +1,6 @@
 package io.spring.identityadmin.admin.repository;
 
-import io.springsecurity.springsecurity6x.entity.Permission;
+import io.spring.identityadmin.entity.Permission;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.authorization.expression;
 
-import io.springsecurity.springsecurity6x.entity.MethodResource;
-import io.springsecurity.springsecurity6x.security.authorization.service.MethodResourceService;
+import io.spring.identityadmin.entity.MethodResource;
+import io.spring.identityadmin.security.authorization.service.MethodResourceService;
 import lombok.extern.slf4j.Slf4j;
 import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.expression.EvaluationContext;

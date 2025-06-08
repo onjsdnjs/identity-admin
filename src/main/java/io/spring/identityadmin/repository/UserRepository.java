@@ -1,6 +1,6 @@
 package io.spring.identityadmin.repository;
 
-import io.springsecurity.springsecurity6x.entity.Users;
+import io.spring.identityadmin.entity.Users;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;

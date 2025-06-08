@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.authorization.service;
 
-import io.springsecurity.springsecurity6x.domain.dto.PolicyDto;
-import io.springsecurity.springsecurity6x.entity.policy.Policy;
+import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.entity.policy.Policy;
 
 import java.util.List;
 

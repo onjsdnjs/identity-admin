@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.authorization.resolver;
 
-import io.springsecurity.springsecurity6x.security.authorization.expression.ExpressionEvaluator;
-import io.springsecurity.springsecurity6x.security.authorization.expression.WebSpelExpressionEvaluator;
+import io.spring.identityadmin.security.authorization.expression.ExpressionEvaluator;
+import io.spring.identityadmin.security.authorization.expression.WebSpelExpressionEvaluator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.expression.SecurityExpressionHandler;
 import org.springframework.security.authorization.AuthorizationManager;
