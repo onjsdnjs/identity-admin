@@ -3,6 +3,7 @@ package io.spring.identityadmin.security.authorization.manager;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyTarget;
 import io.spring.identityadmin.security.authorization.resolver.ExpressionAuthorizationManagerResolver;
+import io.spring.identityadmin.security.authorization.service.DynamicAuthorizationService;
 import io.spring.identityadmin.security.authorization.service.PolicyRetrievalPoint;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 
 @Slf4j
@@ -27,29 +29,48 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
 
     private final PolicyRetrievalPoint policyRetrievalPoint; // <<< DynamicAuthorizationService 대신 PRP 주입
     private final ExpressionAuthorizationManagerResolver managerResolver;
+    private final DynamicAuthorizationService dynamicAuthorizationService;
     private List<RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>>> mappings;
 
     @PostConstruct
     public void initialize() {
-        log.info("Initializing dynamic authorization mappings from Policy model...");
-        // <<< 변경됨: PolicyRetrievalPoint 로부터 Policy를 가져와 매핑 생성 >>>
-        List<Policy> urlPolicies = policyRetrievalPoint.findUrlPolicies();
+        log.info("Initializing dynamic authorization mappings...");
 
         List<RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>>> newMappings = new ArrayList<>();
 
+        // 1. Policy 기반 매핑 추가
+        List<Policy> urlPolicies = policyRetrievalPoint.findUrlPolicies();
         for (Policy policy : urlPolicies) {
-            // 정책의 모든 규칙과 조건을 하나의 SpEL 표현식으로 결합
             String finalExpression = buildExpressionFromPolicy(policy);
-
             for (PolicyTarget target : policy.getTargets()) {
                 RequestMatcher matcher = PathPatternRequestMatcher.withDefaults().matcher(target.getTargetIdentifier());
                 AuthorizationManager<RequestAuthorizationContext> manager = managerResolver.resolve(finalExpression);
                 newMappings.add(new RequestMatcherEntry<>(matcher, manager));
-                log.debug("Mapping URL '{}' to expression '{}' from Policy '{}'", target.getTargetIdentifier(), finalExpression, policy.getName());
+                log.debug("Policy mapping - URL '{}' to expression '{}'", target.getTargetIdentifier(), finalExpression);
             }
         }
+
+        // 2. Resources 테이블 기반 매핑 추가 (DynamicAuthorizationService 활용)
+        Map<String, String> urlRoleMappings = dynamicAuthorizationService.getUrlRoleMappings();
+        for (Map.Entry<String, String> entry : urlRoleMappings.entrySet()) {
+            String urlPattern = entry.getKey();
+            String expression = entry.getValue();
+
+            // Policy와 중복되지 않는 URL만 추가
+            boolean isDuplicate = newMappings.stream()
+                    .anyMatch(mapping -> mapping.getRequestMatcher().toString().contains(urlPattern));
+
+            if (!isDuplicate) {
+                RequestMatcher matcher = PathPatternRequestMatcher.withDefaults().matcher(urlPattern);
+                AuthorizationManager<RequestAuthorizationContext> manager = managerResolver.resolve(expression);
+                newMappings.add(new RequestMatcherEntry<>(matcher, manager));
+                log.debug("Resources mapping - URL '{}' to expression '{}'", urlPattern, expression);
+            }
+        }
+
         this.mappings = newMappings;
-        log.info("Initialization complete. {} dynamic policy-based mappings have been configured.", mappings.size());
+        log.info("Initialization complete. {} total mappings configured ({} from Policy, {} from Resources).",
+                mappings.size(), urlPolicies.size(), urlRoleMappings.size());
     }
 
     private String buildExpressionFromPolicy(Policy policy) {
@@ -87,6 +108,7 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
     public synchronized void reload() {
         log.info("Reloading dynamic authorization mappings from Policy model...");
         policyRetrievalPoint.clearUrlPoliciesCache(); // PRP의 캐시를 비웁니다.
+        dynamicAuthorizationService.clearCache();
         initialize();
     }
 }
