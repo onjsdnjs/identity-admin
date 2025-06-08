@@ -69,7 +69,7 @@ public class GroupServiceImpl implements GroupService {
     public List<Group> getAllGroups() {
         // Group 엔티티 로드 시 groupRoles 및 role 엔티티를 함께 fetch join
         // GroupRepository에 findAllWithRoles 쿼리 추가 필요
-        return groupRepository.findAllWithRoles();
+        return groupRepository.findAllWithRolesAndUsers();
     }
 
     /**

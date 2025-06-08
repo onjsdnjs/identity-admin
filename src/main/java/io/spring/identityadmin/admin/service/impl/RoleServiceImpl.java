@@ -39,7 +39,7 @@ public class RoleServiceImpl implements RoleService {
     @Transactional(readOnly = true)
     @Cacheable(value = "roles", key = "'allRoles'")
     public List<Role> getRoles() {
-        return roleRepository.findAll();
+        return roleRepository.findAllWithPermissions();
     }
 
     @Transactional(readOnly = true)
