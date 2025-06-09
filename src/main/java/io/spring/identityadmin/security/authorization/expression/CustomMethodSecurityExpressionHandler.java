@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.authorization.expression;
 
 import io.spring.identityadmin.entity.policy.Policy;
-import io.spring.identityadmin.security.authorization.service.PolicyRetrievalPoint;
+import io.spring.identityadmin.admin.service.PolicyRetrievalPoint;
 import lombok.extern.slf4j.Slf4j;
 import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.expression.EvaluationContext;

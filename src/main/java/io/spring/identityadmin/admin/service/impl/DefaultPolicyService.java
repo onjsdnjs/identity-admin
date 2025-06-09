@@ -1,5 +1,7 @@
-package io.spring.identityadmin.security.authorization.service;
+package io.spring.identityadmin.admin.service.impl;
 
+import io.spring.identityadmin.admin.service.PolicyRetrievalPoint;
+import io.spring.identityadmin.admin.service.PolicyService;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyCondition;

@@ -1,6 +1,7 @@
-package io.spring.identityadmin.security.authorization.service;
+package io.spring.identityadmin.admin.service.impl;
 
 import io.spring.identityadmin.admin.repository.PolicyRepository;
+import io.spring.identityadmin.admin.service.PolicyRetrievalPoint;
 import io.spring.identityadmin.entity.policy.Policy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

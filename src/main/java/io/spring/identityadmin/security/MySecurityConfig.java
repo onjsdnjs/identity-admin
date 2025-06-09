@@ -3,7 +3,7 @@ package io.spring.identityadmin.security;
 import io.spring.identityadmin.security.authorization.expression.CustomMethodSecurityExpressionHandler;
 import io.spring.identityadmin.security.authorization.expression.CustomPermissionEvaluator;
 import io.spring.identityadmin.security.authorization.manager.CustomDynamicAuthorizationManager;
-import io.spring.identityadmin.security.authorization.service.PolicyRetrievalPoint;
+import io.spring.identityadmin.admin.service.PolicyRetrievalPoint;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;

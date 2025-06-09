@@ -2,7 +2,7 @@ package io.spring.identityadmin.admin.controller;
 
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.entity.policy.Policy;
-import io.spring.identityadmin.security.authorization.service.PolicyService;
+import io.spring.identityadmin.admin.service.PolicyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;

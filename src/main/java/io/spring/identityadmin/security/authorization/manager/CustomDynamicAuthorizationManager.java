@@ -3,7 +3,7 @@ package io.spring.identityadmin.security.authorization.manager;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyTarget;
 import io.spring.identityadmin.security.authorization.resolver.ExpressionAuthorizationManagerResolver;
-import io.spring.identityadmin.security.authorization.service.PolicyRetrievalPoint;
+import io.spring.identityadmin.admin.service.PolicyRetrievalPoint;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,7 +40,6 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
         for (Policy policy : urlPolicies) {
             String finalExpression = buildExpressionFromPolicy(policy);
             for (PolicyTarget target : policy.getTargets()) {
-                // Policy의 targetType이 'URL'인 경우에만 매핑 추가 (향후 확장 대비)
                 if ("URL".equals(target.getTargetType())) {
                     RequestMatcher matcher = PathPatternRequestMatcher.withDefaults().matcher(target.getTargetIdentifier());
                     AuthorizationManager<RequestAuthorizationContext> manager = managerResolver.resolve(finalExpression);

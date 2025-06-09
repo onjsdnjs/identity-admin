@@ -26,7 +26,7 @@ public class Role implements Serializable {
     @Column(name = "role_desc")
     private String roleDesc;
 
-    @Column(name = "is_expression") // is_expression 필드 유지
+    @Column(name = "is_expression")
     private String isExpression;
 
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true) // GroupRole 엔티티의 'role' 필드에 매핑
