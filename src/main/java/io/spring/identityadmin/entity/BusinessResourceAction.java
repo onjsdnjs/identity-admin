@@ -1,12 +1,16 @@
 package io.spring.identityadmin.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
-import java.io.Serializable;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "BUSINESS_RESOURCE_ACTION")
 @Getter
+@NoArgsConstructor
+@AllArgsConstructor
 public class BusinessResourceAction {
 
     @EmbeddedId
@@ -22,10 +26,4 @@ public class BusinessResourceAction {
 
     @Column(name = "mapped_permission_name", nullable = false)
     private String mappedPermissionName; // 예: "DOCUMENT_READ"
-}
-
-@Embeddable
-class BusinessResourceActionId implements Serializable {
-    private Long businessResourceId;
-    private Long businessActionId;
 }

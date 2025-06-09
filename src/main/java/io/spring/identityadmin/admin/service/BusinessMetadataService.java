@@ -1,7 +1,6 @@
 package io.spring.identityadmin.admin.service;
 
 import io.spring.identityadmin.entity.*;
-import org.springframework.security.core.userdetails.User;
 
 import java.util.List;
 

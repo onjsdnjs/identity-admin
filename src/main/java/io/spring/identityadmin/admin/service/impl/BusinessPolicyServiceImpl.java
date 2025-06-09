@@ -3,9 +3,7 @@ package io.spring.identityadmin.admin.service.impl;
 import io.spring.identityadmin.admin.repository.*;
 import io.spring.identityadmin.admin.service.BusinessPolicyService;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
-import io.spring.identityadmin.entity.BusinessAction;
-import io.spring.identityadmin.entity.BusinessResource;
-import io.spring.identityadmin.entity.ConditionTemplate;
+import io.spring.identityadmin.entity.*;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyCondition;
 import io.spring.identityadmin.entity.policy.PolicyRule;
@@ -18,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -34,6 +31,7 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final CustomDynamicAuthorizationManager authorizationManager;
+    private final BusinessResourceActionRepository businessResourceActionRepository;
 
     @Override
     @Transactional
@@ -89,8 +87,16 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
         }
 
         // 2. 행위(Action) + 자원(Resource) 조건 생성 -> hasAuthority(PERMISSION_NAME)
-        BusinessAction action = businessActionRepository.findById(dto.getBusinessActionId()).orElseThrow();
-        conditions.add(String.format("hasAuthority('%s')", action.getMappedPermissionName()));
+        Long resourceId = dto.getBusinessResourceId();
+        Long actionId = dto.getBusinessActionId();
+
+        // BusinessResourceActionId를 만들어 중간 테이블에서 매핑 정보를 찾음
+        BusinessResourceActionId mappingId = new BusinessResourceActionId(resourceId, actionId);
+        BusinessResourceAction mapping = businessResourceActionRepository.findById(mappingId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 자원에 대한 행위가 정의되지 않았습니다."));
+
+        // 매핑 테이블에서 찾은 기술적 권한 이름을 조건으로 추가
+        conditions.add(String.format("hasAuthority('%s')", mapping.getMappedPermissionName()));
 
         // 3. 추가 조건(Contextual Condition) 생성
         if (dto.getConditions() != null) {

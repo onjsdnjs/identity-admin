@@ -1,6 +1,5 @@
-package io.spring.identityadmin.domain.business.entity;
+package io.spring.identityadmin.entity;
 
-import io.spring.identityadmin.entity.BusinessResourceAction;
 import jakarta.persistence.*;
 import lombok.*;
 

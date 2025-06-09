@@ -1,8 +1,5 @@
 package io.spring.identityadmin.admin.controller;
 
-import io.spring.identityadmin.admin.service.BusinessMetadataService;
-import io.spring.identityadmin.admin.service.BusinessPolicyService;
-import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.admin.service.PolicyService;
@@ -25,8 +22,7 @@ import java.util.stream.Collectors;
 public class PolicyController {
 
     private final PolicyService policyService;
-    private final BusinessPolicyService businessPolicyService;
-    private final BusinessMetadataService businessMetadataService;
+    private final ModelMapper modelMapper;
 
     @GetMapping
     public String listPolicies(Model model) {
@@ -118,38 +114,5 @@ public class PolicyController {
             log.error("Error deleting policy", e);
         }
         return "redirect:/admin/policies";
-    }
-
-    @GetMapping("/business")
-    public String listBusinessPolicies(Model model) {
-        List<Policy> policies = policyService.getAllPolicies();
-        model.addAttribute("policies", policies);
-        return "admin/business-policies"; // 새로운 목록 템플릿을 렌더링
-    }
-
-    @GetMapping("/business/create")
-    public String createBusinessPolicyForm(Model model) {
-        model.addAttribute("businessPolicy", new BusinessPolicyDto());
-        populateModelWithMetadata(model);
-        return "admin/business-policy-details"; // 간편 정책 생성 템플릿
-    }
-
-    @PostMapping("/business/create")
-    public String createBusinessPolicy(@ModelAttribute("businessPolicy") BusinessPolicyDto businessPolicyDto, RedirectAttributes ra) {
-        try {
-            businessPolicyService.createPolicyFromBusinessRule(businessPolicyDto);
-            ra.addFlashAttribute("message", "새로운 비즈니스 정책이 성공적으로 생성되었습니다.");
-        } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", "정책 생성 실패: " + e.getMessage());
-        }
-        return "redirect:/admin/policies"; // 생성 후에는 결과 확인을 위해 기술 정책 목록으로 이동
-    }
-
-    private void populateModelWithMetadata(Model model) {
-        model.addAttribute("users", businessMetadataService.getAllUsersForPolicy());
-        model.addAttribute("groups", businessMetadataService.getAllGroupsForPolicy());
-        model.addAttribute("resources", businessMetadataService.getAllBusinessResources());
-        model.addAttribute("actions", businessMetadataService.getAllBusinessActions());
-        model.addAttribute("conditions", businessMetadataService.getAllConditionTemplates());
     }
 }
