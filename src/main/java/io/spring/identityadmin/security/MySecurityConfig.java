@@ -25,12 +25,14 @@ import org.springframework.security.web.SecurityFilterChain;
 @EnableMethodSecurity
 public class MySecurityConfig {
     private final CustomDynamicAuthorizationManager customDynamicAuthorizationManager;
+    private final CustomAuthenticationProvider customAuthenticationProvider;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .anyRequest().access(customDynamicAuthorizationManager));
         http.formLogin(Customizer.withDefaults());
+        http.authenticationProvider(customAuthenticationProvider);
         return http.build();
     }
 
