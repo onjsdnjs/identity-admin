@@ -2,7 +2,6 @@ package io.spring.identityadmin.entity;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -17,13 +16,15 @@ public class BusinessResourceAction {
     private BusinessResourceActionId id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("businessResourceId")
+    @MapsId("businessResourceId") // 복합 키의 businessResourceId 필드에 매핑
+    @JoinColumn(name = "business_resource_id")
     private BusinessResource businessResource;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @MapsId("businessActionId")
+    @MapsId("businessActionId") // 복합 키의 businessActionId 필드에 매핑
+    @JoinColumn(name = "business_action_id")
     private BusinessAction businessAction;
 
     @Column(name = "mapped_permission_name", nullable = false)
-    private String mappedPermissionName; // 예: "DOCUMENT_READ"
+    private String mappedPermissionName;
 }
