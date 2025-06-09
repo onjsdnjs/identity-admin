@@ -118,144 +118,6 @@ INSERT INTO ROLE_PERMISSIONS (role_id, permission_id) VALUES
                                                                ((SELECT role_id FROM ROLE WHERE role_name = 'USER'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'BOARD_CREATE'));
 
 
--- 8. 자원 (RESOURCES) - URL 기반 인가
-INSERT INTO RESOURCES (resource_id, resource_name, http_method, order_num, resource_type) VALUES
-                                                                                                   (1, '/admin/**', 'ALL', 10, 'url'),
-                                                                                                   (2, '/users', 'GET', 20, 'url'),
-                                                                                                   (3, '/admin/permissions/**', 'ALL', 30, 'url'), -- 관리자 UI에 맞게 추가
-                                                                                                   (4, '/admin/roles/**', 'ALL', 40, 'url'),
-                                                                                                   (5, '/admin/users/**', 'ALL', 50, 'url'),
-                                                                                                   (6, '/admin/groups/**', 'ALL', 60, 'url'),
-                                                                                                   (7, '/admin/method-resources/**', 'ALL', 70, 'url'),
-                                                                                                   (8, '/admin/role-hierarchies/**', 'ALL', 80, 'url'); -- 새로 추가
-
-
--- 9. Resources-Role 관계 (RESOURCES_ROLES)
-INSERT INTO RESOURCES_ROLES (resource_id, role_id) VALUES
-                                                            ((SELECT resource_id FROM RESOURCES WHERE resource_name = '/admin/**'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                            ((SELECT resource_id FROM RESOURCES WHERE resource_name = '/users'), (SELECT role_id FROM ROLE WHERE role_name = 'USER')),
-                                                            ((SELECT resource_id FROM RESOURCES WHERE resource_name = '/admin/permissions/**'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                            ((SELECT resource_id FROM RESOURCES WHERE resource_name = '/admin/roles/**'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                            ((SELECT resource_id FROM RESOURCES WHERE resource_name = '/admin/users/**'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                            ((SELECT resource_id FROM RESOURCES WHERE resource_name = '/admin/groups/**'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                            ((SELECT resource_id FROM RESOURCES WHERE resource_name = '/admin/method-resources/**'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                            ((SELECT resource_id FROM RESOURCES WHERE resource_name = '/admin/role-hierarchies/**'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN'));
-
-
--- 10. 메서드 자원 (METHOD_RESOURCES) - 동적 메서드 인가
--- io.spring.identityadmin.admin.service.DocumentService 클래스에 대한 메서드
-INSERT INTO METHOD_RESOURCES (method_resource_id, class_name, method_name, access_expression, order_num, http_method) VALUES
-                                                                                                                               (1, 'io.spring.identityadmin.admin.service.DocumentService', 'readDocument', 'hasPermission(#id, ''DOCUMENT'', ''READ'')', 100, 'GET'),
-                                                                                                                               (2, 'io.spring.identityadmin.admin.service.DocumentService', 'updateDocumentContent', 'hasPermission(#id, ''DOCUMENT'', ''WRITE'')', 110, 'POST'),
-                                                                                                                               (3, 'io.spring.identityadmin.admin.service.DocumentService', 'deleteDocument', 'hasPermission(#id, ''DOCUMENT'', ''DELETE'')', 120, 'DELETE'),
--- UserManagementService의 메서드도 동적 인가 대상으로 추가 (UI 컨트롤러 접근 권한과 연동)
-                                                                                                                               (4, 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl', 'getUsers', 'hasAuthority(''USER_READ'')', 10, 'GET'),
-                                                                                                                               (5, 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl', 'getUser', 'hasAuthority(''USER_READ'')', 20, 'GET'),
-                                                                                                                               (6, 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl', 'modifyUser', 'hasAuthority(''USER_UPDATE'')', 30, 'POST'),
-                                                                                                                               (7, 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl', 'deleteUser', 'hasAuthority(''USER_DELETE'')', 40, 'DELETE'),
--- RoleService의 메서드
-                                                                                                                               (8, 'io.spring.identityadmin.admin.service.RoleService', 'getRoles', 'hasAuthority(''ROLE_READ'')', 50, 'GET'),
-                                                                                                                               (9, 'io.spring.identityadmin.admin.service.RoleService', 'getRole', 'hasAuthority(''ROLE_READ'')', 60, 'GET'),
-                                                                                                                               (10, 'io.spring.identityadmin.admin.service.RoleService', 'createRole', 'hasAuthority(''ROLE_CREATE'')', 70, 'POST'),
-                                                                                                                               (11, 'io.spring.identityadmin.admin.service.RoleService', 'updateRole', 'hasAuthority(''ROLE_UPDATE'')', 80, 'POST'),
-                                                                                                                               (12, 'io.spring.identityadmin.admin.service.RoleService', 'deleteRole', 'hasAuthority(''ROLE_DELETE'')', 90, 'DELETE'),
--- PermissionService의 메서드
-                                                                                                                               (13, 'io.spring.identityadmin.admin.service.PermissionService', 'getAllPermissions', 'hasAuthority(''PERMISSION_READ'')', 100, 'GET'),
-                                                                                                                               (14, 'io.spring.identityadmin.admin.service.PermissionService', 'getPermission', 'hasAuthority(''PERMISSION_READ'')', 110, 'GET'),
-                                                                                                                               (15, 'io.spring.identityadmin.admin.service.PermissionService', 'createPermission', 'hasAuthority(''PERMISSION_CREATE'')', 120, 'POST'),
-                                                                                                                               (16, 'io.spring.identityadmin.admin.service.PermissionService', 'updatePermission', 'hasAuthority(''PERMISSION_UPDATE'')', 130, 'POST'),
-                                                                                                                               (17, 'io.spring.identityadmin.admin.service.PermissionService', 'deletePermission', 'hasAuthority(''PERMISSION_DELETE'')', 140, 'DELETE'),
--- GroupService의 메서드
-                                                                                                                               (18, 'io.spring.identityadmin.admin.service.GroupService', 'getAllGroups', 'hasAuthority(''GROUP_READ'')', 150, 'GET'),
-                                                                                                                               (19, 'io.spring.identityadmin.admin.service.GroupService', 'getGroup', 'hasAuthority(''GROUP_READ'')', 160, 'GET'),
-                                                                                                                               (20, 'io.spring.identityadmin.admin.service.GroupService', 'createGroup', 'hasAuthority(''GROUP_CREATE'')', 170, 'POST'),
-                                                                                                                               (21, 'io.spring.identityadmin.admin.service.GroupService', 'updateGroup', 'hasAuthority(''GROUP_UPDATE'')', 180, 'POST'),
-                                                                                                                               (22, 'io.spring.identityadmin.admin.service.GroupService', 'deleteGroup', 'hasAuthority(''GROUP_DELETE'')', 190, 'DELETE'),
--- ResourcesService의 메서드
-                                                                                                                               (23, 'io.spring.identityadmin.admin.service.ResourcesService', 'getResources', 'hasAuthority(''RESOURCE_READ'')', 200, 'GET'),
-                                                                                                                               (24, 'io.spring.identityadmin.admin.service.ResourcesService', 'createResources', 'hasAuthority(''RESOURCE_CREATE'')', 210, 'POST'),
-                                                                                                                               (25, 'io.spring.identityadmin.admin.service.ResourcesService', 'updateResources', 'hasAuthority(''RESOURCE_UPDATE'')', 220, 'POST'),
-                                                                                                                               (26, 'io.spring.identityadmin.admin.service.ResourcesService', 'deleteResources', 'hasAuthority(''RESOURCE_DELETE'')', 230, 'DELETE'),
--- RoleHierarchyService의 메서드
-                                                                                                                               (27, 'io.spring.identityadmin.admin.service.RoleHierarchyService', 'getAllRoleHierarchies', 'hasAuthority(''ROLE_HIERARCHY_READ'')', 240, 'GET'),
-                                                                                                                               (28, 'io.spring.identityadmin.admin.service.RoleHierarchyService', 'getRoleHierarchy', 'hasAuthority(''ROLE_HIERARCHY_READ'')', 250, 'GET'),
-                                                                                                                               (29, 'io.spring.identityadmin.admin.service.RoleHierarchyService', 'createRoleHierarchy', 'hasAuthority(''ROLE_HIERARCHY_CREATE'')', 260, 'POST'),
-                                                                                                                               (30, 'io.spring.identityadmin.admin.service.RoleHierarchyService', 'updateRoleHierarchy', 'hasAuthority(''ROLE_HIERARCHY_UPDATE'')', 270, 'POST'),
-                                                                                                                               (31, 'io.spring.identityadmin.admin.service.RoleHierarchyService', 'deleteRoleHierarchy', 'hasAuthority(''ROLE_HIERARCHY_DELETE'')', 280, 'DELETE'),
-                                                                                                                               (32, 'io.spring.identityadmin.admin.service.RoleHierarchyService', 'activateRoleHierarchy', 'hasAuthority(''ROLE_HIERARCHY_ACTIVATE'')', 290, 'POST');
-
-
--- 11. METHOD_RESOURCE_ROLES (MethodResource <-> Role)
--- 사용자 관리 메서드에 ADMIN 역할 필요 (URL 기반과 동일하게)
-INSERT INTO METHOD_RESOURCE_ROLES (method_resource_id, role_id) VALUES
-                                                                         ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl' AND method_name = 'getUsers'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                                         ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl' AND method_name = 'getUser'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                                         ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl' AND method_name = 'modifyUser'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                                         ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl' AND method_name = 'deleteUser'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-
--- 문서 서비스 메서드에 ADMIN 역할 필요
-                                                                         ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.DocumentService' AND method_name = 'readDocument'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                                         ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.DocumentService' AND method_name = 'updateDocumentContent'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN')),
-                                                                         ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.DocumentService' AND method_name = 'deleteDocument'), (SELECT role_id FROM ROLE WHERE role_name = 'ADMIN'));
-
-
--- 12. METHOD_RESOURCE_PERMISSIONS (MethodResource <-> Permission)
--- 동적 SpEL 표현식 평가를 위해 METHOD_RESOURCES에 이미 SpEL이 저장되어 있으므로,
--- 여기서는 추가적인 세밀한 권한 매핑을 하는 경우에만 사용합니다.
--- 예시: readDocument에 DOCUMENT_READ 권한이 필요하다고 명시
-INSERT INTO METHOD_RESOURCE_PERMISSIONS (method_resource_id, permission_id) VALUES
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.DocumentService' AND method_name = 'readDocument'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'DOCUMENT_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.DocumentService' AND method_name = 'updateDocumentContent'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'DOCUMENT_WRITE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.DocumentService' AND method_name = 'deleteDocument'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'DOCUMENT_DELETE'));
-
--- User Management Service 메서드에 대한 Permission 매핑
-INSERT INTO METHOD_RESOURCE_PERMISSIONS (method_resource_id, permission_id) VALUES
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl' AND method_name = 'getUsers'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'USER_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl' AND method_name = 'getUser'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'USER_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl' AND method_name = 'modifyUser'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'USER_UPDATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl' AND method_name = 'deleteUser'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'USER_DELETE'));
-
--- Role Service 메서드에 대한 Permission 매핑
-INSERT INTO METHOD_RESOURCE_PERMISSIONS (method_resource_id, permission_id) VALUES
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleService' AND method_name = 'getRoles'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleService' AND method_name = 'getRole'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleService' AND method_name = 'createRole'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_CREATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleService' AND method_name = 'updateRole'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_UPDATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleService' AND method_name = 'deleteRole'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_DELETE'));
-
--- Permission Service 메서드에 대한 Permission 매핑
-INSERT INTO METHOD_RESOURCE_PERMISSIONS (method_resource_id, permission_id) VALUES
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.PermissionService' AND method_name = 'getAllPermissions'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'PERMISSION_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.PermissionService' AND method_name = 'getPermission'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'PERMISSION_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.PermissionService' AND method_name = 'createPermission'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'PERMISSION_CREATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.PermissionService' AND method_name = 'updatePermission'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'PERMISSION_UPDATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.PermissionService' AND method_name = 'deletePermission'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'PERMISSION_DELETE'));
-
--- Group Service 메서드에 대한 Permission 매핑
-INSERT INTO METHOD_RESOURCE_PERMISSIONS (method_resource_id, permission_id) VALUES
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.GroupService' AND method_name = 'getAllGroups'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'GROUP_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.GroupService' AND method_name = 'getGroup'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'GROUP_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.GroupService' AND method_name = 'createGroup'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'GROUP_CREATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.GroupService' AND method_name = 'updateGroup'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'GROUP_UPDATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.GroupService' AND method_name = 'deleteGroup'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'GROUP_DELETE'));
-
--- Resources Service 메서드에 대한 Permission 매핑
-INSERT INTO METHOD_RESOURCE_PERMISSIONS (method_resource_id, permission_id) VALUES
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.ResourcesService' AND method_name = 'getResources'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'RESOURCE_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.ResourcesService' AND method_name = 'createResources'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'RESOURCE_CREATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.ResourcesService' AND method_name = 'updateResources'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'RESOURCE_UPDATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.ResourcesService' AND method_name = 'deleteResources'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'RESOURCE_DELETE'));
-
--- RoleHierarchy Service 메서드에 대한 Permission 매핑
-INSERT INTO METHOD_RESOURCE_PERMISSIONS (method_resource_id, permission_id) VALUES
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleHierarchyService' AND method_name = 'getAllRoleHierarchies'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_HIERARCHY_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleHierarchyService' AND method_name = 'getRoleHierarchy'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_HIERARCHY_READ')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleHierarchyService' AND method_name = 'createRoleHierarchy'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_HIERARCHY_CREATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleHierarchyService' AND method_name = 'updateRoleHierarchy'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_HIERARCHY_UPDATE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleHierarchyService' AND method_name = 'deleteRoleHierarchy'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_HIERARCHY_DELETE')),
-                                                                                     ((SELECT method_resource_id FROM METHOD_RESOURCES WHERE class_name = 'io.spring.identityadmin.admin.service.RoleHierarchyService' AND method_name = 'activateRoleHierarchy'), (SELECT permission_id FROM PERMISSION WHERE permission_name = 'ROLE_HIERARCHY_ACTIVATE'));
-
-
 -- 13. 문서 (DOCUMENT)
 INSERT INTO DOCUMENT (document_id, title, content, owner_username, created_at) VALUES
                                                                                         (1, '관리자 문서 1', '이 문서는 관리자만 볼 수 있는 기밀 문서입니다.', 'admin@example.com', NOW()),
@@ -263,28 +125,66 @@ INSERT INTO DOCUMENT (document_id, title, content, owner_username, created_at) V
                                                                                         (3, '공개 문서', '이 문서는 모든 사용자가 읽을 수 있는 공개 문서입니다.', 'guest@example.com', NOW());
 
 
--- 5. 새로운 Policy 모델에 대한 데이터 추가
--- 정책 1: 관리자는 모든 admin 경로에 접근 가능
-INSERT INTO POLICY(id, name, description, effect, priority) VALUES (1, 'Admin Full Access', '관리자는 /admin/** 경로에 모든 권한을 가짐', 'ALLOW', 10);
+-- 2.1. URL 기반 정책 (기존 RESOURCES 테이블 마이그레이션)
+-- 정책 1: 관리자는 모든 admin 경로 접근 허용
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (1, 'Admin URL Access', '관리자는 /admin/** 이하 모든 URL에 접근 가능', 'ALLOW', 100);
 INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (1, 1, 'URL', '/admin/**');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (1, 1, 'Admin Role Check');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (1, 1, 'hasRole(''ADMIN'')');
 
--- 정책 2: 사용자는 자신의 정보(/users/{username})에만 접근 가능 (ABAC)
--- 참고: 현재 구현에서는 URL 패턴만 지원하므로, SpEL에서 #request 객체를 활용하는 방식으로 표현
-INSERT INTO POLICY(id, name, description, effect, priority) VALUES (2, 'User Access Own Data', '사용자는 자신의 사용자 정보 페이지만 접근 가능', 'ALLOW', 20);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (2, 2, 'URL', '/users/{username}');
-INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (2, 2, 'Ownership Check');
-INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (2, 2, 'authentication.name == #request.variable(''username'')');
+-- 정책 2: 사용자는 /users 경로 접근 허용
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (2, 'User URL Access', '사용자는 /users URL에 접근 가능', 'ALLOW', 200);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (2, 2, 'URL', '/users');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (2, 2, 'User Role Check');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (2, 2, 'hasRole(''USER'')');
 
--- <<< 정책 3: 지능형/적응형 정책 예시 >>>
--- '재무팀 문서를 원격지에서 접근 시' 매우 높은 수준의 보안 요구
-INSERT INTO POLICY(id, name, description, effect, priority) VALUES (3, 'High-Security Financial Document Access', '재무팀 문서는 위험도가 40 미만일 때만 접근 허용', 'ALLOW', 5);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (3, 3, 'URL', '/docs/financial/**');
-INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (3, 3, 'Finance Role And Low Risk');
--- 조건 1: 재무팀 역할(GROUP)을 가져야 함 (GROUP 기반 인가)
-INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (3, 3, 'hasAuthority(''ROLE_FINANCE'')'); -- 예시 역할
--- 조건 2: 리스크 점수가 40 미만이어야 함 (Risk-Based 인가)
-INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (4, 3, 'riskScore < 40');
--- 조건 3: 사용자 나이가 30 이상이어야 함 (Attribute-Based 인가)
-INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (5, 3, '#root.getAttribute(''userAge'') >= 30');
+-- 2.2. 메서드 기반 정책 (기존 METHOD_RESOURCES 테이블 마이그레이션)
+-- 정책 100번대: UserManagementService 관련 정책
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (100, 'Get Users Method Policy', 'getUsers 메서드 접근 제어', 'ALLOW', 100);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (100, 100, 'METHOD', 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl.getUsers');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (100, 100, 'Requires USER_READ authority');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (100, 100, 'hasAuthority(''USER_READ'')');
+
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (101, 'Get User Method Policy', 'getUser 메서드 접근 제어', 'ALLOW', 100);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (101, 101, 'METHOD', 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl.getUser');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (101, 101, 'Requires USER_READ authority');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (101, 101, 'hasAuthority(''USER_READ'')');
+
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (102, 'Modify User Method Policy', 'modifyUser 메서드 접근 제어', 'ALLOW', 100);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (102, 102, 'METHOD', 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl.modifyUser');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (102, 102, 'Requires USER_UPDATE authority');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (102, 102, 'hasAuthority(''USER_UPDATE'')');
+
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (103, 'Delete User Method Policy', 'deleteUser 메서드 접근 제어', 'ALLOW', 100);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (103, 103, 'METHOD', 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl.deleteUser');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (103, 103, 'Requires USER_DELETE authority');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (103, 103, 'hasAuthority(''USER_DELETE'')');
+
+-- 정책 200번대: RoleService 관련 정책
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (200, 'Get Roles Method Policy', 'getRoles 메서드 접근 제어', 'ALLOW', 100);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (200, 200, 'METHOD', 'io.spring.identityadmin.admin.service.impl.RoleServiceImpl.getRoles');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (200, 200, 'Requires ROLE_READ authority');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (200, 200, 'hasAuthority(''ROLE_READ'')');
+
+-- ... (다른 모든 RoleService, GroupService, PermissionService 등의 메서드에 대해서도 동일한 패턴으로 POLICY 데이터를 추가합니다)
+-- 예: createRole에 대한 정책
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (201, 'Create Role Method Policy', 'createRole 메서드 접근 제어', 'ALLOW', 100);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (201, 201, 'METHOD', 'io.spring.identityadmin.admin.service.impl.RoleServiceImpl.createRole');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (201, 201, 'Requires ROLE_CREATE authority');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (201, 201, 'hasAuthority(''ROLE_CREATE'')');
+
+-- 정책 300번대: DocumentService 관련 정책 (복합 조건 예시)
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (300, 'Read Document Method Policy', 'readDocument 메서드 접근 제어 (소유권 체크)', 'ALLOW', 100);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (300, 300, 'METHOD', 'io.spring.identityadmin.admin.service.DocumentService.readDocument');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (300, 300, 'Requires DOCUMENT_READ permission and ownership');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (300, 300, 'hasPermission(#id, ''DOCUMENT'', ''READ'')'); -- #id는 메서드 파라미터 이름
+
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (301, 'Update Document Method Policy', 'updateDocumentContent 메서드 접근 제어', 'ALLOW', 100);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (301, 301, 'METHOD', 'io.spring.identityadmin.admin.service.DocumentService.updateDocumentContent');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (301, 301, 'Requires DOCUMENT_WRITE permission');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (301, 301, 'hasPermission(#id, ''DOCUMENT'', ''WRITE'')');
+
+INSERT INTO POLICY(id, name, description, effect, priority) VALUES (302, 'Delete Document Method Policy', 'deleteDocument 메서드 접근 제어', 'ALLOW', 100);
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (302, 302, 'METHOD', 'io.spring.identityadmin.admin.service.DocumentService.deleteDocument');
+INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (302, 302, 'Requires DOCUMENT_DELETE permission');
+INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (302, 302, 'hasPermission(#id, ''DOCUMENT'', ''DELETE'')');
