@@ -38,10 +38,31 @@
                         <input type="number" id="priority" th:field="*{priority}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm" required />
                     </div>
                 </div>
-                <div>
-                    <label for="targets" class="block text-sm font-medium text-app-dark-gray">적용 대상 (Targets):</label>
-                    <textarea id="targets" th:field="*{targets}" rows="3" class="mt-1 block w-full px-4 py-2.5 font-mono text-sm bg-white border border-app-border rounded-lg shadow-sm" placeholder="한 줄에 하나씩 입력 (예: URL:/admin/**)"></textarea>
-                    <p class="text-xs text-slate-500 mt-1">형식: [타입]:[식별자]. 예) URL:/api/v1/**, METHOD:com.example.service.AdminService.deleteUser</p>
+                <div class="space-y-4">
+                    <label class="block text-sm font-medium text-app-dark-gray">적용 대상 (Targets)</label>
+                    <div id="targets-container" class="space-y-4">
+                        <div th:each="target, stat : *{targets}" class="target-block grid grid-cols-12 gap-2 items-center">
+                            <div class="col-span-3">
+                                <select th:field="*{targets[__${stat.index}__].targetType}" onchange="toggleHttpMethod(this)" class="block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm">
+                                    <option value="URL">URL</option>
+                                    <option value="METHOD">METHOD</option>
+                                </select>
+                            </div>
+                            <div class="col-span-2">
+                                <select th:field="*{targets[__${stat.index}__].httpMethod}" class="http-method-select block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm">
+                                    <option value="ALL">ALL</option> <option value="GET">GET</option> <option value="POST">POST</option>
+                                    <option value="PUT">PUT</option> <option value="DELETE">DELETE</option>
+                                </select>
+                            </div>
+                            <div class="col-span-6">
+                                <input type="text" th:field="*{targets[__${stat.index}__].targetIdentifier}" class="block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm" placeholder="/admin/** or com.example.Service.*" required />
+                            </div>
+                            <div class="col-span-1">
+                                <button type="button" onclick="removeElement(this, '.target-block')" class="text-slate-400 hover:text-error">&times;</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" id="add-target-btn" class="text-sm font-medium text-app-accent hover:underline">+ 적용 대상 추가</button>
                 </div>
 
                 <div class="space-y-4">
@@ -100,6 +121,18 @@
         `;
         rulesContainer.appendChild(newRuleBlock);
     });
+
+    function toggleHttpMethod(selectElement) {
+        const targetBlock = selectElement.closest('.target-block');
+        const httpMethodSelect = targetBlock.querySelector('.http-method-select');
+        if (selectElement.value === 'URL') {
+            httpMethodSelect.style.display = 'block';
+        } else {
+            httpMethodSelect.style.display = 'none';
+        }
+    }
+    // 페이지 로드 시 기존 값에 따라 HTTP 메서드 표시 여부 결정
+    document.querySelectorAll('.target-block').forEach(block => toggleHttpMethod(block.querySelector('select')));
 
     function removeRule(button) {
         const ruleBlock = button.closest('.rule-block');

@@ -188,3 +188,17 @@ INSERT INTO POLICY(id, name, description, effect, priority) VALUES (302, 'Delete
 INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (302, 302, 'METHOD', 'io.spring.identityadmin.admin.service.DocumentService.deleteDocument');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (302, 302, 'Requires DOCUMENT_DELETE permission');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (302, 302, 'hasPermission(#id, ''DOCUMENT'', ''DELETE'')');
+
+
+-- 1. 표준 3단계 계층 (ADMIN > MANAGER > USER) - 활성화 상태
+INSERT INTO ROLE_HIERARCHY_CONFIG (hierarchy_id, description, hierarchy_string, is_active)
+VALUES (1, '표준 3단계 역할 계층', 'ROLE_ADMIN > ROLE_MANAGER
+ROLE_MANAGER > ROLE_USER', true)
+    ON CONFLICT (hierarchy_id) DO NOTHING;
+
+-- 2. 시스템 관리자와 일반 관리자를 분리하는 계층 - 비활성화 상태
+INSERT INTO ROLE_HIERARCHY_CONFIG (hierarchy_id, description, hierarchy_string, is_active)
+VALUES (2, '시스템/감사 분리 계층', 'ROLE_SYS_ADMIN > ROLE_ADMIN
+ROLE_SYS_ADMIN > ROLE_AUDITOR
+ROLE_ADMIN > ROLE_USER', false)
+    ON CONFLICT (hierarchy_id) DO NOTHING;

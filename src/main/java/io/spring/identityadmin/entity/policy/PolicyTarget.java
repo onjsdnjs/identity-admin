@@ -24,4 +24,7 @@ public class PolicyTarget implements Serializable {
 
     @Column(nullable = false)
     private String targetIdentifier; // 예: "/admin/**", "com.example.service.AdminService.deleteUser"
+
+    @Column
+    private String httpMethod; // 예: "GET", "POST", "ALL"
 }

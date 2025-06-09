@@ -25,6 +25,7 @@
                         <th scope="col" class="py-3.5 px-6 font-semibold">ID</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">정책명 (Name)</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">설명</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">적용대상</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">효과 (Effect)</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">우선순위</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">대상(Target) 수</th>
@@ -36,6 +37,14 @@
                         <td class="py-4 px-6" th:text="${policy.id}">1</td>
                         <td class="py-4 px-6 font-medium" th:text="${policy.name}">Admin Full Access</td>
                         <td class="py-4 px-6" th:text="${policy.description}">관리자 전체 접근 권한</td>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">적용 대상 (Targets)</th>
+                        <td class="py-4 px-6">
+                            <div th:each="target : ${policy.targets}" class="mb-1">
+                                <span th:text="${target.targetType}" class="font-bold text-xs bg-slate-100 p-1 rounded">URL</span>
+                                <span th:text="${target.httpMethod == null ? 'ALL' : target.httpMethod}" class="font-semibold text-xs bg-blue-100 p-1 rounded" th:if="${target.targetType == 'URL'}">GET</span>
+                                <span th:text="${target.targetIdentifier}" class="font-mono text-sm">/admin/**</span>
+                            </div>
+                        </td>
                         <td class="py-4 px-6">
                             <span th:text="${policy.effect}"
                                   th:classappend="${policy.effect.name() == 'ALLOW' ? 'text-success' : 'text-error'}"

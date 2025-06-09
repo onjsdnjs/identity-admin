@@ -34,7 +34,8 @@ public class PolicyController {
     @GetMapping("/register")
     public String registerForm(Model model) {
         PolicyDto policyDto = new PolicyDto();
-        // [수정] 새 정책 등록 시 기본적으로 하나의 빈 규칙 입력란을 추가해준다.
+        // [수정] 기본적으로 하나의 빈 Target과 Rule을 추가하여 UI 렌더링
+        policyDto.getTargets().add(new PolicyDto.TargetDto());
         policyDto.getRules().add(new PolicyDto.RuleDto());
         model.addAttribute("policy", policyDto);
         return "admin/policydetails";
@@ -87,9 +88,9 @@ public class PolicyController {
         dto.setEffect(policy.getEffect());
         dto.setPriority(policy.getPriority());
 
-        dto.setTargets(policy.getTargets().stream()
-                .map(t -> t.getTargetType() + ":" + t.getTargetIdentifier())
-                .collect(Collectors.toList()));
+        dto.setTargets(policy.getTargets().stream().map(t ->
+                new PolicyDto.TargetDto(t.getTargetType(), t.getTargetIdentifier(), t.getHttpMethod() == null ? "ALL" : t.getHttpMethod())
+        ).collect(Collectors.toList()));
 
         dto.setRules(policy.getRules().stream().map(rule -> {
             PolicyDto.RuleDto ruleDto = new PolicyDto.RuleDto();

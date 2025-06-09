@@ -91,15 +91,17 @@ public class DefaultPolicyService implements PolicyService {
                 .build();
 
         // Target 파싱 로직 (안정성 강화)
-        Set<PolicyTarget> targets = dto.getTargets().stream().map(t -> {
-            String[] parts = t.split(":", 2);
-            if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
-                throw new IllegalArgumentException("잘못된 Target 형식입니다: '" + t + "'. 반드시 '타입:식별자' 형태로 입력해주세요.");
-            }
-            return PolicyTarget.builder().policy(policy).targetType(parts[0].trim()).targetIdentifier(parts[1].trim()).build();
-        }).collect(Collectors.toSet());
-
-        policy.setTargets(targets);
+        if (dto.getTargets() != null) {
+            Set<PolicyTarget> targets = dto.getTargets().stream().map(targetDto ->
+                    PolicyTarget.builder()
+                            .policy(policy)
+                            .targetType(targetDto.getTargetType())
+                            .targetIdentifier(targetDto.getTargetIdentifier())
+                            .httpMethod("ALL".equals(targetDto.getHttpMethod()) ? null : targetDto.getHttpMethod()) // "ALL"은 null로 저장
+                            .build()
+            ).collect(Collectors.toSet());
+            policy.setTargets(targets);
+        }
 
         // 여러 규칙(Rule)을 처리하는 로직
         if (dto.getRules() != null) {
@@ -134,12 +136,13 @@ public class DefaultPolicyService implements PolicyService {
 
         // Target 변환 로직
         if (dto.getTargets() != null) {
-            dto.getTargets().forEach(t -> {
-                String[] parts = t.split(":", 2);
-                if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
-                    throw new IllegalArgumentException("잘못된 Target 형식입니다: '" + t + "'. 반드시 '타입:식별자' 형태로 입력해주세요.");
-                }
-                policy.getTargets().add(PolicyTarget.builder().policy(policy).targetType(parts[0].trim()).targetIdentifier(parts[1].trim()).build());
+            dto.getTargets().forEach(targetDto -> {
+                policy.getTargets().add(PolicyTarget.builder()
+                        .policy(policy)
+                        .targetType(targetDto.getTargetType())
+                        .targetIdentifier(targetDto.getTargetIdentifier())
+                        .httpMethod("ALL".equals(targetDto.getHttpMethod()) ? null : targetDto.getHttpMethod())
+                        .build());
             });
         }
 

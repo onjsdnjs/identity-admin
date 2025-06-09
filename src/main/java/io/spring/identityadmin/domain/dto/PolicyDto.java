@@ -19,8 +19,18 @@ public class PolicyDto {
     private String description;
     private Policy.Effect effect;
     private int priority;
-    private List<String> targets = new ArrayList<>();
+    private List<TargetDto> targets = new ArrayList<>();
     private List<RuleDto> rules = new ArrayList<>();
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class TargetDto {
+        private String targetType;
+        private String targetIdentifier;
+        private String httpMethod;
+    }
 
     @Data
     @NoArgsConstructor
