@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -18,6 +19,15 @@ public class PolicyDto {
     private String description;
     private Policy.Effect effect;
     private int priority;
-    private List<String> targets; // 예: "URL:/admin/**", "METHOD:com.example.service.Admin.delete"
-    private List<String> conditions; // 예: "hasRole('ADMIN')", "#riskScore < 50"
+    private List<String> targets = new ArrayList<>();
+    private List<RuleDto> rules = new ArrayList<>();
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class RuleDto {
+        private String description;
+        private List<String> conditions = new ArrayList<>();
+    }
 }

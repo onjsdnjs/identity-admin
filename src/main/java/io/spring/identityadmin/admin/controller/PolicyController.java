@@ -3,6 +3,7 @@ package io.spring.identityadmin.admin.controller;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.admin.service.PolicyService;
+import io.spring.identityadmin.entity.policy.PolicyCondition;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -27,13 +28,16 @@ public class PolicyController {
     public String listPolicies(Model model) {
         List<Policy> policies = policyService.getAllPolicies();
         model.addAttribute("policies", policies);
-        return "admin/policies"; // admin/policies.html
+        return "admin/policies";
     }
 
     @GetMapping("/register")
     public String registerForm(Model model) {
-        model.addAttribute("policy", new PolicyDto());
-        return "admin/policydetails"; // admin/policydetails.html
+        PolicyDto policyDto = new PolicyDto();
+        // [수정] 새 정책 등록 시 기본적으로 하나의 빈 규칙 입력란을 추가해준다.
+        policyDto.getRules().add(new PolicyDto.RuleDto());
+        model.addAttribute("policy", policyDto);
+        return "admin/policydetails";
     }
 
     @PostMapping
@@ -51,16 +55,12 @@ public class PolicyController {
     @GetMapping("/{id}")
     public String detailForm(@PathVariable Long id, Model model) {
         Policy policy = policyService.findById(id);
-        PolicyDto dto = modelMapper.map(policy, PolicyDto.class);
+        PolicyDto dto = toDto(policy);
 
-        // Entity -> DTO 변환 (Target, Condition을 String 리스트로)
-        dto.setTargets(policy.getTargets().stream()
-                .map(t -> t.getTargetType() + ":" + t.getTargetIdentifier())
-                .collect(Collectors.toList()));
-        dto.setConditions(policy.getRules().stream()
-                .flatMap(r -> r.getConditions().stream())
-                .map(c -> c.getExpression())
-                .collect(Collectors.toList()));
+        // 규칙이 하나도 없는 경우, UI 렌더링을 위해 빈 규칙 DTO를 하나 추가
+        if (dto.getRules().isEmpty()) {
+            dto.getRules().add(new PolicyDto.RuleDto());
+        }
 
         model.addAttribute("policy", dto);
         return "admin/policydetails";
@@ -77,6 +77,30 @@ public class PolicyController {
             log.error("Error updating policy", e);
         }
         return "redirect:/admin/policies";
+    }
+
+    private PolicyDto toDto(Policy policy) {
+        PolicyDto dto = new PolicyDto();
+        dto.setId(policy.getId());
+        dto.setName(policy.getName());
+        dto.setDescription(policy.getDescription());
+        dto.setEffect(policy.getEffect());
+        dto.setPriority(policy.getPriority());
+
+        dto.setTargets(policy.getTargets().stream()
+                .map(t -> t.getTargetType() + ":" + t.getTargetIdentifier())
+                .collect(Collectors.toList()));
+
+        dto.setRules(policy.getRules().stream().map(rule -> {
+            PolicyDto.RuleDto ruleDto = new PolicyDto.RuleDto();
+            ruleDto.setDescription(rule.getDescription());
+            ruleDto.setConditions(rule.getConditions().stream()
+                    .map(PolicyCondition::getExpression)
+                    .collect(Collectors.toList()));
+            return ruleDto;
+        }).collect(Collectors.toList()));
+
+        return dto;
     }
 
     @GetMapping("/delete/{id}")

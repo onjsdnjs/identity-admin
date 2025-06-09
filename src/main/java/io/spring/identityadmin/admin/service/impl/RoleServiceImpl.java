@@ -31,7 +31,6 @@ public class RoleServiceImpl implements RoleService {
     @Transactional(readOnly = true)
     @Cacheable(value = "roles", key = "#id")
     public Role getRole(long id) {
-        // findByIdWithPermissions는 RoleRepository에 정의되어 있습니다.
         return roleRepository.findByIdWithPermissions(id)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found with ID: " + id));
     }

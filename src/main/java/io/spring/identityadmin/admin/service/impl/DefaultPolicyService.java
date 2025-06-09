@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -74,8 +76,9 @@ public class DefaultPolicyService implements PolicyService {
      * 정책 변경 후 인가 시스템을 다시 로드하는 중앙화된 메서드.
      */
     private void reloadAuthorizationSystem() {
-        policyRetrievalPoint.clearUrlPoliciesCache(); // PRP 캐시 무효화
-        authorizationManager.reload(); // PEP가 규칙을 다시 로드하도록 함
+        policyRetrievalPoint.clearUrlPoliciesCache();
+        policyRetrievalPoint.clearMethodPoliciesCache(); // 메서드 정책 캐시도 클리어
+        authorizationManager.reload();
     }
 
     // --- DTO <-> Entity 변환 헬퍼 메서드 ---
@@ -87,19 +90,34 @@ public class DefaultPolicyService implements PolicyService {
                 .priority(dto.getPriority())
                 .build();
 
+        // Target 파싱 로직 (안정성 강화)
         Set<PolicyTarget> targets = dto.getTargets().stream().map(t -> {
             String[] parts = t.split(":", 2);
-            return PolicyTarget.builder().policy(policy).targetType(parts[0]).targetIdentifier(parts[1]).build();
+            if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+                throw new IllegalArgumentException("잘못된 Target 형식입니다: '" + t + "'. 반드시 '타입:식별자' 형태로 입력해주세요.");
+            }
+            return PolicyTarget.builder().policy(policy).targetType(parts[0].trim()).targetIdentifier(parts[1].trim()).build();
         }).collect(Collectors.toSet());
 
-        PolicyRule rule = PolicyRule.builder().policy(policy).description("Main rule for " + dto.getName()).build();
-        Set<PolicyCondition> conditions = dto.getConditions().stream()
-                .map(c -> PolicyCondition.builder().rule(rule).expression(c).build())
-                .collect(Collectors.toSet());
-
-        rule.setConditions(conditions);
         policy.setTargets(targets);
-        policy.setRules(Set.of(rule));
+
+        // 여러 규칙(Rule)을 처리하는 로직
+        if (dto.getRules() != null) {
+            Set<PolicyRule> policyRules = dto.getRules().stream().map(ruleDto -> {
+                PolicyRule rule = PolicyRule.builder()
+                        .policy(policy)
+                        .description(ruleDto.getDescription())
+                        .build();
+
+                Set<PolicyCondition> conditions = ruleDto.getConditions().stream()
+                        .map(conditionStr -> PolicyCondition.builder().rule(rule).expression(conditionStr).build())
+                        .collect(Collectors.toSet());
+
+                rule.setConditions(conditions);
+                return rule;
+            }).collect(Collectors.toSet());
+            policy.setRules(policyRules);
+        }
 
         return policy;
     }
@@ -110,22 +128,36 @@ public class DefaultPolicyService implements PolicyService {
         policy.setEffect(dto.getEffect());
         policy.setPriority(dto.getPriority());
 
-        // Target, Rule, Condition은 복잡하므로 여기서는 단순화를 위해 clear and add all 전략 사용
+        // "clear and add all" 전략 사용
         policy.getTargets().clear();
         policy.getRules().clear();
 
-        Set<PolicyTarget> targets = dto.getTargets().stream().map(t -> {
-            String[] parts = t.split(":", 2);
-            return PolicyTarget.builder().policy(policy).targetType(parts[0]).targetIdentifier(parts[1]).build();
-        }).collect(Collectors.toSet());
+        // Target 변환 로직
+        if (dto.getTargets() != null) {
+            dto.getTargets().forEach(t -> {
+                String[] parts = t.split(":", 2);
+                if (parts.length != 2 || parts[0].isBlank() || parts[1].isBlank()) {
+                    throw new IllegalArgumentException("잘못된 Target 형식입니다: '" + t + "'. 반드시 '타입:식별자' 형태로 입력해주세요.");
+                }
+                policy.getTargets().add(PolicyTarget.builder().policy(policy).targetType(parts[0].trim()).targetIdentifier(parts[1].trim()).build());
+            });
+        }
 
-        PolicyRule rule = PolicyRule.builder().policy(policy).description("Main rule for " + dto.getName()).build();
-        Set<PolicyCondition> conditions = dto.getConditions().stream()
-                .map(c -> PolicyCondition.builder().rule(rule).expression(c).build())
-                .collect(Collectors.toSet());
+        // 여러 규칙(Rule)을 처리하는 로직
+        if (dto.getRules() != null) {
+            dto.getRules().forEach(ruleDto -> {
+                PolicyRule rule = PolicyRule.builder()
+                        .policy(policy)
+                        .description(ruleDto.getDescription())
+                        .build();
 
-        rule.setConditions(conditions);
-        policy.setTargets(targets);
-        policy.setRules(Set.of(rule));
+                Set<PolicyCondition> conditions = ruleDto.getConditions().stream()
+                        .map(conditionStr -> PolicyCondition.builder().rule(rule).expression(conditionStr).build())
+                        .collect(Collectors.toSet());
+
+                rule.setConditions(conditions);
+                policy.getRules().add(rule);
+            });
+        }
     }
 }
