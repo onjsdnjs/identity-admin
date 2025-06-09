@@ -37,8 +37,8 @@ public class BusinessAction implements Serializable {
     @Column(length = 1024)
     private String description;
 
-    @ManyToMany(mappedBy = "availableActions")
-    private Set<BusinessResource> resources = new HashSet<>();
+    @OneToMany(mappedBy = "businessAction", fetch = FetchType.LAZY)
+    private Set<BusinessResourceAction> resources = new HashSet<>();
 
     @Override
     public boolean equals(Object o) {

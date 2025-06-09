@@ -34,13 +34,8 @@ public class BusinessResource implements Serializable {
     @Column(length = 1024)
     private String description;
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "BUSINESS_RESOURCE_ACTION",
-            joinColumns = @JoinColumn(name = "business_resource_id"),
-            inverseJoinColumns = @JoinColumn(name = "business_action_id")
-    )
-    private Set<BusinessAction> availableActions = new HashSet<>();
+    @OneToMany(mappedBy = "businessResource", fetch = FetchType.LAZY)
+    private Set<BusinessResourceAction> availableActions = new HashSet<>();
 
     @Override
     public boolean equals(Object o) {
