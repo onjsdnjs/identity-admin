@@ -31,5 +31,4 @@ public interface BusinessPolicyService {
      */
     BusinessPolicyDto getBusinessRuleForPolicy(Long policyId);
 
-    // deletePolicy는 기존 DefaultPolicyService의 것을 그대로 사용 가능
 }

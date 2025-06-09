@@ -1,9 +1,6 @@
 package io.spring.identityadmin.admin.service;
 
-import io.spring.identityadmin.entity.BusinessAction;
-import io.spring.identityadmin.entity.BusinessResource;
-import io.spring.identityadmin.entity.ConditionTemplate;
-import io.spring.identityadmin.entity.Group;
+import io.spring.identityadmin.entity.*;
 import org.springframework.security.core.userdetails.User;
 
 import java.util.List;
@@ -25,7 +22,7 @@ public interface BusinessMetadataService {
     List<ConditionTemplate> getAllConditionTemplates();
 
     /** @return 정책 주체로 설정할 수 있는 모든 사용자 목록 */
-    List<User> getAllUsersForPolicy();
+    List<Users> getAllUsersForPolicy();
 
     /** @return 정책 주체로 설정할 수 있는 모든 그룹 목록 */
     List<Group> getAllGroupsForPolicy();

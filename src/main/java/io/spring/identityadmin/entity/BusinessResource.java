@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 일반 사용자가 인가 정책을 설정할 때 사용하는 비즈니스 자원을 정의하는 엔티티.
@@ -31,6 +33,14 @@ public class BusinessResource implements Serializable {
 
     @Column(length = 1024)
     private String description;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "BUSINESS_RESOURCE_ACTION",
+            joinColumns = @JoinColumn(name = "business_resource_id"),
+            inverseJoinColumns = @JoinColumn(name = "business_action_id")
+    )
+    private Set<BusinessAction> availableActions = new HashSet<>();
 
     @Override
     public boolean equals(Object o) {

@@ -4,7 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 일반 사용자가 인가 정책을 설정할 때 사용하는 비즈니스 행위를 정의하는 엔티티.
@@ -34,6 +36,9 @@ public class BusinessAction implements Serializable {
 
     @Column(length = 1024)
     private String description;
+
+    @ManyToMany(mappedBy = "availableActions")
+    private Set<BusinessResource> resources = new HashSet<>();
 
     @Override
     public boolean equals(Object o) {
