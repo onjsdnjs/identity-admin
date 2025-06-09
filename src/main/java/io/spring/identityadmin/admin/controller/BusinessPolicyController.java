@@ -32,7 +32,7 @@ public class BusinessPolicyController {
         List<Policy> policies = policyService.getAllPolicies();
         model.addAttribute("policies", policies);
         // 생성된 정책 결과를 보여주기 위해 기술 정책 목록 템플릿을 재사용
-        return "admin/business-policy";
+        return "admin/business-policies";
     }
 
     @GetMapping("/create")
