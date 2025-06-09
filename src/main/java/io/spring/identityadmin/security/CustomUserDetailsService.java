@@ -18,9 +18,8 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     @Transactional(readOnly = true) // 트랜잭션 범위 내에서 지연 로딩된 관계들을 가져오기 위함
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        Users user = userRepository.findByUsername(username) // 새로운 쿼리 사용
-                .orElseThrow(() -> new UsernameNotFoundException("사용자를 찾을 수 없습니다: " + username));
-
+        Users user = userRepository.findByUsernameWithGroupsRolesAndPermissions(username)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + username));
         return new CustomUserDetails(user);
     }
 }

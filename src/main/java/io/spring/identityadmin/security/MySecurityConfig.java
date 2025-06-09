@@ -47,14 +47,6 @@ public class MySecurityConfig {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 
-    /**
-     * ModelMapper bean
-     */
-    @Bean
-    public ModelMapper modelMapper() {
-        return new ModelMapper();
-    }
-
     @Bean
     public MethodSecurityExpressionHandler methodSecurityExpressionHandler(
             CustomPermissionEvaluator customPermissionEvaluator,

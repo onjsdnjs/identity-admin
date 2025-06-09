@@ -17,7 +17,7 @@ import org.springframework.stereotype.Component;
 public class CustomAuthenticationProvider implements AuthenticationProvider {
 
     private final UserDetailsService userDetailsService;
-    private final PasswordEncoder passwordEncoder;
+//    private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
 
     @Override
@@ -27,9 +27,9 @@ public class CustomAuthenticationProvider implements AuthenticationProvider {
         String password = (String) authentication.getCredentials();
         CustomUserDetails userDetails = (CustomUserDetails) userDetailsService.loadUserByUsername(loginId);
 
-        if(!passwordEncoder.matches(password, userDetails.getPassword())){
-            throw new BadCredentialsException("Invalid password");
-        }
+//        if(!passwordEncoder.matches(password, userDetails.getPassword())){
+//            throw new BadCredentialsException("Invalid password");
+//        }
         UserDto userDto = modelMapper.map(userDetails.getAccount(), UserDto.class);
         return new UsernamePasswordAuthenticationToken(userDto, userDetails.getPassword(), userDetails.getAuthorities());
     }

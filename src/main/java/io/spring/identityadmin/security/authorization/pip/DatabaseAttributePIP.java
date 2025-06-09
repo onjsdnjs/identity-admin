@@ -19,7 +19,7 @@ public class DatabaseAttributePIP implements AttributeInformationPoint {
         Map<String, Object> attributes = new HashMap<>();
 
         if (context.subject() != null) {
-            userRepository.findByUsername(context.subject().getName()).ifPresent(user -> {
+            userRepository.findByUsernameWithGroupsRolesAndPermissions(context.subject().getName()).ifPresent(user -> {
                 // SpEL 에서 #userAge로 접근 가능하도록 속성 추가
                 attributes.put("Username", user.getUsername());
                 // 필요시 다른 사용자 속성(부서, 직책 등) 추가

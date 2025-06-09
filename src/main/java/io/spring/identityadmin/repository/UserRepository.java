@@ -37,9 +37,6 @@ public interface UserRepository extends JpaRepository<Users, Long> {
             "WHERE u.id = :id")
     Optional<Users> findByIdWithGroupsRolesAndPermissions(Long id);
 
-    // findByUsername은 남겨두되, 권한 로드 시에는 위 쿼리 사용
-    Optional<Users> findByUsername(String username);
-
     // UserManagementService 에서 사용할 N+1 해결 쿼리
     @Query("SELECT DISTINCT u FROM Users u " +
             "LEFT JOIN FETCH u.userGroups ug " +
