@@ -91,7 +91,7 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
         Long actionId = dto.getBusinessActionId();
 
         // BusinessResourceActionId를 만들어 중간 테이블에서 매핑 정보를 찾음
-        BusinessResourceActionId mappingId = new BusinessResourceActionId(resourceId, actionId);
+        BusinessResourceAction.BusinessResourceActionId mappingId = new BusinessResourceAction.BusinessResourceActionId(resourceId, actionId);
         BusinessResourceAction mapping = businessResourceActionRepository.findById(mappingId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 자원에 대한 행위가 정의되지 않았습니다."));
 
