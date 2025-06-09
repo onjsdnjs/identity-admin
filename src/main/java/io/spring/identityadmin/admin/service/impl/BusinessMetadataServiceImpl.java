@@ -16,6 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,14 +45,12 @@ public class BusinessMetadataServiceImpl implements BusinessMetadataService {
             return Collections.emptyList();
         }
 
-        // [핵심 수정] 람다 대신 명시적인 코드로 변경하여 타입 추론 오류 해결
         Optional<BusinessResource> resourceOptional = businessResourceRepository.findById(businessResourceId);
-        if (resourceOptional.isPresent()) {
-            Set<BusinessAction> availableActions = resourceOptional.get().getAvailableActions();
-            return new ArrayList<>(availableActions);
-        }
 
-        return Collections.emptyList();
+        // [핵심 수정] 조인 엔티티(BusinessResourceAction)에서 실제 BusinessAction을 추출하여 리스트로 반환
+        return resourceOptional.map(businessResource -> businessResource.getAvailableActions().stream()
+                .map(BusinessResourceAction::getBusinessAction)
+                .collect(Collectors.toList())).orElseGet(Collections::emptyList);
     }
 
     @Override

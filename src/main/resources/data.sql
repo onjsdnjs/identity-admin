@@ -202,3 +202,39 @@ VALUES (2, '시스템/감사 분리 계층', 'ROLE_SYS_ADMIN > ROLE_ADMIN
 ROLE_SYS_ADMIN > ROLE_AUDITOR
 ROLE_ADMIN > ROLE_USER', false)
     ON CONFLICT (hierarchy_id) DO NOTHING;
+
+-- 1. BUSINESS_RESOURCE (사용자 친화적 자원) 데이터
+INSERT INTO BUSINESS_RESOURCE (id, name, resource_type, description) VALUES
+                                                                         (1, '문서 관리', 'DOCUMENT', '일반 문서 및 보안 문서에 대한 정책을 설정합니다.'),
+                                                                         (2, '사용자 정보', 'USER', '사용자 정보 조회 및 수정에 대한 정책을 설정합니다.')
+    ON CONFLICT (id) DO NOTHING;
+
+
+-- 2. BUSINESS_ACTION (사용자 친화적 행위) 데이터
+INSERT INTO BUSINESS_ACTION (id, name, action_type, description) VALUES
+                                                                     (1, '읽기/조회', 'READ', '데이터를 조회하는 권한입니다.'),
+                                                                     (2, '쓰기/수정', 'WRITE', '데이터를 생성하거나 수정하는 권한입니다.'),
+                                                                     (3, '삭제', 'DELETE', '데이터를 삭제하는 권한입니다.')
+    ON CONFLICT (id) DO NOTHING;
+
+
+-- 3. BUSINESS_RESOURCE_ACTION (자원-행위 매핑) 데이터
+-- "어떤 자원"에 "어떤 행위"를 하면, "어떤 기술적 권한"으로 번역될지를 정의합니다.
+INSERT INTO BUSINESS_RESOURCE_ACTION (business_resource_id, business_action_id, mapped_permission_name) VALUES
+                                                                                                            -- 문서 관리에 대한 행위 매핑
+                                                                                                            (1, 1, 'DOCUMENT_READ'),   -- 문서 관리 + 읽기 -> DOCUMENT_READ 권한 필요
+                                                                                                            (1, 2, 'DOCUMENT_WRITE'),  -- 문서 관리 + 쓰기 -> DOCUMENT_WRITE 권한 필요
+                                                                                                            (1, 3, 'DOCUMENT_DELETE'), -- 문서 관리 + 삭제 -> DOCUMENT_DELETE 권한 필요
+                                                                                                            -- 사용자 정보에 대한 행위 매핑
+                                                                                                            (2, 1, 'USER_READ'),       -- 사용자 정보 + 읽기 -> USER_READ 권한 필요
+                                                                                                            (2, 2, 'USER_UPDATE'),     -- 사용자 정보 + 쓰기 -> USER_UPDATE 권한 필요
+                                                                                                            (2, 3, 'USER_DELETE')      -- 사용자 정보 + 삭제 -> USER_DELETE 권한 필요
+    ON CONFLICT (business_resource_id, business_action_id) DO NOTHING;
+
+
+-- 4. CONDITION_TEMPLATE (미리 정의된 조건) 데이터
+INSERT INTO CONDITION_TEMPLATE (id, name, description, category, parameter_count, spel_template) VALUES
+                                                                                                     (1, '업무 시간 내에만 허용', '월-금, 09:00-18:00 사이에만 접근을 허용합니다.', '시간 기반', 0, '#isBusinessHours()'),
+                                                                                                     (2, '사내 IP 대역에서만 허용', '사내 IP 대역(예: 192.168.1.0/24)에서만 접근을 허용합니다.', '위치 기반', 1, 'hasIpAddress(''?'')'),
+                                                                                                     (3, '문서 소유자 본인만 허용', '문서의 소유자만 해당 문서에 접근할 수 있도록 제한합니다.', '데이터 기반', 0, '@documentService.isUserOwnerOfDocument(#target, authentication.name)')
+    ON CONFLICT (id) DO NOTHING;

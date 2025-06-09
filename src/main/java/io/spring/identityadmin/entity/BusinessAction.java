@@ -1,5 +1,6 @@
-package io.spring.identityadmin.entity;
+package io.spring.identityadmin.domain.business.entity;
 
+import io.spring.identityadmin.entity.BusinessResourceAction;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -8,10 +9,6 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 
-/**
- * 일반 사용자가 인가 정책을 설정할 때 사용하는 비즈니스 행위를 정의하는 엔티티.
- * (예: '읽기', '쓰기', '결재' 등)
- */
 @Entity
 @Table(name = "BUSINESS_ACTION")
 @Getter
@@ -31,13 +28,10 @@ public class BusinessAction implements Serializable {
     @Column(nullable = false)
     private String actionType; // Permission의 actionType과 매핑될 기술적 타입 (예: READ)
 
-    @Column(nullable = false)
-    private String mappedPermissionName; // 예: "PERMISSION_READ"
-
     @Column(length = 1024)
     private String description;
 
-    @OneToMany(mappedBy = "businessAction", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "businessAction")
     private Set<BusinessResourceAction> resources = new HashSet<>();
 
     @Override
