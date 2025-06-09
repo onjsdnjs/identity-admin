@@ -29,11 +29,6 @@ public class Role implements Serializable {
     @Column(name = "is_expression") // is_expression 필드 유지
     private String isExpression;
 
-    @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true) // ResourcesRole 엔티티의 'role' 필드에 매핑
-    @Builder.Default
-    @ToString.Exclude
-    private Set<ResourcesRole> resourcesRoles = new HashSet<>(); // 이 역할을 가진 자원들
-
     @OneToMany(mappedBy = "role", cascade = CascadeType.ALL, orphanRemoval = true) // GroupRole 엔티티의 'role' 필드에 매핑
     @Builder.Default
     @ToString.Exclude
