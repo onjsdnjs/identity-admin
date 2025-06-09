@@ -14,7 +14,7 @@ import java.util.List;
 public class UserDto {
     private Long id;
     private String username;
-    private int age;
+    private String name;
     private String password;
     private List<String> roles;
     private List<String> permissions;

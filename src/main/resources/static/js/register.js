@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const username = registerForm.username.value;
         const name = registerForm.name.value;
         const password = registerForm.password.value;
-        const roles = registerForm.roles.value; // "USER", "USER,ADMIN" 형태
+        // const roles = registerForm.roles.value; // "USER", "USER,ADMIN" 형태
         const authMode = localStorage.getItem("authMode") || "header";
 
         const headers = { "Content-Type": "application/json" };
@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 method: "POST",
                 credentials: "same-origin",
                 headers: headers,
-                body: JSON.stringify({ username, name, password, roles })
+                body: JSON.stringify({ username, name, password/*, roles*/ })
             });
 
             if (response.ok) {
@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     alert("회원가입 성공! 로그인 페이지로 이동합니다.");
                 }
                 setTimeout(() => {
-                    window.location.href = "/loginForm";
+                    window.location.href = "/login";
                 }, 1500); // 잠시 메시지 확인 후 이동
             } else {
                 const errorData = await response.json().catch(() => ({ message: "알 수 없는 오류." }));

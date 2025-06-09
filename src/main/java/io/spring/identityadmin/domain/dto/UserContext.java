@@ -8,12 +8,12 @@ import java.util.Collection;
 import java.util.List;
 
 @Data
-public class AccountContext implements UserDetails {
-    private AccountDto accountDto;
+public class UserContext implements UserDetails {
+    private UserDto userDto;
     private final List<GrantedAuthority> roles;
 
-    public AccountContext(AccountDto accountDto, List<GrantedAuthority> roles) {
-      this.accountDto = accountDto;
+    public UserContext(UserDto userDto, List<GrantedAuthority> roles) {
+      this.userDto = userDto;
       this.roles = roles;
     }
     @Override
@@ -22,11 +22,11 @@ public class AccountContext implements UserDetails {
     }
     @Override
     public String getPassword() {
-        return accountDto.getPassword();
+        return userDto.getPassword();
     }
     @Override
     public String getUsername() {
-        return accountDto.getUsername();
+        return userDto.getUsername();
     }
     @Override
     public boolean isAccountNonExpired() {

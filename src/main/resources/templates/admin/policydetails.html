@@ -10,7 +10,7 @@
     <aside th:insert="~{fragments/admin-menu :: menu}" class="hidden md:block"></aside>
 
     <main class="flex-1 p-6 md:p-10 flex items-center justify-center">
-        <div class="w-full max-w-2xl bg-white p-8 sm:p-10 rounded-xl shadow-2xl">
+        <div class="w-full max-w-3xl bg-white p-8 sm:p-10 rounded-xl shadow-2xl">
             <div class="text-center mb-8">
                 <h2 class="mt-4 text-3xl font-bold text-app-primary" th:text="${policy.id != null ? '정책 수정' : '새 정책 등록'}"></h2>
             </div>
@@ -20,57 +20,105 @@
 
                 <div>
                     <label for="name" class="block text-sm font-medium text-app-dark-gray">정책명 (고유값):</label>
-                    <input type="text" id="name" th:field="*{name}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-app-accent focus:border-app-accent sm:text-sm" required />
+                    <input type="text" id="name" th:field="*{name}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm" required />
                 </div>
-
                 <div>
                     <label for="description" class="block text-sm font-medium text-app-dark-gray">설명:</label>
-                    <input type="text" id="description" th:field="*{description}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-app-accent focus:border-app-accent sm:text-sm" />
+                    <input type="text" id="description" th:field="*{description}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm" />
                 </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="effect" class="block text-sm font-medium text-app-dark-gray">효과 (Effect):</label>
-                        <select id="effect" th:field="*{effect}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-app-accent focus:border-app-accent sm:text-sm">
-                            <option th:each="eff : ${T(io.spring.identityadmin.entity.policy.Policy.Effect).values()}"
-                                    th:value="${eff}" th:text="${eff.name()}"></option>
+                        <select id="effect" th:field="*{effect}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm">
+                            <option th:each="eff : ${T(io.spring.identityadmin.entity.policy.Policy.Effect).values()}" th:value="${eff}" th:text="${eff.name()}"></option>
                         </select>
                     </div>
                     <div>
                         <label for="priority" class="block text-sm font-medium text-app-dark-gray">우선순위 (낮을수록 먼저 평가):</label>
-                        <input type="number" id="priority" th:field="*{priority}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-app-accent focus:border-app-accent sm:text-sm" required />
+                        <input type="number" id="priority" th:field="*{priority}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm" required />
                     </div>
                 </div>
-
                 <div>
                     <label for="targets" class="block text-sm font-medium text-app-dark-gray">적용 대상 (Targets):</label>
-                    <textarea id="targets" th:field="*{targets}" rows="4" class="mt-1 block w-full px-4 py-2.5 font-mono text-sm bg-white border border-app-border rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-app-accent focus:border-app-accent"
-                              placeholder="한 줄에 하나씩 입력 (예: URL:/admin/**)"></textarea>
+                    <textarea id="targets" th:field="*{targets}" rows="3" class="mt-1 block w-full px-4 py-2.5 font-mono text-sm bg-white border border-app-border rounded-lg shadow-sm" placeholder="한 줄에 하나씩 입력 (예: URL:/admin/**)"></textarea>
                     <p class="text-xs text-slate-500 mt-1">형식: [타입]:[식별자]. 예) URL:/api/v1/**, METHOD:com.example.service.AdminService.deleteUser</p>
                 </div>
 
-                <div>
-                    <label for="conditions" class="block text-sm font-medium text-app-dark-gray">조건 (Conditions - AND 로 결합):</label>
-                    <textarea id="conditions" th:field="*{conditions}" rows="5" class="mt-1 block w-full px-4 py-2.5 font-mono text-sm bg-white border border-app-border rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-app-accent focus:border-app-accent"
-                              placeholder="한 줄에 하나씩 SpEL 표현식 입력"></textarea>
-                    <p class="text-xs text-slate-500 mt-1">예) hasRole('ADMIN'), #riskScore &lt; 40, #request.remoteAddr == '192.168.1.1'</p>
+                <div class="space-y-4">
+                    <label class="block text-sm font-medium text-app-dark-gray">규칙 (Rules - 각 규칙은 OR 로 결합)</label>
+                    <div id="rules-container" class="space-y-4">
+                        <div th:each="rule, stat : *{rules}" class="rule-block p-4 border border-slate-200 rounded-lg space-y-3 relative">
+                            <button type="button" onclick="removeRule(this)" class="absolute top-2 right-2 text-slate-400 hover:text-error">&times;</button>
+                            <h3 class="font-semibold text-slate-700" th:text="'규칙(Rule) #' + (${stat.index} + 1)"></h3>
+                            <div>
+                                <label th:for="|ruleDesc${stat.index}|" class="block text-sm font-medium text-slate-600">규칙 설명:</label>
+                                <input type="text" th:id="|ruleDesc${stat.index}|" th:field="*{rules[__${stat.index}__].description}" class="mt-1 block w-full px-4 py-2 bg-white border border-app-border rounded-md shadow-sm sm:text-sm" />
+                            </div>
+                            <div>
+                                <label th:for="|conditions${stat.index}|" class="block text-sm font-medium text-slate-600">조건 (Conditions - Rule 내부에서는 AND 결합):</label>
+                                <textarea th:id="|conditions${stat.index}|" th:field="*{rules[__${stat.index}__].conditions}" rows="3" class="mt-1 block w-full px-4 py-2 font-mono text-sm bg-white border border-app-border rounded-md shadow-sm" placeholder="한 줄에 하나씩 SpEL 표현식 입력"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" id="add-rule-btn" class="text-sm font-medium text-app-accent hover:underline">+ 규칙 추가</button>
                 </div>
 
-
                 <div class="pt-2">
-                    <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-app-accent hover:bg-app-accent-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-app-accent transition-all duration-150 ease-in-out transform hover:scale-105"
-                            th:text="${policy.id != null ? '정책 저장' : '정책 등록'}"></button>
+                    <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-app-accent hover:bg-app-accent-hover">
+                        저장
+                    </button>
                 </div>
             </form>
             <div class="mt-6 text-center">
-                <a th:href="@{/admin/policies}" class="text-sm text-app-accent hover:text-app-accent-hover font-medium hover:underline">
-                    정책 목록으로 돌아가기
-                </a>
+                <a th:href="@{/admin/policies}" class="text-sm text-app-accent hover:text-app-accent-hover font-medium">정책 목록으로 돌아가기</a>
             </div>
         </div>
     </main>
 </div>
 
 <div th:insert="~{fragments/footer :: footer}" class="mt-auto"></div>
+
+<script>
+    document.getElementById('add-rule-btn').addEventListener('click', function() {
+        const rulesContainer = document.getElementById('rules-container');
+        const ruleBlocks = rulesContainer.getElementsByClassName('rule-block');
+        const newIndex = ruleBlocks.length;
+
+        const newRuleBlock = document.createElement('div');
+        newRuleBlock.className = 'rule-block p-4 border border-slate-200 rounded-lg space-y-3 relative';
+        newRuleBlock.innerHTML = `
+            <button type="button" onclick="removeRule(this)" class="absolute top-2 right-2 text-slate-400 hover:text-error">&times;</button>
+            <h3 class="font-semibold text-slate-700">규칙(Rule) #${newIndex + 1}</h3>
+            <div>
+                <label for="ruleDesc${newIndex}" class="block text-sm font-medium text-slate-600">규칙 설명:</label>
+                <input type="text" id="ruleDesc${newIndex}" name="rules[${newIndex}].description" class="mt-1 block w-full px-4 py-2 bg-white border border-app-border rounded-md shadow-sm sm:text-sm" />
+            </div>
+            <div>
+                <label for="conditions${newIndex}" class="block text-sm font-medium text-slate-600">조건 (Conditions - Rule 내부에서는 AND 결합):</label>
+                <textarea id="conditions${newIndex}" name="rules[${newIndex}].conditions" rows="3" class="mt-1 block w-full px-4 py-2 font-mono text-sm bg-white border border-app-border rounded-md shadow-sm" placeholder="한 줄에 하나씩 SpEL 표현식 입력"></textarea>
+            </div>
+        `;
+        rulesContainer.appendChild(newRuleBlock);
+    });
+
+    function removeRule(button) {
+        const ruleBlock = button.closest('.rule-block');
+        ruleBlock.remove();
+        // 인덱스를 다시 정렬하여 form 전송 시 데이터가 누락되지 않도록 함
+        const rulesContainer = document.getElementById('rules-container');
+        const ruleBlocks = rulesContainer.getElementsByClassName('rule-block');
+        for (let i = 0; i < ruleBlocks.length; i++) {
+            const block = ruleBlocks[i];
+            block.querySelector('h3').textContent = `규칙(Rule) #${i + 1}`;
+            block.querySelector('label[for^="ruleDesc"]').setAttribute('for', `ruleDesc${i}`);
+            block.querySelector('input[id^="ruleDesc"]').id = `ruleDesc${i}`;
+            block.querySelector('input[id^="ruleDesc"]').name = `rules[${i}].description`;
+            block.querySelector('label[for^="conditions"]').setAttribute('for', `conditions${i}`);
+            block.querySelector('textarea[id^="conditions"]').id = `conditions${i}`;
+            block.querySelector('textarea[id^="conditions"]').name = `rules[${i}].conditions`;
+        }
+    }
+</script>
+
 </body>
 </html>
