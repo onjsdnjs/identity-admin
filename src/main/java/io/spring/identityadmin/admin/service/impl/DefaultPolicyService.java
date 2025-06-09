@@ -33,13 +33,13 @@ public class DefaultPolicyService implements PolicyService {
     @Override
     @Transactional(readOnly = true)
     public List<Policy> getAllPolicies() {
-        return policyRepository.findAll();
+        return policyRepository.findAllWithDetails();
     }
 
     @Override
     @Transactional(readOnly = true)
     public Policy findById(Long id) {
-        return policyRepository.findById(id)
+        return policyRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new IllegalArgumentException("Policy not found with ID: " + id));
     }
 

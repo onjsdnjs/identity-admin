@@ -10,5 +10,4 @@ import java.time.LocalDateTime;
 public record EnvironmentDetails(
         String remoteIp,
         LocalDateTime timestamp,
-        HttpServletRequest request // 원본 요청 객체에 대한 참조를 유지하여 확장성 확보
-) {}
+        HttpServletRequest request /* 원본 요청 객체에 대한 참조를 유지하여 확장성 확보 */) {}
