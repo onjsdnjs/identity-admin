@@ -47,10 +47,22 @@ public class UserGroup implements Serializable {
 }
 
 // 복합 PK를 위한 ID 클래스
-@Data // @EqualsAndHashCode, @NoArgsConstructor, @AllArgsConstructor 자동 생성
 @NoArgsConstructor
 @AllArgsConstructor
 class UserGroupId implements Serializable {
     private Long user;  // Users 엔티티의 ID 타입과 일치해야 함
     private Long group; // Group 엔티티의 ID 타입과 일치해야 함
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        UserGroupId that = (UserGroupId) o;
+        return Objects.equals(user, that.user) && Objects.equals(group, that.group);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(user, group);
+    }
 }

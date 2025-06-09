@@ -47,10 +47,10 @@ public class GroupRole implements Serializable {
 }
 
 // 복합 PK를 위한 ID 클래스
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 class GroupRoleId implements Serializable {
     private Long group; // Group 엔티티의 ID 타입과 일치해야 함
     private Long role;  // Role 엔티티의 ID 타입과 일치해야 함
+
 }

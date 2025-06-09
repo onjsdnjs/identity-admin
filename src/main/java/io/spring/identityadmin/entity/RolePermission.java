@@ -47,10 +47,22 @@ public class RolePermission implements Serializable {
 }
 
 // 복합 PK를 위한 ID 클래스
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 class RolePermissionId implements Serializable {
     private Long role;      // Role 엔티티의 ID 타입과 일치해야 함
     private Long permission; // Permission 엔티티의 ID 타입과 일치해야 함
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        RolePermissionId that = (RolePermissionId) o;
+        return Objects.equals(role, that.role) && Objects.equals(permission, that.permission);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(role, permission);
+    }
 }
