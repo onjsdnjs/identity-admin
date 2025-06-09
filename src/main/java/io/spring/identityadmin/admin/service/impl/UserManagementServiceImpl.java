@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Transactional
     @Override
     @CacheEvict(value = "usersWithAuthorities", key = "#userDto.username", allEntries = true)
+    @PreAuthorize("#dynamicRule.getValue(#root)")
     public void modifyUser(@ModelAttribute UserDto userDto){
         Users users = userRepository.findById(userDto.getId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userDto.getId()));
@@ -58,6 +60,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Transactional(readOnly = true)
+    @PreAuthorize("#dynamicRule.getValue(#root)")
     public UserDto getUser(Long id) {
         Users users = userRepository.findByIdWithGroupsRolesAndPermissions(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));
@@ -101,6 +104,7 @@ public class UserManagementServiceImpl implements UserManagementService {
 
 
     @Transactional(readOnly = true)
+    @PreAuthorize("#dynamicRule.getValue(#root)")
     public List<Users> getUsers() {
         return userRepository.findAllWithDetails();
     }
@@ -108,6 +112,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @Transactional
     @CacheEvict(value = "usersWithAuthorities", key = "#id")
+    @PreAuthorize("#dynamicRule.getValue(#root)")
     public void deleteUser(Long id) {
         userRepository.deleteById(id);
         log.info("User ID {} deleted.", id);

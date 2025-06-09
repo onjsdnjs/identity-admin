@@ -2,7 +2,9 @@ package io.spring.identityadmin.security;
 
 import io.spring.identityadmin.security.authorization.expression.CustomMethodSecurityExpressionHandler;
 import io.spring.identityadmin.security.authorization.expression.CustomPermissionEvaluator;
+import io.spring.identityadmin.security.authorization.manager.CustomDynamicAuthorizationManager;
 import io.spring.identityadmin.security.authorization.service.MethodResourceService;
+import io.spring.identityadmin.security.authorization.service.PolicyRetrievalPoint;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
@@ -11,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
+import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -23,10 +26,12 @@ import org.springframework.security.web.SecurityFilterChain;
 @RequiredArgsConstructor
 @EnableMethodSecurity
 public class MySecurityConfig {
-
+    private final CustomDynamicAuthorizationManager customDynamicAuthorizationManager;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http.authorizeHttpRequests(auth -> auth
+                .anyRequest().access(customDynamicAuthorizationManager));
         http.formLogin(Customizer.withDefaults());
         return http.build();
     }
@@ -54,8 +59,8 @@ public class MySecurityConfig {
     public MethodSecurityExpressionHandler methodSecurityExpressionHandler(
             CustomPermissionEvaluator customPermissionEvaluator,
             RoleHierarchy roleHierarchy,
-            MethodResourceService methodResourceService) {
-        return new CustomMethodSecurityExpressionHandler(methodResourceService, customPermissionEvaluator, roleHierarchy);
+            PolicyRetrievalPoint policyRetrievalPoint) {
+        return new CustomMethodSecurityExpressionHandler(customPermissionEvaluator, roleHierarchy, policyRetrievalPoint);
     }
 
     // RoleHierarchy 빈 등록 (계층적 역할 지원)

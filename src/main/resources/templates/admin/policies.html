@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments/common-head :: head-elements(pageTitle='정책 목록')}"></head>
+<body class="flex flex-col min-h-screen bg-app-light-gray font-sans text-app-dark-gray">
+
+<div th:insert="~{fragments/header :: header}"></div>
+<div id="toast-container" class="fixed top-5 right-5 z-50 w-full max-w-xs sm:max-w-sm"></div>
+
+<div class="flex flex-1">
+    <aside th:insert="~{fragments/admin-menu :: menu}" class="hidden md:block"></aside>
+
+    <main class="flex-1 p-6 md:p-10">
+        <div class="max-w-6xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+            <div class="mb-8 flex flex-col sm:flex-row justify-between items-center">
+                <h1 class="text-3xl font-bold text-app-primary mb-4 sm:mb-0">정책 목록 (Policy List)</h1>
+                <a th:href="@{/admin/policies/register}" class="px-6 py-2.5 bg-app-accent text-white font-medium text-xs leading-tight uppercase rounded shadow-md hover:bg-app-accent-hover hover:shadow-lg focus:bg-app-accent-hover focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg transition duration-150 ease-in-out">
+                    새 정책 등록
+                </a>
+            </div>
+
+            <div class="overflow-x-auto shadow-md rounded-lg">
+                <table class="min-w-full w-full text-sm text-left text-app-dark-gray">
+                    <thead class="text-xs text-white uppercase bg-app-secondary">
+                    <tr>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">ID</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">정책명 (Name)</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">설명</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">효과 (Effect)</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">우선순위</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">대상(Target) 수</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">관리</th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-app-border">
+                    <tr th:each="policy : ${policies}">
+                        <td class="py-4 px-6" th:text="${policy.id}">1</td>
+                        <td class="py-4 px-6 font-medium" th:text="${policy.name}">Admin Full Access</td>
+                        <td class="py-4 px-6" th:text="${policy.description}">관리자 전체 접근 권한</td>
+                        <td class="py-4 px-6">
+                            <span th:text="${policy.effect}"
+                                  th:classappend="${policy.effect.name() == 'ALLOW' ? 'text-success' : 'text-error'}"
+                                  class="font-bold">ALLOW</span>
+                        </td>
+                        <td class="py-4 px-6" th:text="${policy.priority}">10</td>
+                        <td class="py-4 px-6" th:text="${policy.targets != null ? #lists.size(policy.targets) : 0}">1</td>
+                        <td class="py-4 px-6">
+                            <a th:href="@{/admin/policies/{id}(id=${policy.id})}" class="text-app-accent hover:underline mr-3">수정</a>
+                            <a th:href="@{/admin/policies/delete/{id}(id=${policy.id})}" class="text-error hover:underline" onclick="return confirm('정말로 이 정책을 삭제하시겠습니까?');">삭제</a>
+                        </td>
+                    </tr>
+                    <tr th:if="${#lists.isEmpty(policies)}">
+                        <td colspan="7" class="py-4 px-6 text-center text-slate-500">
+                            표시할 정책이 없습니다.
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div th:insert="~{fragments/footer :: footer}" class="mt-auto"></div>
+</body>
+</html>

@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.authorization.service;
 
+import io.spring.identityadmin.admin.repository.PolicyRepository;
 import io.spring.identityadmin.entity.policy.Policy;
-import io.spring.identityadmin.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,7 +27,17 @@ public class DatabasePolicyRetrievalPoint implements PolicyRetrievalPoint {
 
     @Override
     public void clearUrlPoliciesCache() {
-        // @CacheEvict 어노테이션이 실제 캐시 무효화를 처리합니다.
-        log.info("URL policies cache evicted.");
+        log.info("URL policies cache will be evicted by annotation.");
+    }
+
+    @Override
+    public List<Policy> findMethodPolicies(String methodIdentifier) {
+        log.debug("Fetching method policies for identifier: {}", methodIdentifier);
+        return policyRepository.findByMethodIdentifier(methodIdentifier);
+    }
+
+    @Override
+    public void clearMethodPoliciesCache() {
+        log.info("Method policies cache will be evicted by annotation.");
     }
 }

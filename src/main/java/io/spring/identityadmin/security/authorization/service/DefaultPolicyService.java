@@ -5,7 +5,7 @@ import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyCondition;
 import io.spring.identityadmin.entity.policy.PolicyRule;
 import io.spring.identityadmin.entity.policy.PolicyTarget;
-import io.spring.identityadmin.repository.PolicyRepository;
+import io.spring.identityadmin.admin.repository.PolicyRepository;
 import io.spring.identityadmin.security.authorization.manager.CustomDynamicAuthorizationManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
