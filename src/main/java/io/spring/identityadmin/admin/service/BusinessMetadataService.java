@@ -16,6 +16,8 @@ public interface BusinessMetadataService {
     /** @return 정책 설정에 사용할 수 있는 모든 비즈니스 자원 목록 */
     List<BusinessResource> getAllBusinessResources();
 
+    List<BusinessAction> getAllBusinessActions();
+
     /** @return 특정 자원에 대해 수행할 수 있는 모든 비즈니스 행위 목록 */
     List<BusinessAction> getActionsForResource(Long businessResourceId);
 

@@ -29,6 +29,9 @@ public class BusinessAction implements Serializable {
     @Column(nullable = false)
     private String actionType; // Permission의 actionType과 매핑될 기술적 타입 (예: READ)
 
+    @Column(nullable = false)
+    private String mappedPermissionName; // 예: "PERMISSION_READ"
+
     @Column(length = 1024)
     private String description;
 

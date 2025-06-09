@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments/common-head :: head-elements(pageTitle='사용자 친화적 정책 생성')}"></head>
+<body class="flex flex-col min-h-screen bg-app-light-gray font-sans text-app-dark-gray">
+
+<div th:insert="~{fragments/header :: header}"></div>
+
+<main class="flex-1 p-6 md:p-10 flex items-center justify-center">
+    <div class="w-full max-w-2xl bg-white p-8 sm:p-10 rounded-xl shadow-2xl">
+        <div class="text-center mb-8">
+            <h2 class="mt-4 text-3xl font-bold text-app-primary">새 비즈니스 정책 설정</h2>
+            <p class="text-slate-500 mt-2">일반 사용자를 위한 정책 설정 화면입니다.</p>
+        </div>
+
+        <form th:action="@{/admin/business-policies}" method="post" th:object="${businessPolicy}" class="space-y-6">
+
+            <div>
+                <label for="policyName" class="block text-sm font-medium">정책 이름:</label>
+                <input type="text" th:field="*{policyName}" class="mt-1 block w-full border-app-border rounded-md"/>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium">누가 (주체):</label>
+                <div class="grid grid-cols-2 gap-4 mt-1">
+                    <div>
+                        <label for="subjectUserIds" class="text-xs">사용자 선택 (다중 선택 가능)</label>
+                        <select id="subjectUserIds" th:field="*{subjectUserIds}" multiple class="w-full border-app-border rounded-md h-24">
+                            <option th:each="user : ${users}" th:value="${user.id}" th:text="${user.name}"></option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="subjectGroupIds" class="text-xs">그룹 선택 (다중 선택 가능)</label>
+                        <select id="subjectGroupIds" th:field="*{subjectGroupIds}" multiple class="w-full border-app-border rounded-md h-24">
+                            <option th:each="group : ${groups}" th:value="${group.id}" th:text="${group.name}"></option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <label for="businessResourceId" class="block text-sm font-medium">무엇을 (자원):</label>
+                <select id="businessResourceId" th:field="*{businessResourceId}" class="mt-1 block w-full border-app-border rounded-md">
+                    <option value="">-- 자원 선택 --</option>
+                    <option th:each="resource : ${resources}" th:value="${resource.id}" th:text="${resource.name}"></option>
+                </select>
+            </div>
+
+            <div>
+                <label for="businessActionId" class="block text-sm font-medium">어떻게 (행위):</label>
+                <select id="businessActionId" th:field="*{businessActionId}" class="mt-1 block w-full border-app-border rounded-md">
+                    <option value="">-- 행위 선택 --</option>
+                    <option th:each="action : ${actions}" th:value="${action.id}" th:text="${action.name}"></option>
+                </select>
+            </div>
+
+            <div class="pt-4">
+                <button type="submit" class="w-full py-3 px-4 text-white bg-app-accent hover:bg-app-accent-hover rounded-lg shadow-sm">정책 생성하기</button>
+            </div>
+        </form>
+    </div>
+</main>
+
+<div th:insert="~{fragments/footer :: footer}" class="mt-auto"></div>
+</body>
+</html>
