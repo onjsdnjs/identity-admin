@@ -64,7 +64,7 @@ public class CustomMethodSecurityExpressionHandler extends DefaultMethodSecurity
 
     private String buildExpressionFromPolicies(List<Policy> policies) {
         // 가장 우선순위가 높은 정책 하나만 사용.
-        Policy policy = policies.get(0);
+        Policy policy = policies.getFirst();
 
         String conditionExpression = policy.getRules().stream()
                 .flatMap(rule -> rule.getConditions().stream())

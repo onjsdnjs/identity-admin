@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Entity
 @NoArgsConstructor
@@ -52,5 +53,48 @@ public class Users {
         // 모든 인스턴스가 고유한 해시코드를 갖도록 하거나,
         // 비즈니스 키 또는 ID 기반으로 구현. 여기서는 클래스 해시코드를 사용.
         return getClass().hashCode();
+    }
+
+    /**
+     * [신규] 사용자가 가진 모든 역할의 이름을 중복 없이 정렬하여 반환합니다.
+     */
+    @Transient
+    public List<String> getRoleNames() {
+        if (userGroups == null || userGroups.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return this.userGroups.stream()
+                .map(UserGroup::getGroup)
+                .filter(Objects::nonNull)
+                .flatMap(group -> group.getGroupRoles().stream())
+                .map(GroupRole::getRole)
+                .filter(Objects::nonNull)
+                .map(Role::getRoleName)
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * [신규] 사용자가 가진 모든 권한의 이름을 중복 없이 정렬하여 반환합니다.
+     */
+    @Transient
+    public List<String> getPermissionNames() {
+        if (userGroups == null || userGroups.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return this.userGroups.stream()
+                .map(UserGroup::getGroup)
+                .filter(Objects::nonNull)
+                .flatMap(group -> group.getGroupRoles().stream())
+                .map(GroupRole::getRole)
+                .filter(Objects::nonNull)
+                .flatMap(role -> role.getRolePermissions().stream())
+                .map(RolePermission::getPermission)
+                .filter(Objects::nonNull)
+                .map(Permission::getName)
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
     }
 }

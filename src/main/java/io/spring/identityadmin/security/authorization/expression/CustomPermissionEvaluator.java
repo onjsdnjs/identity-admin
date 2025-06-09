@@ -1,6 +1,7 @@
 package io.spring.identityadmin.security.authorization.expression;
 
 import io.spring.identityadmin.admin.repository.PermissionRepository;
+import io.spring.identityadmin.admin.service.DocumentService;
 import io.spring.identityadmin.entity.Permission;
 import io.spring.identityadmin.security.authorization.auth.PermissionAuthority;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +24,7 @@ import java.util.Optional;
 public class CustomPermissionEvaluator implements PermissionEvaluator {
 
     private final PermissionRepository permissionRepository;
-    // DocumentService 의존성은 isUserOwnerOfDocument 같은 특정 로직이 필요할 때 주입. 현재는 SpEL로 대체되었으므로 제거 가능.
-    // private final DocumentService documentService;
+     private final DocumentService documentService;
     private final SpelExpressionParser expressionParser = new SpelExpressionParser();
 
     @Override

@@ -10,7 +10,7 @@
     <aside th:insert="~{fragments/admin-menu :: menu}" class="hidden md:block"></aside>
 
     <main class="flex-1 p-6 md:p-10">
-        <div class="max-w-4xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+        <div class="max-w-6xl mx-auto bg-white p-6 sm:p-8 rounded-xl shadow-lg">
             <div class="mb-8 text-center sm:text-left">
                 <h1 class="text-3xl font-bold text-app-primary">관리자 - 사용자 목록</h1>
                 <p class="text-slate-600 mt-1">플랫폼에 등록된 사용자 계정을 관리합니다.</p>
@@ -31,18 +31,30 @@
                     </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-app-border">
-                    <tr id="usersTableLoadingRow">
-                        <td colspan="8" class="py-4 px-6 text-center text-slate-400 italic">
-                            <div class="flex justify-center items-center space-x-2">
-                                <svg class="animate-spin h-5 w-5 text-app-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <span>사용자 정보를 불러오는 중입니다...</span>
-                            </div>
+                    <tr th:each="user : ${users}">
+                        <td class="py-4 px-6" th:text="${user.id}">1</td>
+                        <td class="py-4 px-6" th:text="${user.name}">관리자</td>
+                        <td class="py-4 px-6" th:text="${user.username}">admin@example.com</td>
+                        <td class="py-4 px-6">
+                            <span th:text="${#strings.listJoin(user.userGroups.![group.name], ', ')}"></span>
+                        </td>
+                        <td class="py-4 px-6">
+                            <span th:text="${#strings.listJoin(user.getRoleNames(), ', ')}"></span>
+                        </td>
+                        <td class="py-4 px-6">
+                            <span th:text="${#strings.listJoin(user.getPermissionNames(), ', ')}"></span>
+                        </td>
+                        <td class="py-4 px-6">
+                        <span th:text="${user.mfaEnabled ? '활성화' : '비활성화'}"
+                              th:classappend="${user.mfaEnabled ? 'text-green-600' : 'text-slate-500'}"
+                              class="font-semibold"></span>
+                        </td>
+                        <td class="py-4 px-6">
+                            <a th:href="@{/admin/users/{id}(id=${user.id})}" class="text-app-accent hover:underline mr-3">수정</a>
+                            <a th:href="@{/admin/users/delete/{id}(id=${user.id})}" class="text-error hover:underline" onclick="return confirm('정말로 이 사용자를 삭제하시겠습니까?');">삭제</a>
                         </td>
                     </tr>
-                    <tr id="usersTableEmptyRow" style="display: none;">
+                    <tr th:if="${#lists.isEmpty(users)}">
                         <td colspan="8" class="py-4 px-6 text-center text-slate-500">
                             표시할 사용자가 없습니다.
                         </td>
@@ -50,15 +62,11 @@
                     </tbody>
                 </table>
             </div>
-            <div class="mt-6 text-center">
-                <button id="loadUsersBtn" class="px-6 py-2.5 bg-app-accent text-white font-medium text-xs leading-tight uppercase rounded shadow-md hover:bg-app-accent-hover hover:shadow-lg focus:bg-app-accent-hover focus:shadow-lg focus:outline-none focus:ring-0 active:bg-blue-800 active:shadow-lg transition duration-150 ease-in-out">
-                    사용자 목록 새로고침
-                </button>
-            </div>
-            <div th:if="${message}" class="mt-6 text-center text-success">
+
+            <div th:if="${message}" class="mt-6 text-center text-green-600">
                 <p th:text="${message}"></p>
             </div>
-            <div th:if="${errorMessage}" class="mt-6 text-center text-error">
+            <div th:if="${errorMessage}" class="mt-6 text-center text-red-600">
                 <p th:text="${errorMessage}"></p>
             </div>
         </div>
@@ -67,13 +75,9 @@
 
 <div th:insert="~{fragments/footer :: footer}" class="mt-auto"></div>
 
-<script th:src="@{/js/admin-users.js}"></script> <script th:inline="javascript">
+<script th:inline="javascript">
     /*<![CDATA[*/
     document.addEventListener('DOMContentLoaded', () => {
-        if (typeof initAuth === 'function') {
-            initAuth();
-        }
-        // 토스트 메시지 표시
         const message = /*[[${message}]]*/ null;
         if (message) {
             showToast(message, 'success');
