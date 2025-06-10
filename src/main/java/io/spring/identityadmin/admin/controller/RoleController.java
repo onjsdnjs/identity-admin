@@ -2,9 +2,8 @@ package io.spring.identityadmin.admin.controller;
 
 import io.spring.identityadmin.admin.service.PermissionService;
 import io.spring.identityadmin.admin.service.RoleService;
-import io.spring.identityadmin.domain.dto.PermissionListDto;
+import io.spring.identityadmin.domain.dto.PermissionDto;
 import io.spring.identityadmin.domain.dto.RoleDto;
-import io.spring.identityadmin.domain.dto.RoleListDto;
 import io.spring.identityadmin.entity.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +15,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Controller
@@ -31,8 +29,8 @@ public class RoleController {
 	@GetMapping
 	public String getRoles(Model model) {
 		List<Role> roles = roleService.getRoles();
-		List<RoleListDto> dtoList = roles.stream().map(role -> {
-			RoleListDto dto = modelMapper.map(role, RoleListDto.class);
+		List<RoleDto> dtoList = roles.stream().map(role -> {
+			RoleDto dto = modelMapper.map(role, RoleDto.class);
 			dto.setPermissionCount(role.getRolePermissions() != null ? role.getRolePermissions().size() : 0);
 			return dto;
 		}).toList();
@@ -62,8 +60,8 @@ public class RoleController {
 		RoleDto roleDto = modelMapper.map(role, RoleDto.class);
 		List<Long> selectedPermissionIds = role.getRolePermissions().stream().map(rp -> rp.getPermission().getId()).toList();
 
-		List<PermissionListDto> permissionList = permissionService.getAllPermissions().stream()
-				.map(p -> modelMapper.map(p, PermissionListDto.class))
+		List<PermissionDto> permissionList = permissionService.getAllPermissions().stream()
+				.map(p -> modelMapper.map(p, PermissionDto.class))
 				.toList();
 
 		model.addAttribute("role", roleDto);

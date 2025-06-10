@@ -1,11 +1,14 @@
 package io.spring.identityadmin.domain.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import io.spring.identityadmin.entity.GroupRole;
+import io.spring.identityadmin.entity.UserGroup;
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.OneToMany;
+import lombok.*;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -15,5 +18,9 @@ public class GroupDto {
     private Long id;
     private String name;
     private String description;
-    private List<Long> selectedRoleIds; // UI에서 선택된 Role ID 목록을 받기 위함
+    private List<Long> selectedRoleIds;
+    private int roleCount;
+    private int userCount;
+    private Set<UserGroup> userGroups = new HashSet<>();
+    private Set<GroupRole> groupRoles = new HashSet<>();
 }

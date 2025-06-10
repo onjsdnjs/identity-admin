@@ -2,7 +2,6 @@ package io.spring.identityadmin.admin.controller;
 
 import io.spring.identityadmin.admin.service.PermissionService;
 import io.spring.identityadmin.domain.dto.PermissionDto;
-import io.spring.identityadmin.domain.dto.PermissionListDto;
 import io.spring.identityadmin.entity.Permission;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +12,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/admin/permissions") // 권한 관리를 위한 공통 경로 설정
@@ -32,8 +30,8 @@ public class PermissionController {
     @GetMapping
     public String getPermissions(Model model) {
         List<Permission> permissions = permissionService.getAllPermissions();
-        List<PermissionListDto> dtoList = permissions.stream()
-                .map(p -> modelMapper.map(p, PermissionListDto.class))
+        List<PermissionDto> dtoList = permissions.stream()
+                .map(p -> modelMapper.map(p, PermissionDto.class))
                 .toList();
         model.addAttribute("permissions", dtoList);
         return "admin/permissions";

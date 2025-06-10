@@ -3,7 +3,6 @@ package io.spring.identityadmin.admin.controller;
 import io.spring.identityadmin.admin.service.GroupService;
 import io.spring.identityadmin.admin.service.RoleService;
 import io.spring.identityadmin.domain.dto.GroupDto;
-import io.spring.identityadmin.domain.dto.GroupListDto;
 import io.spring.identityadmin.domain.dto.RoleMetadataDto;
 import io.spring.identityadmin.entity.Group;
 import io.spring.identityadmin.entity.Role;
@@ -34,12 +33,12 @@ public class GroupController {
         // 서비스는 엔티티 리스트를 반환
         List<Group> groups = groupService.getAllGroups();
         // [수정] 컨트롤러에서 DTO 리스트로 변환
-        List<GroupListDto> groupListDtos = groups.stream().map(group -> {
-            GroupListDto dto = modelMapper.map(group, GroupListDto.class);
+        List<GroupDto> groupListDtos = groups.stream().map(group -> {
+            GroupDto dto = modelMapper.map(group, GroupDto.class);
             dto.setRoleCount(group.getGroupRoles() != null ? group.getGroupRoles().size() : 0);
             dto.setUserCount(group.getUserGroups() != null ? group.getUserGroups().size() : 0);
             return dto;
-        }).collect(Collectors.toList());
+        }).toList();
         model.addAttribute("groups", groupListDtos);
         return "admin/groups";
     }

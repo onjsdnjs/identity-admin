@@ -17,4 +17,5 @@ public class RoleDto{
     private String roleDesc;
     private String isExpression;
     private List<Long> permissionIds;
+    private int permissionCount;
 }
