@@ -35,23 +35,14 @@
                         <td class="py-4 px-6" th:text="${user.id}">1</td>
                         <td class="py-4 px-6" th:text="${user.name}">관리자</td>
                         <td class="py-4 px-6" th:text="${user.username}">admin@example.com</td>
+                        <td class="py-4 px-6" th:text="${user.groupCount}"></td>
+                        <td class="py-4 px-6" th:text="${user.roleCount}"></td>
                         <td class="py-4 px-6">
-                            <span th:text="${#strings.listJoin(user.userGroups.![group.name], ', ')}"></span>
+                            <span th:text="${user.mfaEnabled ? '활성화' : '비활성화'}" ...></span>
                         </td>
                         <td class="py-4 px-6">
-                            <span th:text="${#strings.listJoin(user.getRoleNames(), ', ')}"></span>
-                        </td>
-                        <td class="py-4 px-6">
-                            <span th:text="${#strings.listJoin(user.getPermissionNames(), ', ')}"></span>
-                        </td>
-                        <td class="py-4 px-6">
-                        <span th:text="${user.mfaEnabled ? '활성화' : '비활성화'}"
-                              th:classappend="${user.mfaEnabled ? 'text-green-600' : 'text-slate-500'}"
-                              class="font-semibold"></span>
-                        </td>
-                        <td class="py-4 px-6">
-                            <a th:href="@{/admin/users/{id}(id=${user.id})}" class="text-app-accent hover:underline mr-3">수정</a>
-                            <a th:href="@{/admin/users/delete/{id}(id=${user.id})}" class="text-error hover:underline" onclick="return confirm('정말로 이 사용자를 삭제하시겠습니까?');">삭제</a>
+                            <a th:href="@{/admin/users/{id}(id=${user.id})}" ...>수정</a>
+                            <a th:href="@{/admin/users/delete/{id}(id=${user.id})}" ...>삭제</a>
                         </td>
                     </tr>
                     <tr th:if="${#lists.isEmpty(users)}">
