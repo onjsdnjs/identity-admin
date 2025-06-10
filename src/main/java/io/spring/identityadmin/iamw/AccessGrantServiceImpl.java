@@ -11,6 +11,7 @@ import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -33,6 +34,7 @@ public class AccessGrantServiceImpl implements AccessGrantService {
     private final ManagedResourceRepository managedResourceRepository;
     private final BusinessResourceActionRepository businessResourceActionRepository;
     private final UserRepository userRepository;
+    private final ModelMapper modelMapper;
 
     /**
      * GrantRequestDto를 기반으로 새로운 Policy를 생성합니다.
@@ -112,7 +114,7 @@ public class AccessGrantServiceImpl implements AccessGrantService {
                 .conditions(finalConditions).build();
 
         String policyName = String.format("Workbench-Grant-%s-%s",
-                targets.get(0).getTargetIdentifier().replaceAll("[^a-zA-Z0-9]", ""),
+                targets.getFirst().getTargetIdentifier().replaceAll("[^a-zA-Z0-9]", ""),
                 System.currentTimeMillis());
 
         return PolicyDto.builder()

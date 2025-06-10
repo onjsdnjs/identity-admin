@@ -13,7 +13,7 @@ import java.util.List;
 public interface PolicyService {
     List<Policy> getAllPolicies();
     Policy findById(Long id);
-    PolicyDto createPolicy(PolicyDto policyDto);
-    PolicyDto updatePolicy(PolicyDto policyDto);
+    Policy createPolicy(PolicyDto policyDto);
+    void updatePolicy(PolicyDto policyDto);
     void deletePolicy(Long id);
 }

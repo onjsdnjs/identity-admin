@@ -49,18 +49,18 @@ public class DefaultPolicyService implements PolicyService {
     }
 
     @Override
-    public PolicyDto createPolicy(PolicyDto policyDto) {
+    public Policy createPolicy(PolicyDto policyDto) {
         Policy policy = convertDtoToEntity(policyDto);
         policyEnrichmentService.enrichPolicyWithFriendlyDescription(policy);
         Policy savedPolicy = policyRepository.save(policy);
 
         reloadAuthorizationSystem();
         log.info("Policy created and authorization system reloaded. Policy Name: {}", savedPolicy.getName());
-        return modelMapper.map(savedPolicy, PolicyDto.class);
+        return savedPolicy;
     }
 
     @Override
-    public PolicyDto updatePolicy(PolicyDto policyDto) {
+    public void updatePolicy(PolicyDto policyDto) {
         Policy existingPolicy = findById(policyDto.getId());
         policyEnrichmentService.enrichPolicyWithFriendlyDescription(existingPolicy);
         updateEntityFromDto(existingPolicy, policyDto);
@@ -68,7 +68,6 @@ public class DefaultPolicyService implements PolicyService {
 
         reloadAuthorizationSystem();
         log.info("Policy updated and authorization system reloaded. Policy ID: {}", updatedPolicy.getId());
-        return modelMapper.map(updatedPolicy, PolicyDto.class);
     }
 
     @Override

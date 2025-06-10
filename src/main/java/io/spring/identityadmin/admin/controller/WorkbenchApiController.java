@@ -48,7 +48,7 @@ public class WorkbenchApiController {
     }
 
     @PostMapping("/grants")
-    public ResponseEntity<Policy> grantAccess(@RequestBody GrantRequestDto grantRequest) {
+    public ResponseEntity<PolicyDto> grantAccess(@RequestBody GrantRequestDto grantRequest) {
         return ResponseEntity.ok(accessGrantService.grantAccess(grantRequest));
     }
 

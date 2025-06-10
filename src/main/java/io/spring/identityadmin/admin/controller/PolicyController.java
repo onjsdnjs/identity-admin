@@ -27,9 +27,7 @@ public class PolicyController {
 
     @GetMapping
     public String listPolicies(Model model) {
-        // 서비스는 엔티티 리스트를 반환
         List<Policy> policies = policyService.getAllPolicies();
-        // [수정] 컨트롤러에서 DTO 리스트로 변환
         List<PolicyListDto> dtoList = policies.stream()
                 .map(p -> modelMapper.map(p, PolicyListDto.class))
                 .collect(Collectors.toList());
@@ -65,14 +63,9 @@ public class PolicyController {
 
     @PostMapping("/{id}/edit")
     public String updatePolicy(@PathVariable Long id, @ModelAttribute PolicyDto policyDto, RedirectAttributes ra) {
-        try {
-            policyDto.setId(id);
-            policyService.updatePolicy(policyDto);
-            ra.addFlashAttribute("message", "정책이 성공적으로 수정되었습니다.");
-        } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", "정책 수정 실패: " + e.getMessage());
-            log.error("Error updating policy", e);
-        }
+        policyDto.setId(id);
+        policyService.updatePolicy(policyDto);
+        ra.addFlashAttribute("message", "정책이 성공적으로 수정되었습니다.");
         return "redirect:/admin/policies";
     }
 
