@@ -60,13 +60,13 @@ public class MvcResourceScanner implements ResourceScanner {
             final String httpMethod = mappingInfo.getMethodsCondition().getMethods().stream()
                     .findFirst().map(Enum::name).orElse("ANY");
 
-            final String resourceIdentifier = httpMethod + ":" + urlPattern;
             final String methodName = handlerMethod.getMethod().getName();
             final String friendlyName = convertCamelCaseToTitleCase(methodName);
             final String description = "Mapped to: " + handlerMethod.toString();
 
             resources.add(ManagedResource.builder()
-                    .resourceIdentifier(resourceIdentifier)
+                    .resourceIdentifier(urlPattern)
+                    .httpMethod(ManagedResource.HttpMethod.valueOf(httpMethod))
                     .resourceType(ManagedResource.ResourceType.URL)
                     .friendlyName(friendlyName)
                     .description(description)

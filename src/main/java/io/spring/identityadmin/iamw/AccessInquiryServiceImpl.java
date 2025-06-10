@@ -38,6 +38,7 @@ public class AccessInquiryServiceImpl implements AccessInquiryService {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final PolicyTranslator policyTranslator;
+    private final List<SubjectAuthorityResolver> authorityResolvers;
 
     /**
      * 특정 리소스에 대한 모든 권한 부여(Entitlement) 현황을 조회합니다.
@@ -143,22 +144,14 @@ public class AccessInquiryServiceImpl implements AccessInquiryService {
     }
 
     private Set<String> getAuthoritiesForSubject(Long subjectId, String subjectType) {
-        if ("USER".equalsIgnoreCase(subjectType)) {
-            Users user = userRepository.findByIdWithGroupsRolesAndPermissions(subjectId)
-                    .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + subjectId));
-            return new CustomUserDetails(user).getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)
-                    .collect(Collectors.toSet());
-        }
-        if ("GROUP".equalsIgnoreCase(subjectType)) {
-            Group group = groupRepository.findByIdWithRoles(subjectId)
-                    .orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + subjectId));
-            return new CustomUserDetails(Users.builder().userGroups(Set.of(new io.spring.identityadmin.entity.UserGroup(null, group))).build())
-                    .getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)
-                    .collect(Collectors.toSet());
-        }
-        return Collections.emptySet();
+        SubjectAuthorityResolver resolver = authorityResolvers.stream()
+                .filter(r -> r.supports(subjectType))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unsupported subject type: " + subjectType));
+
+        return resolver.resolveAuthorities(subjectId).stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
     }
 
     private boolean isPolicySatisfiedBy(Policy policy, Set<String> subjectAuthorities) {

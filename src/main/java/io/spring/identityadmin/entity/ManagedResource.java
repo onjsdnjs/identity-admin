@@ -21,6 +21,9 @@ public class ManagedResource {
     @Column(nullable = false)
     private ResourceType resourceType;
 
+    @Enumerated(EnumType.STRING)
+    private HttpMethod httpMethod;
+
     @Column(nullable = false)
     private String friendlyName;
 
@@ -39,5 +42,9 @@ public class ManagedResource {
 
     public enum ResourceType {
         URL, METHOD
+    }
+
+    public enum HttpMethod {
+        GET, POST, PUT, DELETE
     }
 }
