@@ -18,7 +18,7 @@ public interface AccessGrantService {
      * @param grantRequest 권한 부여에 필요한 정보(주체, 리소스, 행위, 조건)를 담은 DTO
      * @return 생성/수정된 기술 정책(Policy) 목록
      */
-    List<Policy> grantAccess(GrantRequestDto grantRequest);
+    Policy grantAccess(GrantRequestDto grantRequest);
 
     /**
      * 특정 주체의 특정 리소스에 대한 접근 권한을 회수합니다.

@@ -28,6 +28,9 @@ public class ManagedResource {
 
     private String serviceOwner; // 이 리소스를 소유한 서비스 또는 모듈 (e.g., "회원 관리 서비스")
 
+    @Column(length = 1024)
+    private String defaultRule; // @PreAuthorize 등에서 스캔된 기본 규칙 SpEL
+
     public enum ResourceType {
         URL, METHOD
     }

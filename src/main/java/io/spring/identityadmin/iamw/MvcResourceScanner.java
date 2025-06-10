@@ -16,7 +16,7 @@ import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
-public class MvcResourceScannerImpl implements ResourceScanner {
+public class MvcResourceScanner implements ResourceScanner {
 
     private final RequestMappingHandlerMapping handlerMapping;
 
