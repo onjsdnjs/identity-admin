@@ -36,5 +36,8 @@ public class Policy implements Serializable {
     @Builder.Default
     private Set<PolicyRule> rules = new HashSet<>();
 
+    @Column(length = 2048)
+    private String friendlyDescription;
+
     public enum Effect { ALLOW, DENY }
 }

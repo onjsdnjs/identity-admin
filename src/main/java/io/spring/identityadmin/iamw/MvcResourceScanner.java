@@ -1,10 +1,9 @@
 package io.spring.identityadmin.iamw;
 
-// package io.spring.identityadmin.workbench.infra;
-
-import io.spring.identityadmin.annotation.SecuredResource;
 import io.spring.identityadmin.entity.ManagedResource;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
@@ -14,6 +13,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * [최종 수정] @SecuredResource 의존성을 완전히 제거하고, 모든 @RequestMapping 계열 엔드포인트를 스캔합니다.
+ * 리소스의 이름과 설명은 API 문서 표준인 @Operation 어노테이션을 활용합니다.
+ */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class MvcResourceScanner implements ResourceScanner {
@@ -26,21 +30,51 @@ public class MvcResourceScanner implements ResourceScanner {
         Map<RequestMappingInfo, HandlerMethod> handlerMethods = handlerMapping.getHandlerMethods();
 
         for (Map.Entry<RequestMappingInfo, HandlerMethod> entry : handlerMethods.entrySet()) {
+            RequestMappingInfo mappingInfo = entry.getKey();
             HandlerMethod handlerMethod = entry.getValue();
-            SecuredResource securedResource = handlerMethod.getMethodAnnotation(SecuredResource.class);
 
-            if (securedResource != null) {
-                // URL 패턴 문자열을 가져옴 (첫 번째 패턴만 사용, 필요시 확장)
-                String urlPattern = entry.getKey().getPatternsCondition().getPatterns().iterator().next();
-
-                resources.add(ManagedResource.builder()
-                        .resourceIdentifier(urlPattern)
-                        .resourceType(ManagedResource.ResourceType.URL)
-                        .friendlyName(securedResource.name())
-                        .description(securedResource.description())
-                        .serviceOwner(handlerMethod.getBeanType().getSimpleName())
-                        .build());
+            // 프로젝트 내부의 컨트롤러만 대상으로 필터링
+            if (!handlerMethod.getBeanType().getPackageName().startsWith("io.spring.identityadmin")) {
+                continue;
             }
+
+            // URL 패턴 추출
+            String urlPattern = mappingInfo.getPatternsCondition().getPatterns().stream()
+                    .findFirst().orElse(null);
+            if (urlPattern == null) {
+                continue;
+            }
+
+            // HTTP 메서드 추출
+            String httpMethod = mappingInfo.getMethodsCondition().getMethods().stream()
+                    .findFirst().map(Enum::name).orElse("ANY");
+
+            // 기술적 식별자 생성 (HTTP 메서드와 URL 조합으로 고유성 확보)
+            String resourceIdentifier = httpMethod + ":" + urlPattern;
+
+            // @Operation 어노테이션에서 이름과 설명 추출
+            Operation operation = handlerMethod.getMethodAnnotation(Operation.class);
+            String friendlyName;
+            String description;
+
+            if (operation != null && !operation.summary().isEmpty()) {
+                friendlyName = operation.summary();
+                description = operation.description();
+            } else {
+                // @Operation이 없는 경우, 기본값 생성
+                friendlyName = httpMethod + " " + urlPattern;
+                description = "Class: " + handlerMethod.getBeanType().getSimpleName() + ", Method: " + handlerMethod.getMethod().getName();
+            }
+
+            resources.add(ManagedResource.builder()
+                    .resourceIdentifier(resourceIdentifier)
+                    .resourceType(ManagedResource.ResourceType.URL)
+                    .friendlyName(friendlyName)
+                    .description(description)
+                    .serviceOwner(handlerMethod.getBeanType().getSimpleName())
+                    .build());
+
+            log.debug("Discovered URL Resource: {}", resourceIdentifier);
         }
         return resources;
     }

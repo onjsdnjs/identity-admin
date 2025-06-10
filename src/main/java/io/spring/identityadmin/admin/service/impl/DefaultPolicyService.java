@@ -8,6 +8,7 @@ import io.spring.identityadmin.entity.policy.PolicyCondition;
 import io.spring.identityadmin.entity.policy.PolicyRule;
 import io.spring.identityadmin.entity.policy.PolicyTarget;
 import io.spring.identityadmin.admin.repository.PolicyRepository;
+import io.spring.identityadmin.iamw.PolicyEnrichmentService;
 import io.spring.identityadmin.security.authorization.manager.CustomDynamicAuthorizationManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class DefaultPolicyService implements PolicyService {
     private final PolicyRepository policyRepository;
     private final PolicyRetrievalPoint policyRetrievalPoint;
     private final CustomDynamicAuthorizationManager authorizationManager;
+    private final PolicyEnrichmentService policyEnrichmentService; // [추가]
 
     @Override
     @Transactional(readOnly = true)
@@ -46,6 +48,7 @@ public class DefaultPolicyService implements PolicyService {
     @Override
     public Policy createPolicy(PolicyDto policyDto) {
         Policy policy = convertDtoToEntity(policyDto);
+        policyEnrichmentService.enrichPolicyWithFriendlyDescription(policy);
         Policy savedPolicy = policyRepository.save(policy);
 
         reloadAuthorizationSystem();
@@ -56,7 +59,7 @@ public class DefaultPolicyService implements PolicyService {
     @Override
     public Policy updatePolicy(PolicyDto policyDto) {
         Policy existingPolicy = findById(policyDto.getId());
-        // DTO의 내용으로 기존 엔티티 업데이트 (ID, 관계 등은 유지)
+        policyEnrichmentService.enrichPolicyWithFriendlyDescription(existingPolicy);
         updateEntityFromDto(existingPolicy, policyDto);
         Policy updatedPolicy = policyRepository.save(existingPolicy);
 

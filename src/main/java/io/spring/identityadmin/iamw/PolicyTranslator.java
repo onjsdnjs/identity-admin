@@ -6,6 +6,7 @@ import io.spring.identityadmin.admin.repository.RoleRepository;
 import io.spring.identityadmin.domain.dto.EntitlementDto;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyCondition;
+import io.spring.identityadmin.entity.policy.PolicyRule;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.expression.Expression;
@@ -112,6 +113,37 @@ public class PolicyTranslator {
             log.warn("Could not parse SpEL expression: {}. Treating as opaque condition.", condition.getExpression(), e);
             return new TerminalNode(condition.getExpression()); // 파싱 실패 시 원본 문자열 그대로 반환
         }
+    }
+
+    /**
+     * [신규] Policy 전체를 받아, 규칙들을 조합하여 최종 ExpressionNode 트리로 파싱합니다.
+     * 이 메서드가 외부에서 호출되는 유일한 진입점입니다.
+     * @param policy 분석할 Policy 객체
+     * @return 분석된 규칙을 나타내는 최상위 ExpressionNode
+     */
+    public ExpressionNode parsePolicy(Policy policy) {
+        if (policy == null || policy.getRules() == null || policy.getRules().isEmpty()) {
+            return new TerminalNode("정의된 규칙 없음");
+        }
+
+        // 각 Rule은 AND로 묶인 조건들의 집합이며, Rule 끼리는 OR로 연결됩니다.
+        List<ExpressionNode> ruleNodes = policy.getRules().stream()
+                .map(this::parseRule)
+                .collect(Collectors.toList());
+
+        return (ruleNodes.size() == 1) ? ruleNodes.get(0) : new LogicalNode("OR", ruleNodes);
+    }
+
+    /**
+     * PolicyRule 하나를 파싱하여 ExpressionNode로 변환합니다.
+     * Rule 내의 Condition들은 AND로 연결됩니다.
+     */
+    private ExpressionNode parseRule(PolicyRule rule) {
+        List<ExpressionNode> conditionNodes = rule.getConditions().stream()
+                .map(this::parseCondition)
+                .collect(Collectors.toList());
+
+        return (conditionNodes.size() == 1) ? conditionNodes.get(0) : new LogicalNode("AND", conditionNodes);
     }
 
     private ExpressionNode walk(SpelNode node) {
