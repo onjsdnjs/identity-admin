@@ -31,6 +31,10 @@ public class ManagedResource {
     @Column(length = 1024)
     private String defaultRule; // @PreAuthorize 등에서 스캔된 기본 규칙 SpEL
 
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isManaged = true;
+
     public enum ResourceType {
         URL, METHOD
     }

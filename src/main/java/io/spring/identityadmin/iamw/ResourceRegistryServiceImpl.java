@@ -45,8 +45,10 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
         for (ManagedResource discovered : distinctResources) {
             ManagedResource existing = existingResources.get(discovered.getResourceIdentifier());
             if (existing == null) {
-                managedResourceRepository.save(discovered);
-                log.info("New resource registered: {}", discovered.getResourceIdentifier());
+                existingResources.computeIfAbsent(discovered.getResourceIdentifier(), k -> {
+                    log.info("New resource registered: {}", discovered.getResourceIdentifier());
+                    return managedResourceRepository.save(discovered);
+                });
             } else {
                 boolean updated = false;
                 if (!existing.getFriendlyName().equals(discovered.getFriendlyName())) {
