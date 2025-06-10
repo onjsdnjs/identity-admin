@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -31,10 +32,17 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
                 .flatMap(scanner -> scanner.scan().stream())
                 .toList();
 
+        List<ManagedResource> distinctResources = discoveredResources.stream()
+                .filter(r -> r.getResourceIdentifier() != null)
+                .collect(Collectors.collectingAndThen(
+                        Collectors.toMap(ManagedResource::getResourceIdentifier, Function.identity(), (r1, r2) -> r1),
+                        map -> new ArrayList<>(map.values())
+                ));
+
         Map<String, ManagedResource> existingResources = managedResourceRepository.findAll().stream()
                 .collect(Collectors.toMap(ManagedResource::getResourceIdentifier, Function.identity()));
 
-        for (ManagedResource discovered : discoveredResources) {
+        for (ManagedResource discovered : distinctResources) {
             ManagedResource existing = existingResources.get(discovered.getResourceIdentifier());
             if (existing == null) {
                 managedResourceRepository.save(discovered);
