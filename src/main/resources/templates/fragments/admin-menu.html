@@ -1,24 +1,21 @@
 <div th:fragment="menu">
     <nav class="bg-app-secondary text-white w-64 min-h-full p-5 space-y-6 shadow-lg">
         <div>
-            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mb-2 px-3">
-                IAM Command Center
-            </h3>
-            <ul class="space-y-2">
-                <li>
-                    <a th:href="@{/admin/dashboard}" th:classappend="${#httpServletRequest.requestURI.startsWith('/admin/dashboard') ? 'active' : ''}"
-                       class="menu-link">
-                        <svg></svg>
-                        <span>대시보드</span>
-                    </a>
-                </li>
-                <li>
-                    <a th:href="@{/admin/workbench}" th:classappend="${#httpServletRequest.requestURI.startsWith('/admin/workbench') ? 'active' : ''}"
-                       class="menu-link">
-                        <svg></svg>
-                        <span>통합 워크벤치</span>
-                    </a>
-                </li>
+            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mb-2 px-3">IAM Command Center</h3>
+            <ul class="space-y-1">
+                <li><a th:href="@{/admin/workbench}" class="menu-link font-bold bg-app-primary"><svg></svg><span>통합 워크벤치</span></a></li>
+                <li><a th:href="@{/admin/dashboard}" class="menu-link"><svg></svg><span>대시보드</span></a></li>
+            </ul>
+        </div>
+        <div>
+            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mt-4 mb-2 px-3">상세 관리 (기존 메뉴)</h3>
+            <ul class="space-y-1">
+                <li><a th:href="@{/admin/users}" class="menu-link-sub">사용자 관리</a></li>
+                <li><a th:href="@{/admin/groups}" class="menu-link-sub">그룹 관리</a></li>
+                <li><a th:href="@{/admin/roles}" class="menu-link-sub">역할 관리</a></li>
+                <li><a th:href="@{/admin/permissions}" class="menu-link-sub">권한 관리</a></li>
+                <li><a th:href="@{/admin/role-hierarchies}" class="menu-link-sub">역할 계층 관리</a></li>
+                <li><a th:href="@{/admin/policies}" class="menu-link-sub">기술 정책 관리</a></li>
             </ul>
         </div>
     </nav>

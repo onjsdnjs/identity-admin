@@ -2,106 +2,40 @@
  * ===================================================================
  * IAM Command Center - Unified Workbench (v3.0)
  * -------------------------------------------------------------------
- * 이 스크립트는 단일 페이지에서 모든 IAM 관련 관리 작업을 처리합니다.
- * - 상태 기반의 동적 UI 렌더링
- * - 컨텍스트 인식 상세 정보 및 액션 패널
- * - 모든 데이터는 백엔드 API를 통해 비동기적으로 로드됩니다.
+ * 최종 버전: 기존 상세 관리 페이지와의 유기적 통합 기능 구현
  * ===================================================================
  */
 class WorkbenchApp {
-    /**
-     * 애플리케이션 초기화
-     */
     constructor() {
-        // 1. 애플리케이션의 상태 관리
-        this.state = {
-            currentView: 'resources', // 현재 탐색기 뷰 (resources, subjects, roles)
-            selectedItemId: null,
-            selectedItemType: null,
-            selectedItemName: '',
-            debounceTimer: null,
-            metadataCache: {} // API 응답 캐싱용
-        };
-        // 2. DOM 요소 캐싱
+        this.state = { currentView: 'resources' };
         this.cacheDOMElements();
-        // 3. 이벤트 리스너 바인딩
+        this.loadingSpinner = `<div class="flex items-center justify-center p-8"><svg class="animate-spin h-8 w-8 text-app-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></div>`;
         this.bindEventListeners();
-        // 4. 초기 데이터 로드
         this.loadExplorerData();
     }
 
-    /**
-     * UI의 핵심 DOM 요소들을 미리 찾아 변수에 할당합니다.
-     */
     cacheDOMElements() {
         this.elements = {
             viewSelector: document.getElementById('view-selector'),
             searchInput: document.getElementById('explorer-search-input'),
             explorerList: document.getElementById('explorer-list'),
             workspace: document.getElementById('workspace'),
+            workspacePlaceholder: document.getElementById('workspace-placeholder')
         };
     }
 
-    /**
-     * 모든 UI 상호작용을 위한 이벤트 리스너를 등록합니다.
-     */
-    bindEventListeners() {
-        // 탐색기: 뷰(관점) 변경
-        this.elements.viewSelector.addEventListener('change', (e) => {
-            this.state.currentView = e.target.value;
-            this.elements.searchInput.value = '';
-            this.elements.searchInput.placeholder = `${e.target.options[e.target.selectedIndex].text} 검색...`;
-            this.clearWorkspace('관점이 변경되었습니다. 좌측에서 항목을 선택해주세요.');
-            this.loadExplorerData();
-        });
-
-        // 탐색기: 검색어 입력 (디바운싱 적용)
-        this.elements.searchInput.addEventListener('input', (e) => {
-            clearTimeout(this.state.debounceTimer);
-            this.state.debounceTimer = setTimeout(() => {
-                this.loadExplorerData(e.target.value);
-            }, 300);
-        });
-
-        // 탐색기: 목록에서 항목 선택 (이벤트 위임)
-        this.elements.explorerList.addEventListener('click', (e) => {
-            const itemElement = e.target.closest('.explorer-item');
-            if (itemElement) {
-                this.handleItemSelect(itemElement);
-            }
-        });
-
-        // 워크스페이스: 동적으로 생성된 요소들에 대한 이벤트 처리 (이벤트 위임)
-        this.elements.workspace.addEventListener('click', (e) => {
-            if (e.target.classList.contains('revoke-btn')) {
-                this.handleRevokeClick(e.target);
-            }
-            // ... 향후 탭 클릭, 버튼 클릭 등 추가 가능
-        });
-
-        this.elements.workspace.addEventListener('submit', (e) => {
-            if (e.target && e.target.id === 'grant-form') {
-                this.handleGrantSubmit(e);
-            }
-        });
-    }
-
-    // ================== 4. 핵심 로직 및 데이터 로딩 ==================
-
-    /**
-     * API 통신을 위한 중앙 헬퍼 함수
-     */
     async fetchAPI(url, options = {}) {
         try {
-            const defaultHeaders = { 'Content-Type': 'application/json' };
+            const defaultHeaders = { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' };
             const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
             const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
             if (csrfToken && csrfHeader) defaultHeaders[csrfHeader] = csrfToken;
 
             const response = await fetch(url, { ...options, headers: { ...defaultHeaders, ...options.headers } });
+
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: `서버 오류: ${response.status}` }));
-                throw new Error(errorData.message || '알 수 없는 오류.');
+                throw new Error(errorData.message || '알 수 없는 오류가 발생했습니다.');
             }
             return response.status === 204 ? null : response.json();
         } catch (error) {
@@ -110,197 +44,148 @@ class WorkbenchApp {
         }
     }
 
-    /**
-     * 현재 선택된 뷰(관점)에 따라 탐색기 목록을 API로 로드하고 렌더링합니다.
-     */
+    bindEventListeners() {
+        this.elements.viewSelector.addEventListener('change', e => {
+            this.state.currentView = e.target.value;
+            this.elements.searchInput.value = '';
+            this.clearWorkspace();
+            this.loadExplorerData();
+        });
+
+        this.elements.searchInput.addEventListener('input', e => {
+            clearTimeout(this.state.debounceTimer);
+            this.state.debounceTimer = setTimeout(() => this.loadExplorerData(e.target.value), 300);
+        });
+
+        this.elements.explorerList.addEventListener('click', e => {
+            const itemElement = e.target.closest('.explorer-item');
+            if (itemElement) this.handleItemSelect(itemElement);
+        });
+    }
+
     async loadExplorerData(keyword = '') {
-        this.renderExplorerLoading();
-        let url, data;
+        this.elements.explorerList.innerHTML = this.loadingSpinner;
+        let url = `/api/workbench/${this.state.currentView}?keyword=${encodeURIComponent(keyword)}`;
+        if (this.state.currentView === 'subjects') url = '/api/workbench/metadata/subjects';
+
         try {
-            switch (this.state.currentView) {
-                case 'subjects':
-                    data = await this.fetchAPI('/api/workbench/metadata/subjects');
-                    // 검색은 클라이언트 사이드에서 간단히 처리 (실제로는 백엔드 검색 지원 필요)
-                    if (keyword) {
-                        const lowerKeyword = keyword.toLowerCase();
-                        data.users = data.users.filter(u => u.name.toLowerCase().includes(lowerKeyword) || u.username.toLowerCase().includes(lowerKeyword));
-                        data.groups = data.groups.filter(g => g.name.toLowerCase().includes(lowerKeyword));
-                    }
-                    break;
-                case 'roles':
-                    data = await this.fetchAPI(`/api/workbench/metadata/roles?keyword=${encodeURIComponent(keyword)}`);
-                    break;
-                case 'resources':
-                default:
-                    const pageData = await this.fetchAPI(`/api/workbench/resources?keyword=${encodeURIComponent(keyword)}`);
-                    data = pageData.content;
-                    break;
-            }
-            this.renderExplorerList(data);
+            let data = await this.fetchAPI(url);
+            let items = this.state.currentView === 'resources' ? data.content : data;
+            this.renderExplorerList(items);
         } catch (error) {
-            this.elements.explorerList.innerHTML = `<div class="p-4 text-center text-error">데이터 로딩 실패.</div>`;
+            this.elements.explorerList.innerHTML = `<div class="p-4 text-center text-red-500">목록 로딩 실패.</div>`;
         }
     }
 
-    /**
-     * 탐색기에서 특정 항목을 선택했을 때의 모든 로직을 처리합니다.
-     */
-    handleItemSelect(element) {
-        this.state.selectedItemId = element.dataset.id;
-        this.state.selectedItemType = element.dataset.type;
-        this.state.selectedItemName = element.querySelector('p.font-semibold')?.textContent || '';
+    renderExplorerList(data) {
+        this.elements.explorerList.innerHTML = '';
+        let itemsHtml = '';
+        switch (this.state.currentView) {
+            case 'resources':
+                itemsHtml = data.map(item => this.getExplorerItemHtml(item.id, 'resource', item.friendlyName, item.resourceIdentifier)).join('');
+                break;
+            case 'subjects':
+                itemsHtml += `<div class="explorer-header">그룹</div>`;
+                itemsHtml += data.groups.map(item => this.getExplorerItemHtml(item.id, 'group', item.name, item.description)).join('');
+                itemsHtml += `<div class="explorer-header">사용자</div>`;
+                itemsHtml += data.users.map(item => this.getExplorerItemHtml(item.id, 'user', item.name, item.username)).join('');
+                break;
+            case 'roles':
+                itemsHtml = data.map(item => this.getExplorerItemHtml(item.id, 'role', item.roleName, item.roleDesc)).join('');
+                break;
+        }
+        this.elements.explorerList.innerHTML = itemsHtml || `<div class="p-4 text-center text-slate-500">결과가 없습니다.</div>`;
+    }
 
+    getExplorerItemHtml(id, type, title, subtitle) {
+        return `
+            <div class="explorer-item" data-id="${id}" data-type="${type}" data-name="${title}">
+                <p class="font-semibold text-app-dark-gray">${title}</p>
+                <p class="text-xs text-slate-500 truncate" title="${subtitle || ''}">${subtitle || ''}</p>
+            </div>`;
+    }
+
+    handleItemSelect(element) {
         document.querySelectorAll('.explorer-item.selected').forEach(el => el.classList.remove('selected'));
         element.classList.add('selected');
 
-        this.renderWorkspace();
+        const { id, type, name } = element.dataset;
+        this.renderWorkspace(id, type, name);
     }
 
-    /**
-     * 선택된 항목의 타입에 따라 워크스페이스 전체를 다시 렌더링합니다.
-     */
-    async renderWorkspace() {
-        this.renderWorkspaceLoading();
-        const { selectedItemId: id, selectedItemType: type, selectedItemName: name } = this.state;
+    renderWorkspace(id, type, name) {
+        this.elements.workspacePlaceholder.classList.add('hidden');
+        const workspaceHtml = `
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <p class="text-sm font-semibold text-app-accent uppercase">${type}</p>
+                    <h2 class="text-2xl font-bold text-app-secondary">${name}</h2>
+                </div>
+                <a href="/admin/${type}s/${id}" target="_blank" class="action-button">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    상세 편집 / 권한 관리
+                </a>
+            </div>
+            <div class="border-t pt-4">
+                <h3 class="font-bold mb-2">요약된 접근 권한 현황</h3>
+                <div id="workspace-entitlements" class="space-y-2">
+                    ${this.loadingSpinner}
+                </div>
+            </div>
+        `;
+        this.elements.workspace.innerHTML = workspaceHtml;
+        this.loadWorkspaceEntitlements(id, type);
+    }
 
-        if (!id || !type) {
-            this.clearWorkspace();
-            return;
-        }
-
-        let detailHtml = '';
+    async loadWorkspaceEntitlements(id, type) {
+        const container = document.getElementById('workspace-entitlements');
         try {
-            if (type === 'resource') {
-                const entitlements = await this.fetchAPI(`/api/workbench/entitlements/by-resource?resourceId=${id}`);
-                detailHtml = this.getResourceDetailHtml(name, entitlements);
-            } else if (type === 'user' || type === 'group') {
-                const entitlements = await this.fetchAPI(`/api/workbench/entitlements/by-subject?type=${type.toUpperCase()}&id=${id}`);
-                detailHtml = this.getSubjectDetailHtml(name, type, entitlements);
+            let entitlements;
+            if(type === 'resource'){
+                entitlements = await this.fetchAPI(`/api/workbench/entitlements/by-resource?resourceId=${id}`);
+            } else {
+                entitlements = await this.fetchAPI(`/api/workbench/entitlements/by-subject?type=${type.toUpperCase()}&id=${id}`);
             }
-            // ... 역할(Role)에 대한 상세 뷰 추가 ...
 
-            this.elements.workspace.innerHTML = detailHtml;
-            // 권한 부여 폼이 있다면, 메타데이터 로드
-            if (document.getElementById('grant-form')) {
-                this.initGrantForm();
+            if (!entitlements || entitlements.length === 0) {
+                container.innerHTML = `<div class="p-4 text-center text-slate-500 bg-slate-50 rounded-lg">정의된 접근 권한이 없습니다.</div>`;
+                return;
             }
+
+            // Entitlement 정보를 기반으로 UI 렌더링
+            const cardsHtml = entitlements.map(ent => `
+                <div class="entitlement-card">
+                    <p><strong class="text-gray-800">${ent.subjectName}</strong> (이)가 <strong class="text-gray-800">${ent.resourceName}</strong>에 대해</p>
+                    <p class="text-app-accent font-semibold">${ent.actions.join(', ')}</p>
+                    <p class="text-xs text-gray-500 mt-1">조건: ${ent.conditions.join(' ')}</p>
+                </div>
+            `).join('');
+            container.innerHTML = cardsHtml;
 
         } catch (error) {
-            this.elements.workspace.innerHTML = `<div class="p-8 text-center text-error">상세 정보 로딩에 실패했습니다.</div>`;
+            container.innerHTML = `<div class="p-4 text-center text-red-500">권한 정보를 불러오는 데 실패했습니다.</div>`;
         }
     }
 
-    /**
-     * 권한 부여 폼에 필요한 메타데이터(주체, 행위 목록)를 API로 가져와 채웁니다.
-     */
-    async initGrantForm() {
-        const subjectsSelect = document.getElementById('grant-subjects');
-        const actionsSelect = document.getElementById('grant-actions');
-        if (!subjectsSelect || !actionsSelect) return;
-
-        try {
-            if (!this.state.metadataCache.subjects) {
-                this.state.metadataCache.subjects = await this.fetchAPI('/api/workbench/metadata/subjects');
-            }
-            const subjectsData = this.state.metadataCache.subjects;
-
-            // 리소스에 따라 가능한 행위가 달라지므로, 캐시하지 않음
-            const actionsData = await this.fetchAPI(`/api/workbench/metadata/actions?resourceId=${this.state.selectedItemId}`);
-
-            // 주체 목록 채우기
-            subjectsSelect.innerHTML = `
-                <optgroup label="그룹">${subjectsData.groups.map(g => `<option value="GROUP_${g.id}">${g.name}</option>`).join('')}</optgroup>
-                <optgroup label="사용자">${subjectsData.users.map(u => `<option value="USER_${u.id}">${u.name} (${u.username})</option>`).join('')}</optgroup>`;
-
-            // 행위 목록 채우기
-            actionsSelect.innerHTML = actionsData.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
-
-        } catch (error) { /* 에러는 fetchAPI에서 이미 처리 */ }
+    clearWorkspace() {
+        this.elements.workspace.innerHTML = '';
+        this.elements.workspace.appendChild(this.elements.workspacePlaceholder);
+        this.elements.workspacePlaceholder.classList.remove('hidden');
     }
-
-    // ================== 5. 동적 이벤트 핸들링 ==================
-
-    /**
-     * 권한 회수 버튼 클릭을 처리합니다.
-     */
-    async handleRevokeClick(target) {
-        const policyId = target.dataset.policyId;
-        if (confirm(`정말로 이 권한(정책 ID: ${policyId})을 회수하시겠습니까?`)) {
-            try {
-                await this.fetchAPI('/api/workbench/revocations', {
-                    method: 'DELETE',
-                    body: JSON.stringify({ policyId: parseInt(policyId), revokeReason: 'Revoked from workbench' })
-                });
-                showToast('권한이 회수되었습니다.', 'success');
-                this.renderWorkspace(); // 워크스페이스 리프레시
-            } catch (error) { /* 에러는 fetchAPI에서 이미 처리 */ }
-        }
-    }
-
-    /**
-     * 권한 부여 폼 제출을 처리합니다.
-     */
-    async handleGrantSubmit(event) {
-        event.preventDefault();
-        const form = event.target;
-        const grantSubjectsSelect = form.querySelector('#grant-subjects');
-        const grantActionsSelect = form.querySelector('#grant-actions');
-        const grantReasonInput = form.querySelector('#grant-reason');
-
-        const selectedSubjects = Array.from(grantSubjectsSelect.selectedOptions).map(opt => {
-            const [type, id] = opt.value.split('_');
-            return { id: parseInt(id), type };
-        });
-
-        if (selectedSubjects.length === 0) {
-            showToast('하나 이상의 주체를 선택해주세요.', 'error'); return;
-        }
-
-        const grantRequest = {
-            subjects: selectedSubjects,
-            resourceIds: [this.state.selectedItemId],
-            actionIds: Array.from(grantActionsSelect.selectedOptions).map(opt => parseInt(opt.value)),
-            grantReason: grantReasonInput.value
-        };
-
-        try {
-            await this.fetchAPI('/api/workbench/grants', { method: 'POST', body: JSON.stringify(grantRequest) });
-            showToast('권한이 부여되었습니다.', 'success');
-            this.renderWorkspace(); // 워크스페이스 리프레시
-        } catch(error) { /* 에러는 fetchAPI에서 이미 처리 */ }
-    }
-
-    // ================== 6. UI 템플릿 및 헬퍼 ==================
-    renderExplorerLoading() { this.elements.explorerList.innerHTML = `<div class="p-4 text-center text-slate-500">로딩 중...</div>`; }
-    renderWorkspaceLoading() { this.elements.workspace.innerHTML = `<div class="p-8 text-center text-slate-500">로딩 중...</div>`; }
-    clearWorkspace(message) {
-        this.elements.workspace.innerHTML = `
-            <div class="flex flex-col items-center justify-center h-full text-slate-500">
-                <p class="mt-4 text-lg">${message || '좌측 탐색기에서 항목을 선택해주세요.'}</p>
-            </div>`;
-    }
-
-    getExplorerItemHtml(item, type) { /* ... */ }
-
-    getResourceDetailHtml(resourceName, entitlements) {
-        const entitlementCards = (!entitlements || entitlements.length === 0)
-            ? `<div class="p-4 text-center text-slate-500">부여된 접근 권한이 없습니다.</div>`
-            : entitlements.map(ent => ``).join('');
-
-        return `
-            <div class="grid grid-cols-10 gap-6">
-                <div class="col-span-6">
-                    <h2 class="text-xl font-bold text-app-secondary">권한 현황: ${resourceName}</h2>
-                    <div class="mt-4 space-y-3">${entitlementCards}</div>
-                </div>
-                <div class="col-span-4 bg-gray-50 p-4 rounded-lg">
-                    <h2 class="text-xl font-bold text-app-secondary">새 권한 부여</h2>
-                    </div>
-            </div>`;
-    }
-
-    getSubjectDetailHtml(subjectName, type, entitlements) { /* ... */ }
 }
 
-// 애플리케이션 인스턴스 생성 및 실행
-new WorkbenchApp();
+// 애플리케이션 시작
+document.addEventListener('DOMContentLoaded', () => new WorkbenchApp());
+
+// CSS 추가 (workbench.html 하단 또는 별도 css 파일)
+const style = document.createElement('style');
+style.textContent = `
+    .explorer-item { padding: 0.75rem; border-radius: 0.5rem; cursor: pointer; transition: background-color 0.2s; border: 1px solid transparent; }
+    .explorer-item:hover { background-color: #f3f4f6; }
+    .explorer-item.selected { background-color: #e0e7ff; border-color: #6366f1; }
+    .explorer-header { padding: 0.75rem 0.5rem 0.25rem; font-size: 0.75rem; font-weight: 600; color: #475569; text-transform: uppercase; }
+    .action-button { display: inline-flex; align-items: center; padding: 0.5rem 1rem; background-color: #4f46e5; color: white; border-radius: 0.5rem; font-weight: 500; transition: background-color 0.2s; }
+    .action-button:hover { background-color: #4338ca; }
+    .entitlement-card { background-color: #f8fafc; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 0.5rem; }
+`;
+document.head.appendChild(style);

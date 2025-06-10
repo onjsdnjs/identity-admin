@@ -46,5 +46,17 @@ public interface UserRepository extends JpaRepository<Users, Long> {
             "LEFT JOIN FETCH r.rolePermissions rp " +
             "LEFT JOIN FETCH rp.permission p")
     List<Users> findAllWithDetails();
+
+    /**
+     * [쿼리 최종 수정] JOIN을 사용하여 'ADMIN' 역할을 가지면서 MFA가 비활성화된 사용자를 최적화된 방식으로 조회합니다.
+     * @return MFA가 비활성화된 관리자 계정 목록
+     */
+    @Query("SELECT DISTINCT u FROM Users u " +
+            "JOIN u.userGroups ug " +
+            "JOIN ug.group g " +
+            "JOIN g.groupRoles gr " +
+            "JOIN gr.role r " +
+            "WHERE u.mfaEnabled = false AND r.roleName = 'ADMIN'")
+    List<Users> findAdminsWithMfaDisabled();
 }
 

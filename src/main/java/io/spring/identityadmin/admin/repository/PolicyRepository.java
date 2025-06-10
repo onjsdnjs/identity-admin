@@ -44,6 +44,13 @@ public interface PolicyRepository extends JpaRepository<Policy, Long> {
     List<Policy> findAllUrlPoliciesWithDetails();
 
     /**
+     * [신규] ID를 기준으로 내림차순 정렬하여 최근 5개의 정책을 조회합니다.
+     * 감사 로그(Audit Log)가 구현되기 전까지 대시보드의 '최근 활동'에 사용됩니다.
+     * @return 최근 생성된 Policy 5개 리스트
+     */
+    List<Policy> findTop5ByOrderByIdDesc();
+
+    /**
      * Ant-style 경로 매칭을 지원하는 편의 메서드.
      * DB에서 모든 URL 정책을 가져온 후, 메모리에서 AntPathMatcher를 사용해 필터링합니다.
      * @param requestUrl 매칭할 요청 URL (e.g., /admin/users/1)
