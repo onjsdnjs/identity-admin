@@ -12,5 +12,5 @@ public interface ManagedResourceRepositoryCustom {
      * @param pageable 페이징 정보
      * @return 페이징 처리된 리소스 목록
      */
-    Page<ManagedResource> findBySearch(ResourceSearchCriteria criteria, Pageable pageable);
+    Page<ManagedResource> findByCriteria(ResourceSearchCriteria criteria, Pageable pageable);
 }

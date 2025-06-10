@@ -10,4 +10,5 @@ import lombok.Data;
 public class ResourceSearchCriteria {
     private String keyword; // friendlyName, resourceIdentifier, serviceOwner 등에서 검색
     private ManagedResource.ResourceType resourceType; // URL 또는 METHOD
+    private boolean isManaged;
 }

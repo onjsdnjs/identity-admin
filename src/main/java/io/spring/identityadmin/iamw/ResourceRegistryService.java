@@ -6,6 +6,8 @@ import io.spring.identityadmin.entity.ManagedResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.util.List;
+
 /**
  * ResourceScanner를 통해 탐지된 리소스를 DB에 등록하고,
  * 사용자 친화적인 메타데이터를 관리하는 서비스입니다.
@@ -17,16 +19,13 @@ public interface ResourceRegistryService {
     void refreshResources();
 
     /**
-     * 관리자가 특정 리소스에 대한 부가 정보(예: 한글 이름, 설명, 소유자)를 업데이트합니다.
-     * @param resourceId 리소스 ID
-     * @param metadataDto 업데이트할 메타데이터
-     */
-    void updateResourceMetadata(Long resourceId, ResourceMetadataDto metadataDto);
-
-    /**
      * 관리자 UI에 표시할 모든 리소스를 검색 조건에 맞게 조회합니다.
      * @param searchCriteria 검색 조건
      * @return 페이징 처리된 리소스 목록
      */
     Page<ManagedResource> findResources(ResourceSearchCriteria searchCriteria, Pageable pageable);
+
+    List<ManagedResource> findAllForAdmin();
+
+    void updateResource(Long id, ResourceMetadataDto metadataDto);
 }

@@ -21,7 +21,7 @@ public class ManagedResourceRepositoryCustomImpl implements ManagedResourceRepos
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<ManagedResource> findBySearch(ResourceSearchCriteria search, Pageable pageable) {
+    public Page<ManagedResource> findByCriteria(ResourceSearchCriteria search, Pageable pageable) {
         QManagedResource resource = QManagedResource.managedResource;
 
         List<ManagedResource> content = queryFactory
