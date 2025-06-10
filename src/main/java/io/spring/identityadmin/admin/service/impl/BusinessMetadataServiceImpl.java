@@ -5,7 +5,9 @@ import io.spring.identityadmin.admin.repository.BusinessResourceRepository;
 import io.spring.identityadmin.admin.repository.ConditionTemplateRepository;
 import io.spring.identityadmin.admin.service.BusinessMetadataService;
 import io.spring.identityadmin.admin.service.RoleService;
+import io.spring.identityadmin.domain.dto.BusinessActionDto;
 import io.spring.identityadmin.domain.dto.GroupMetadataDto;
+import io.spring.identityadmin.domain.dto.RoleMetadataDto;
 import io.spring.identityadmin.domain.dto.UserMetadataDto;
 import io.spring.identityadmin.entity.*;
 import io.spring.identityadmin.admin.repository.GroupRepository;
@@ -37,12 +39,14 @@ public class BusinessMetadataServiceImpl implements BusinessMetadataService {
     }
 
     @Override
-    public List<BusinessAction> getAllBusinessActions() {
-        return businessActionRepository.findAll();
+    public List<BusinessActionDto> getAllBusinessActions() {
+        return businessActionRepository.findAll().stream()
+                .map(action -> modelMapper.map(action, BusinessActionDto.class))
+                .collect(Collectors.toList());
     }
 
     @Override
-    public List<BusinessAction> getActionsForResource(Long businessResourceId) {
+    public List<BusinessActionDto> getActionsForResource(Long businessResourceId) {
         if (businessResourceId == null) {
             return Collections.emptyList();
         }
@@ -83,8 +87,10 @@ public class BusinessMetadataServiceImpl implements BusinessMetadataService {
     }
 
     @Override
-    public List<Role> getAllRoles() {
-        return roleService.getRoles();
+    public List<RoleMetadataDto> getAllRoles() {
+        return roleService.getRoles().stream()
+                .map(role -> modelMapper.map(role, RoleMetadataDto.class))
+                .collect(Collectors.toList());
     }
 
 

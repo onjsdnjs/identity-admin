@@ -1,6 +1,8 @@
 package io.spring.identityadmin.admin.service;
 
+import io.spring.identityadmin.domain.dto.BusinessActionDto;
 import io.spring.identityadmin.domain.dto.GroupMetadataDto;
+import io.spring.identityadmin.domain.dto.RoleMetadataDto;
 import io.spring.identityadmin.domain.dto.UserMetadataDto;
 import io.spring.identityadmin.entity.*;
 import java.util.List;
@@ -10,9 +12,9 @@ public interface BusinessMetadataService {
 
     List<BusinessResource> getAllBusinessResources();
 
-    List<BusinessAction> getAllBusinessActions();
+    List<BusinessActionDto> getAllBusinessActions();
 
-    List<BusinessAction> getActionsForResource(Long businessResourceId);
+    List<BusinessActionDto> getActionsForResource(Long businessResourceId);
 
     List<ConditionTemplate> getAllConditionTemplates();
 
@@ -25,5 +27,5 @@ public interface BusinessMetadataService {
      * [추가] 워크벤치의 '역할 기준 탐색'을 위한 모든 역할 목록을 조회합니다.
      * @return Role 엔티티 리스트
      */
-    List<Role> getAllRoles();
+    List<RoleMetadataDto> getAllRoles();
 }

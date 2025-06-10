@@ -1,6 +1,7 @@
 package io.spring.identityadmin.admin.controller;
 
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.dto.PolicyListDto;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.admin.service.PolicyService;
 import io.spring.identityadmin.entity.policy.PolicyCondition;
@@ -26,15 +27,13 @@ public class PolicyController {
 
     @GetMapping
     public String listPolicies(Model model) {
-        List<Policy> policies = policyService.getAllPolicies();
+        List<PolicyListDto> policies = policyService.getAllPolicies();
         model.addAttribute("policies", policies);
         return "admin/policies";
     }
 
     @GetMapping("/register")
-    public String registerForm(Model model) {
-        PolicyDto policyDto = new PolicyDto();
-        // [수정] 기본적으로 하나의 빈 Target과 Rule을 추가하여 UI 렌더링
+    public String registerForm(Model model, PolicyDto policyDto) {
         policyDto.getTargets().add(new PolicyDto.TargetDto());
         policyDto.getRules().add(new PolicyDto.RuleDto());
         model.addAttribute("policy", policyDto);
@@ -56,7 +55,8 @@ public class PolicyController {
     @GetMapping("/{id}")
     public String detailForm(@PathVariable Long id, Model model) {
         Policy policy = policyService.findById(id);
-        PolicyDto dto = toDto(policy);
+        PolicyDto dto = modelMapper.map(policy, PolicyDto.class);
+//        PolicyDto dto = toDto(policy);
 
         // 규칙이 하나도 없는 경우, UI 렌더링을 위해 빈 규칙 DTO를 하나 추가
         if (dto.getRules().isEmpty()) {

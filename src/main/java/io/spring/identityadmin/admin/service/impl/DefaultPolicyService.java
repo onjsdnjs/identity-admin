@@ -3,6 +3,7 @@ package io.spring.identityadmin.admin.service.impl;
 import io.spring.identityadmin.admin.service.PolicyRetrievalPoint;
 import io.spring.identityadmin.admin.service.PolicyService;
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.dto.PolicyListDto;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyCondition;
 import io.spring.identityadmin.entity.policy.PolicyRule;
@@ -12,6 +13,7 @@ import io.spring.identityadmin.iamw.PolicyEnrichmentService;
 import io.spring.identityadmin.security.authorization.manager.CustomDynamicAuthorizationManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,11 +33,14 @@ public class DefaultPolicyService implements PolicyService {
     private final PolicyRetrievalPoint policyRetrievalPoint;
     private final CustomDynamicAuthorizationManager authorizationManager;
     private final PolicyEnrichmentService policyEnrichmentService; // [추가]
+    private final ModelMapper modelMapper; // [추가]
 
     @Override
     @Transactional(readOnly = true)
-    public List<Policy> getAllPolicies() {
-        return policyRepository.findAllWithDetails();
+    public List<PolicyListDto> getAllPolicies() {
+        return policyRepository.findAllWithDetails().stream()
+                .map(policy -> modelMapper.map(policy, PolicyListDto.class))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -46,18 +51,18 @@ public class DefaultPolicyService implements PolicyService {
     }
 
     @Override
-    public Policy createPolicy(PolicyDto policyDto) {
+    public PolicyDto createPolicy(PolicyDto policyDto) {
         Policy policy = convertDtoToEntity(policyDto);
         policyEnrichmentService.enrichPolicyWithFriendlyDescription(policy);
         Policy savedPolicy = policyRepository.save(policy);
 
         reloadAuthorizationSystem();
         log.info("Policy created and authorization system reloaded. Policy Name: {}", savedPolicy.getName());
-        return savedPolicy;
+        return modelMapper.map(savedPolicy, PolicyDto.class);
     }
 
     @Override
-    public Policy updatePolicy(PolicyDto policyDto) {
+    public PolicyDto updatePolicy(PolicyDto policyDto) {
         Policy existingPolicy = findById(policyDto.getId());
         policyEnrichmentService.enrichPolicyWithFriendlyDescription(existingPolicy);
         updateEntityFromDto(existingPolicy, policyDto);
@@ -65,7 +70,7 @@ public class DefaultPolicyService implements PolicyService {
 
         reloadAuthorizationSystem();
         log.info("Policy updated and authorization system reloaded. Policy ID: {}", updatedPolicy.getId());
-        return updatedPolicy;
+        return modelMapper.map(updatedPolicy, PolicyDto.class);
     }
 
     @Override

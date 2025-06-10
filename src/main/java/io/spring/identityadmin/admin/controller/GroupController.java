@@ -27,7 +27,6 @@ public class GroupController {
     private final ModelMapper modelMapper;
 
     @GetMapping
-//    @PreAuthorize("hasRole('ADMIN') or hasAuthority('GROUP_READ')") // 권한 설정 예시
     public String getGroups(Model model) {
         List<Group> groups = groupService.getAllGroups();
         model.addAttribute("groups", groups);
@@ -36,7 +35,6 @@ public class GroupController {
     }
 
     @GetMapping("/register")
-//    @PreAuthorize("hasRole('ADMIN') or hasAuthority('GROUP_CREATE')") // 권한 설정 예시
     public String registerGroupForm(Model model) {
         model.addAttribute("group", new GroupDto()); // 빈 DTO 객체 전달
         model.addAttribute("roleList", roleService.getRoles()); // 모든 Role 목록
@@ -46,7 +44,6 @@ public class GroupController {
     }
 
     @PostMapping
-//    @PreAuthorize("hasRole('ADMIN') or hasAuthority('GROUP_CREATE')") // 권한 설정 예시
     public String createGroup(@ModelAttribute("group") GroupDto groupDto,
                               @RequestParam(value = "selectedRoleIds", required = false) List<Long> selectedRoleIds,
                               RedirectAttributes ra) {
@@ -67,7 +64,6 @@ public class GroupController {
     }
 
     @GetMapping("/{id}")
-//    @PreAuthorize("hasRole('ADMIN') or hasAuthority('GROUP_READ')") // 권한 설정 예시
     public String getGroupDetails(@PathVariable Long id, Model model) {
         Group group = groupService.getGroup(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid group ID: " + id));
@@ -86,7 +82,6 @@ public class GroupController {
     }
 
     @PostMapping("/{id}/edit")
-//    @PreAuthorize("hasRole('ADMIN') or hasAuthority('GROUP_UPDATE')") // 권한 설정 예시
     public String updateGroup(@PathVariable Long id, @ModelAttribute("group") GroupDto groupDto,
                               @RequestParam(value = "selectedRoleIds", required = false) List<Long> selectedRoleIds,
                               RedirectAttributes ra) {
@@ -108,7 +103,6 @@ public class GroupController {
     }
 
     @GetMapping("/delete/{id}")
-//    @PreAuthorize("hasRole('ADMIN') or hasAuthority('GROUP_DELETE')") // 권한 설정 예시
     public String deleteGroup(@PathVariable Long id, RedirectAttributes ra) {
         try {
             groupService.deleteGroup(id);

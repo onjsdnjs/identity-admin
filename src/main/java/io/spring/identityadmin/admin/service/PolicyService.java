@@ -1,6 +1,7 @@
 package io.spring.identityadmin.admin.service;
 
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.dto.PolicyListDto;
 import io.spring.identityadmin.entity.policy.Policy;
 
 import java.util.List;
@@ -10,9 +11,9 @@ import java.util.List;
  * 정책의 생성, 수정, 삭제 등 관리 책임을 갖는다.
  */
 public interface PolicyService {
-    List<Policy> getAllPolicies();
+    List<PolicyListDto> getAllPolicies();
     Policy findById(Long id);
-    Policy createPolicy(PolicyDto policyDto);
-    Policy updatePolicy(PolicyDto policyDto);
+    PolicyDto createPolicy(PolicyDto policyDto);
+    PolicyDto updatePolicy(PolicyDto policyDto);
     void deletePolicy(Long id);
 }

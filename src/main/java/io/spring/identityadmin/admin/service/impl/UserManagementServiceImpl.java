@@ -31,7 +31,6 @@ public class UserManagementServiceImpl implements UserManagementService {
     private final PasswordEncoder passwordEncoder;
     private final ModelMapper modelMapper;
 
-    // ... (modifyUser, getUser 메서드는 기존과 동일)
     @Transactional
     @Override
     @CacheEvict(value = "usersWithAuthorities", key = "#userDto.username", allEntries = true)
@@ -66,8 +65,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     public UserDto getUser(Long id) {
         Users users = userRepository.findByIdWithGroupsRolesAndPermissions(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));
-        UserDto userDto = modelMapper.map(users, UserDto.class);
-        List<String> roles = users.getUserGroups().stream()
+        /*List<String> roles = users.getUserGroups().stream()
                 .map(UserGroup::getGroup)
                 .filter(java.util.Objects::nonNull)
                 .flatMap(group -> group.getGroupRoles().stream())
@@ -100,27 +98,21 @@ public class UserManagementServiceImpl implements UserManagementService {
             userDto.setSelectedGroupIds(List.of());
         }
 
-        log.debug("Fetched user {} with roles: {} and permissions: {}", users.getUsername(), roles, permissions);
-        return userDto;
+        log.debug("Fetched user {} with roles: {} and permissions: {}", users.getUsername(), roles, permissions);*/
+        return modelMapper.map(users, UserDto.class);
     }
 
 
     @Transactional(readOnly = true)
     @PreAuthorize("#dynamicRule.getValue(#root)")
     public List<UserListDto> getUsers() {
-        // [수정] 엔티티를 조회한 후, DTO 리스트로 변환하여 반환
         return userRepository.findAllWithDetails().stream()
                 .map(user -> {
-                    UserListDto dto = new UserListDto();
-                    dto.setId(user.getId());
-                    dto.setName(user.getName());
-                    dto.setUsername(user.getUsername());
-                    dto.setMfaEnabled(user.isMfaEnabled());
+                    UserListDto dto = modelMapper.map(user, UserListDto.class);
                     dto.setGroupCount(user.getUserGroups() != null ? user.getUserGroups().size() : 0);
-                    dto.setRoleCount(user.getRoleNames().size());
                     return dto;
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
