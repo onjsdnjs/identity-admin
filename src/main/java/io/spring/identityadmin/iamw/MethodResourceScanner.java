@@ -33,37 +33,55 @@ public class MethodResourceScanner implements ResourceScanner {
 
         for (String beanName : beanNames) {
             Object bean = applicationContext.getBean(beanName);
+            // 프록시 객체인 경우 원본 클래스를 추출합니다.
             Class<?> beanClass = AopUtils.getTargetClass(bean);
 
+            // 프로젝트 내부의 패키지만을 대상으로 하여 불필요한 Spring 내부 Bean 스캔을 방지합니다.
             if (!beanClass.getPackageName().startsWith("io.spring.identityadmin")) {
                 continue;
             }
 
+            // 해당 클래스의 모든 public 메서드를 스캔합니다.
             Method[] methods = beanClass.getDeclaredMethods();
             for (Method method : methods) {
                 if (Modifier.isPublic(method.getModifiers())) {
-                    //메서드 파라미터 타입을 식별자에 포함하여 고유성을 보장
+
+                    // [핵심 수정] 메서드 파라미터 타입을 포함하여 고유 식별자 생성
                     String params = Arrays.stream(method.getParameterTypes())
                             .map(Class::getSimpleName)
                             .collect(Collectors.joining(","));
                     String identifier = String.format("%s.%s(%s)", beanClass.getName(), method.getName(), params);
 
-                    Operation operation = method.getAnnotation(Operation.class);
-                    String friendlyName = (operation != null && !operation.summary().isEmpty()) ?
-                            operation.summary() : beanClass.getSimpleName() + "." + method.getName();
+                    // [핵심 수정] Java 메서드 이름 자체를 기반으로 사용자 친화적 이름 생성
+                    String friendlyName = convertCamelCaseToTitleCase(method.getName());
+
+                    // 설명은 전체 메서드 시그니처를 사용하여 명확성을 제공
+                    String description = method.toString();
 
                     resources.add(ManagedResource.builder()
                             .resourceIdentifier(identifier)
                             .resourceType(ManagedResource.ResourceType.METHOD)
                             .friendlyName(friendlyName)
-                            .description(operation != null ? operation.description() : "")
+                            .description(description)
                             .serviceOwner(beanClass.getSimpleName())
                             .build());
-
-                    log.debug("Discovered METHOD Resource: {}", identifier);
                 }
             }
         }
+        log.info("Successfully scanned and discovered {} METHOD resources.", resources.size());
         return resources;
+    }
+
+    /**
+     * camelCase 문자열을 Title Case (단어마다 대문자)로 변환하는 헬퍼 메서드.
+     * 예: "getUserById" -> "Get User By Id"
+     */
+    private String convertCamelCaseToTitleCase(String camelCase) {
+        if (camelCase == null || camelCase.isEmpty()) {
+            return "";
+        }
+        String regex = "(?<=[a-z])(?=[A-Z])";
+        String result = camelCase.replaceAll(regex, " ");
+        return result.substring(0, 1).toUpperCase() + result.substring(1);
     }
 }

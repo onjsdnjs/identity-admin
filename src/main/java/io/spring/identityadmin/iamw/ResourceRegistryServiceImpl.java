@@ -1,7 +1,7 @@
 package io.spring.identityadmin.iamw;
 
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
-import io.spring.identityadmin.domain.dto.ResourceSearch;
+import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.entity.ManagedResource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -85,7 +85,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
      */
     @Override
     @Transactional(readOnly = true)
-    public Page<ManagedResource> findResources(ResourceSearch searchCriteria, Pageable pageable) {
+    public Page<ManagedResource> findResources(ResourceSearchCriteria searchCriteria, Pageable pageable) {
         return managedResourceRepository.findBySearch(searchCriteria, pageable);
     }
 }

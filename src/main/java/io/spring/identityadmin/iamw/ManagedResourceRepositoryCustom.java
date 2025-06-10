@@ -1,6 +1,6 @@
 package io.spring.identityadmin.iamw;
 
-import io.spring.identityadmin.domain.dto.ResourceSearch;
+import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.entity.ManagedResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -12,5 +12,5 @@ public interface ManagedResourceRepositoryCustom {
      * @param pageable 페이징 정보
      * @return 페이징 처리된 리소스 목록
      */
-    Page<ManagedResource> findBySearch(ResourceSearch criteria, Pageable pageable);
+    Page<ManagedResource> findBySearch(ResourceSearchCriteria criteria, Pageable pageable);
 }

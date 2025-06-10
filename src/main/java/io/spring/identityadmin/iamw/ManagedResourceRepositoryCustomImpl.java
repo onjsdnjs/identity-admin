@@ -2,7 +2,7 @@ package io.spring.identityadmin.iamw;
 
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import io.spring.identityadmin.domain.dto.ResourceSearch;
+import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.entity.ManagedResource;
 import io.spring.identityadmin.entity.QManagedResource;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +21,7 @@ public class ManagedResourceRepositoryCustomImpl implements ManagedResourceRepos
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<ManagedResource> findBySearch(ResourceSearch search, Pageable pageable) {
+    public Page<ManagedResource> findBySearch(ResourceSearchCriteria search, Pageable pageable) {
         QManagedResource resource = QManagedResource.managedResource;
 
         List<ManagedResource> content = queryFactory

@@ -1,7 +1,7 @@
 package io.spring.identityadmin.iamw;
 
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
-import io.spring.identityadmin.domain.dto.ResourceSearch;
+import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.entity.ManagedResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,5 +28,5 @@ public interface ResourceRegistryService {
      * @param searchCriteria 검색 조건
      * @return 페이징 처리된 리소스 목록
      */
-    Page<ManagedResource> findResources(ResourceSearch searchCriteria, Pageable pageable);
+    Page<ManagedResource> findResources(ResourceSearchCriteria searchCriteria, Pageable pageable);
 }
