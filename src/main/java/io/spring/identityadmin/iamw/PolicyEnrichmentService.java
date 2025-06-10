@@ -26,7 +26,7 @@ public class PolicyEnrichmentService {
         }
 
         // PolicyTranslator를 사용하여 정책을 EntitlementDto로 변환 (메모리상에서만)
-        // DTO에서 최종 설명 문자열을 조합하여 가져온다.
+        // DTO 에서 최종 설명 문자열을 조합하여 가져온다.
         String description = policyTranslator.translate(policy, "") // resourceName은 필요 없으므로 비워둠
                 .map(dto -> {
                     String subjectPart = "주체(" + dto.subjectName() + ")";
