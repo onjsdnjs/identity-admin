@@ -43,11 +43,11 @@ public class Group implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Group group = (Group) o;
-        return name.equals(group.name); // 이름으로 동등성 판단
+        return id.equals(group.id); // 이름으로 동등성 판단
     }
 
     @Override
     public int hashCode() {
-        return name.hashCode(); // 이름으로 해시코드 생성
+        return id.hashCode(); // 이름으로 해시코드 생성
     }
 }
