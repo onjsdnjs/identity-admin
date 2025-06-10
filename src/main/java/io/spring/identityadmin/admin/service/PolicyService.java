@@ -11,7 +11,7 @@ import java.util.List;
  * 정책의 생성, 수정, 삭제 등 관리 책임을 갖는다.
  */
 public interface PolicyService {
-    List<PolicyListDto> getAllPolicies();
+    List<Policy> getAllPolicies();
     Policy findById(Long id);
     PolicyDto createPolicy(PolicyDto policyDto);
     PolicyDto updatePolicy(PolicyDto policyDto);

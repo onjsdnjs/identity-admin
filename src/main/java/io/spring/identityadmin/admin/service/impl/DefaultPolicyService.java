@@ -37,10 +37,8 @@ public class DefaultPolicyService implements PolicyService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<PolicyListDto> getAllPolicies() {
-        return policyRepository.findAllWithDetails().stream()
-                .map(policy -> modelMapper.map(policy, PolicyListDto.class))
-                .collect(Collectors.toList());
+    public List<Policy> getAllPolicies() {
+        return policyRepository.findAllWithDetails();
     }
 
     @Override

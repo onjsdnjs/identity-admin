@@ -27,8 +27,13 @@ public class PolicyController {
 
     @GetMapping
     public String listPolicies(Model model) {
-        List<PolicyListDto> policies = policyService.getAllPolicies();
-        model.addAttribute("policies", policies);
+        // 서비스는 엔티티 리스트를 반환
+        List<Policy> policies = policyService.getAllPolicies();
+        // [수정] 컨트롤러에서 DTO 리스트로 변환
+        List<PolicyListDto> dtoList = policies.stream()
+                .map(p -> modelMapper.map(p, PolicyListDto.class))
+                .collect(Collectors.toList());
+        model.addAttribute("policies", dtoList);
         return "admin/policies";
     }
 
@@ -42,13 +47,8 @@ public class PolicyController {
 
     @PostMapping
     public String createPolicy(@ModelAttribute PolicyDto policyDto, RedirectAttributes ra) {
-        try {
-            policyService.createPolicy(policyDto);
-            ra.addFlashAttribute("message", "정책이 성공적으로 생성되었습니다.");
-        } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", "정책 생성 실패: " + e.getMessage());
-            log.error("Error creating policy", e);
-        }
+        policyService.createPolicy(policyDto);
+        ra.addFlashAttribute("message", "정책이 성공적으로 생성되었습니다.");
         return "redirect:/admin/policies";
     }
 
@@ -56,13 +56,9 @@ public class PolicyController {
     public String detailForm(@PathVariable Long id, Model model) {
         Policy policy = policyService.findById(id);
         PolicyDto dto = modelMapper.map(policy, PolicyDto.class);
-//        PolicyDto dto = toDto(policy);
-
-        // 규칙이 하나도 없는 경우, UI 렌더링을 위해 빈 규칙 DTO를 하나 추가
         if (dto.getRules().isEmpty()) {
             dto.getRules().add(new PolicyDto.RuleDto());
         }
-
         model.addAttribute("policy", dto);
         return "admin/policydetails";
     }

@@ -2,6 +2,7 @@ package io.spring.identityadmin.admin.controller;
 
 import io.spring.identityadmin.admin.service.PermissionService;
 import io.spring.identityadmin.domain.dto.PermissionDto;
+import io.spring.identityadmin.domain.dto.PermissionListDto;
 import io.spring.identityadmin.entity.Permission;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/admin/permissions") // 권한 관리를 위한 공통 경로 설정
@@ -30,8 +32,10 @@ public class PermissionController {
     @GetMapping
     public String getPermissions(Model model) {
         List<Permission> permissions = permissionService.getAllPermissions();
-        model.addAttribute("permissions", permissions);
-        log.info("Displaying permissions list. Total: {}", permissions.size());
+        List<PermissionListDto> dtoList = permissions.stream()
+                .map(p -> modelMapper.map(p, PermissionListDto.class))
+                .toList();
+        model.addAttribute("permissions", dtoList);
         return "admin/permissions";
     }
 
@@ -55,18 +59,12 @@ public class PermissionController {
      */
     @PostMapping
     public String createPermission(@ModelAttribute("permission") PermissionDto permissionDto, RedirectAttributes ra) {
-        try {
-            Permission permission = modelMapper.map(permissionDto, Permission.class);
-            permissionService.createPermission(permission);
-            ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 생성되었습니다.");
-            log.info("Permission created: {}", permission.getName());
-        } catch (IllegalArgumentException e) {
-            ra.addFlashAttribute("errorMessage", e.getMessage());
-            log.warn("Failed to create permission: {}", e.getMessage());
-        } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", "권한 생성 중 알 수 없는 오류 발생: " + e.getMessage());
-            log.error("Error creating permission", e);
-        }
+
+        Permission permission = modelMapper.map(permissionDto, Permission.class);
+        permissionService.createPermission(permission);
+        ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 생성되었습니다.");
+        log.info("Permission created: {}", permission.getName());
+
         return "redirect:/admin/permissions";
     }
 
@@ -78,10 +76,11 @@ public class PermissionController {
      */
     @GetMapping("/{id}")
     public String permissionDetails(@PathVariable Long id, Model model) {
+        // 서비스는 엔티티를 반환
         Permission permission = permissionService.getPermission(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid permission ID: " + id));
+        // [수정] 컨트롤러에서 DTO로 변환
         model.addAttribute("permission", modelMapper.map(permission, PermissionDto.class));
-        log.info("Displaying details for permission ID: {}", id);
         return "admin/permissiondetails";
     }
 
@@ -94,19 +93,13 @@ public class PermissionController {
      */
     @PostMapping("/{id}/edit")
     public String updatePermission(@PathVariable Long id, @ModelAttribute("permission") PermissionDto permissionDto, RedirectAttributes ra) {
-        try {
-            permissionDto.setId(id); // URL 경로에서 받은 ID를 DTO에 설정
-            Permission permission = modelMapper.map(permissionDto, Permission.class);
-            permissionService.updatePermission(permission);
-            ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 업데이트되었습니다.");
-            log.info("Permission updated: {}", permission.getName());
-        } catch (IllegalArgumentException e) {
-            ra.addFlashAttribute("errorMessage", e.getMessage());
-            log.warn("Failed to update permission: {}", e.getMessage());
-        } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", "권한 업데이트 중 알 수 없는 오류 발생: " + e.getMessage());
-            log.error("Error updating permission", e);
-        }
+
+        permissionDto.setId(id); // URL 경로에서 받은 ID를 DTO에 설정
+        Permission permission = modelMapper.map(permissionDto, Permission.class);
+        permissionService.updatePermission(permission);
+        ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 업데이트되었습니다.");
+        log.info("Permission updated: {}", permission.getName());
+
         return "redirect:/admin/permissions";
     }
 

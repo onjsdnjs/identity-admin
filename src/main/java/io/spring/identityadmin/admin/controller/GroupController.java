@@ -3,7 +3,10 @@ package io.spring.identityadmin.admin.controller;
 import io.spring.identityadmin.admin.service.GroupService;
 import io.spring.identityadmin.admin.service.RoleService;
 import io.spring.identityadmin.domain.dto.GroupDto;
+import io.spring.identityadmin.domain.dto.GroupListDto;
+import io.spring.identityadmin.domain.dto.RoleMetadataDto;
 import io.spring.identityadmin.entity.Group;
+import io.spring.identityadmin.entity.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -28,12 +31,18 @@ public class GroupController {
 
     @GetMapping
     public String getGroups(Model model) {
+        // 서비스는 엔티티 리스트를 반환
         List<Group> groups = groupService.getAllGroups();
-        model.addAttribute("groups", groups);
-        log.info("Displaying groups list. Total: {}", groups.size());
+        // [수정] 컨트롤러에서 DTO 리스트로 변환
+        List<GroupListDto> groupListDtos = groups.stream().map(group -> {
+            GroupListDto dto = modelMapper.map(group, GroupListDto.class);
+            dto.setRoleCount(group.getGroupRoles() != null ? group.getGroupRoles().size() : 0);
+            dto.setUserCount(group.getUserGroups() != null ? group.getUserGroups().size() : 0);
+            return dto;
+        }).collect(Collectors.toList());
+        model.addAttribute("groups", groupListDtos);
         return "admin/groups";
     }
-
     @GetMapping("/register")
     public String registerGroupForm(Model model) {
         model.addAttribute("group", new GroupDto()); // 빈 DTO 객체 전달
@@ -65,19 +74,22 @@ public class GroupController {
 
     @GetMapping("/{id}")
     public String getGroupDetails(@PathVariable Long id, Model model) {
-        Group group = groupService.getGroup(id)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid group ID: " + id));
-        GroupDto groupDto = modelMapper.map(group, GroupDto.class);
+        // 서비스는 엔티티를 반환
+        Group group = groupService.getGroup(id).orElseThrow(() -> new IllegalArgumentException("Invalid group ID: " + id));
+        List<Role> roles = roleService.getRoles();
 
-        // 현재 Group에 할당된 Role들의 ID 목록을 DTO에 설정
-        List<Long> selectedRoleIds = group.getGroupRoles().stream()
-                .map(gr -> gr.getRole().getId())
+        // [수정] 컨트롤러에서 DTO로 변환
+        GroupDto groupDto = modelMapper.map(group, GroupDto.class);
+        List<Long> selectedRoleIds = group.getGroupRoles().stream().map(gr -> gr.getRole().getId()).collect(Collectors.toList());
+        groupDto.setSelectedRoleIds(selectedRoleIds);
+
+        List<RoleMetadataDto> roleListDtos = roles.stream()
+                .map(role -> modelMapper.map(role, RoleMetadataDto.class))
                 .collect(Collectors.toList());
 
         model.addAttribute("group", groupDto);
-        model.addAttribute("roleList", roleService.getRoles()); // 모든 Role 목록
-        model.addAttribute("selectedRoleIds", selectedRoleIds); // 현재 선택된 역할 ID 목록
-        log.info("Displaying details for group ID: {}", id);
+        model.addAttribute("roleList", roleListDtos);
+        model.addAttribute("selectedRoleIds", selectedRoleIds);
         return "admin/groupdetails";
     }
 

@@ -2,7 +2,9 @@ package io.spring.identityadmin.admin.controller;
 
 import io.spring.identityadmin.admin.service.PermissionService;
 import io.spring.identityadmin.admin.service.RoleService;
+import io.spring.identityadmin.domain.dto.PermissionListDto;
 import io.spring.identityadmin.domain.dto.RoleDto;
+import io.spring.identityadmin.domain.dto.RoleListDto;
 import io.spring.identityadmin.entity.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,27 +16,31 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Controller
-@RequestMapping("/admin/roles") // 공통 경로 설정
+@RequestMapping("/admin/roles")
 @RequiredArgsConstructor
 public class RoleController {
 
 	private final RoleService roleService;
-	private final PermissionService permissionService; // PermissionService 주입
-	private final ModelMapper modelMapper; // ModelMapper 주입
+	private final PermissionService permissionService;
+	private final ModelMapper modelMapper;
 
 	@GetMapping
-//	@PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_READ')") // 권한 설정 예시
 	public String getRoles(Model model) {
 		List<Role> roles = roleService.getRoles();
-		model.addAttribute("roles", roles);
+		List<RoleListDto> dtoList = roles.stream().map(role -> {
+			RoleListDto dto = modelMapper.map(role, RoleListDto.class);
+			dto.setPermissionCount(role.getRolePermissions() != null ? role.getRolePermissions().size() : 0);
+			return dto;
+		}).toList();
+		model.addAttribute("roles", dtoList);
 		return "admin/roles";
 	}
 
 	@GetMapping("/register")
-//	@PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_CREATE')") // 권한 설정 예시
 	public String registerRoleForm(Model model) {
 		model.addAttribute("role", new RoleDto());
 		model.addAttribute("permissionList", permissionService.getAllPermissions()); // 모든 Permission 목록
@@ -43,45 +49,39 @@ public class RoleController {
 	}
 
 	@PostMapping
-//	@PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_CREATE')") // 권한 설정 예시
 	public String createRole(@ModelAttribute("role") RoleDto roleDto, RedirectAttributes ra) {
 		Role role = modelMapper.map(roleDto, Role.class);
-		// RoleService의 createRole 메서드는 permissionIds를 받도록 수정되었습니다.
 		roleService.createRole(role, roleDto.getPermissionIds());
 		ra.addFlashAttribute("message", "역할이 성공적으로 생성되었습니다!");
 		return "redirect:/admin/roles";
 	}
 
 	@GetMapping("/{id}")
-//	@PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_READ')") // 권한 설정 예시
 	public String getRoleDetails(@PathVariable Long id, Model model) {
-		Role role = roleService.getRole(id); // Fetch Join으로 Permissions 함께 가져옴
+		Role role = roleService.getRole(id);
 		RoleDto roleDto = modelMapper.map(role, RoleDto.class);
+		List<Long> selectedPermissionIds = role.getRolePermissions().stream().map(rp -> rp.getPermission().getId()).toList();
 
-		// 현재 Role에 할당된 Permission 들의 ID 목록을 DTO에 설정
-		List<Long> selectedPermissionIds = role.getRolePermissions().stream()
-				.map(rp -> rp.getPermission().getId())
+		List<PermissionListDto> permissionList = permissionService.getAllPermissions().stream()
+				.map(p -> modelMapper.map(p, PermissionListDto.class))
 				.toList();
 
 		model.addAttribute("role", roleDto);
-		model.addAttribute("permissionList", permissionService.getAllPermissions()); // 모든 Permission 목록
-		model.addAttribute("selectedPermissionIds", selectedPermissionIds); // 현재 선택된 권한 ID 목록
+		model.addAttribute("permissionList", permissionList);
+		model.addAttribute("selectedPermissionIds", selectedPermissionIds);
 		return "admin/rolesdetails";
 	}
 
-	@PostMapping("/{id}/edit") // 수정 요청을 처리할 새로운 매핑 추가
-//	@PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_UPDATE')") // 권한 설정 예시
+	@PostMapping("/{id}/edit")
 	public String updateRole(@PathVariable Long id, @ModelAttribute("role") RoleDto roleDto, RedirectAttributes ra) {
 		roleDto.setId(id); // ID를 DTO에 설정
 		Role role = modelMapper.map(roleDto, Role.class);
-		// RoleService의 updateRole 메서드는 permissionIds를 받도록 수정되었습니다.
 		roleService.updateRole(role, roleDto.getPermissionIds());
 		ra.addFlashAttribute("message", "역할이 성공적으로 업데이트되었습니다!");
 		return "redirect:/admin/roles";
 	}
 
 	@GetMapping("/delete/{id}")
-//	@PreAuthorize("hasRole('ADMIN') or hasAuthority('ROLE_DELETE')") // 권한 설정 예시
 	public String deleteRole(@PathVariable Long id, RedirectAttributes ra) {
 		roleService.deleteRole(id);
 		ra.addFlashAttribute("message", "역할이 성공적으로 삭제되었습니다!");
