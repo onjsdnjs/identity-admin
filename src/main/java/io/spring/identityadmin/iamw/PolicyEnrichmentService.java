@@ -3,6 +3,7 @@ package io.spring.identityadmin.iamw;
 import io.spring.identityadmin.entity.policy.Policy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Policy 엔티티에 사용자 친화적인 추가 정보(예: 번역된 설명)를 생성하여 채워주는 서비스

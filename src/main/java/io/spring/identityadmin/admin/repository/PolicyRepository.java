@@ -48,8 +48,16 @@ public interface PolicyRepository extends JpaRepository<Policy, Long> {
      * 감사 로그(Audit Log)가 구현되기 전까지 대시보드의 '최근 활동'에 사용됩니다.
      * @return 최근 생성된 Policy 5개 리스트
      */
+    @Query("SELECT DISTINCT p FROM Policy p " +
+            "LEFT JOIN FETCH p.rules r " +
+            "LEFT JOIN FETCH r.conditions " +
+            "ORDER BY p.id DESC")
     List<Policy> findTop5ByOrderByIdDesc();
 
+    @Query("SELECT DISTINCT p FROM Policy p " +
+            "LEFT JOIN FETCH p.rules r " +
+            "LEFT JOIN FETCH r.conditions " +
+            "WHERE p.friendlyDescription IS NULL")
     List<Policy> findByFriendlyDescriptionIsNull();
 
     /**

@@ -6,9 +6,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.mvc.condition.PathPatternsRequestCondition;
 import org.springframework.web.servlet.mvc.condition.PatternsRequestCondition;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.util.pattern.PathPattern;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,12 +38,12 @@ public class MvcResourceScanner implements ResourceScanner {
             final HandlerMethod handlerMethod = entry.getValue();
 
             // [핵심 수정] getPatternsCondition()이 null을 반환하는 경우를 방어합니다.
-            final PatternsRequestCondition patternsCondition = mappingInfo.getPatternsCondition();
-            if (patternsCondition == null) {
+            PathPatternsRequestCondition pathPatternsCondition = mappingInfo.getPathPatternsCondition();
+            if (pathPatternsCondition == null) {
                 continue; // URL 패턴이 없는 매핑은 건너뜁니다.
             }
 
-            final Set<String> urlPatterns = patternsCondition.getPatterns();
+            Set<PathPattern> urlPatterns = pathPatternsCondition.getPatterns();
             if (urlPatterns.isEmpty()) {
                 continue;
             }
@@ -52,26 +54,16 @@ public class MvcResourceScanner implements ResourceScanner {
             }
 
             // 대표 URL 패턴 하나만 사용
-            final String urlPattern = urlPatterns.iterator().next();
+            final String urlPattern = urlPatterns.stream().findFirst().get().getPatternString();
 
             // HTTP 메서드 추출
             final String httpMethod = mappingInfo.getMethodsCondition().getMethods().stream()
                     .findFirst().map(Enum::name).orElse("ANY");
 
             final String resourceIdentifier = httpMethod + ":" + urlPattern;
-
-            // @Operation 어노테이션에서 이름과 설명 추출
-            final Operation operation = handlerMethod.getMethodAnnotation(Operation.class);
-            String friendlyName;
-            String description;
-
-            if (operation != null && !operation.summary().isEmpty()) {
-                friendlyName = operation.summary();
-                description = operation.description();
-            } else {
-                friendlyName = httpMethod + " " + urlPattern;
-                description = "Class: " + handlerMethod.getBeanType().getSimpleName() + ", Method: " + handlerMethod.getMethod().getName();
-            }
+            final String methodName = handlerMethod.getMethod().getName();
+            final String friendlyName = convertCamelCaseToTitleCase(methodName);
+            final String description = "Mapped to: " + handlerMethod.toString();
 
             resources.add(ManagedResource.builder()
                     .resourceIdentifier(resourceIdentifier)
@@ -84,5 +76,22 @@ public class MvcResourceScanner implements ResourceScanner {
 
         log.info("Successfully scanned and discovered {} URL resources.", resources.size());
         return resources;
+    }
+
+    /**
+     * camelCase 문자열을 Title Case (단어마다 대문자)로 변환하는 헬퍼 메서드.
+     * 예: "getUserById" -> "Get User By Id"
+     * @param camelCase 변환할 camelCase 문자열
+     * @return 변환된 Title Case 문자열
+     */
+    private String convertCamelCaseToTitleCase(String camelCase) {
+        if (camelCase == null || camelCase.isEmpty()) {
+            return "";
+        }
+        // 대문자 앞에 공백을 추가하는 정규식
+        String regex = "(?<=[a-z])(?=[A-Z])";
+        String result = camelCase.replaceAll(regex, " ");
+        // 첫 글자를 대문자로 변경
+        return result.substring(0, 1).toUpperCase() + result.substring(1);
     }
 }
