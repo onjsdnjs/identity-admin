@@ -7,6 +7,7 @@ import io.spring.identityadmin.iamw.AccessGrantService;
 import io.spring.identityadmin.iamw.AccessInquiryService;
 import io.spring.identityadmin.iamw.ResourceRegistryService;
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +23,7 @@ public class WorkbenchApiController {
     private final ResourceRegistryService resourceRegistryService;
     private final AccessInquiryService accessInquiryService;
     private final AccessGrantService accessGrantService;
+    private final ModelMapper modelMapper;
 
     @GetMapping("/resources")
     public ResponseEntity<PageResponseDto<ManagedResource>> findResources(@RequestParam(required = false) String keyword, Pageable pageable) {
@@ -49,7 +51,8 @@ public class WorkbenchApiController {
 
     @PostMapping("/grants")
     public ResponseEntity<PolicyDto> grantAccess(@RequestBody GrantRequestDto grantRequest) {
-        return ResponseEntity.ok(accessGrantService.grantAccess(grantRequest));
+        Policy policy = accessGrantService.grantAccess(grantRequest);
+        return ResponseEntity.ok(modelMapper.map(policy, PolicyDto.class));
     }
 
     @DeleteMapping("/revocations")
