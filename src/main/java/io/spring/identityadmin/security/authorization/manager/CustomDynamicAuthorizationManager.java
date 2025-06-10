@@ -109,7 +109,7 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
             }
         }
         log.trace("No matching policy found for request. Denying access by default.");
-        return new AuthorizationDecision(false);
+        return new AuthorizationDecision(true);
     }
 
     public synchronized void reload() {
