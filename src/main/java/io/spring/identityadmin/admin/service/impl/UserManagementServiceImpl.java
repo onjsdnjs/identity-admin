@@ -3,6 +3,7 @@ package io.spring.identityadmin.admin.service.impl;
 import io.spring.identityadmin.admin.repository.GroupRepository;
 import io.spring.identityadmin.admin.service.UserManagementService;
 import io.spring.identityadmin.domain.dto.UserDto;
+import io.spring.identityadmin.domain.dto.UserListDto;
 import io.spring.identityadmin.entity.*;
 import io.spring.identityadmin.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -106,8 +107,20 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     @Transactional(readOnly = true)
     @PreAuthorize("#dynamicRule.getValue(#root)")
-    public List<Users> getUsers() {
-        return userRepository.findAllWithDetails();
+    public List<UserListDto> getUsers() {
+        // [수정] 엔티티를 조회한 후, DTO 리스트로 변환하여 반환
+        return userRepository.findAllWithDetails().stream()
+                .map(user -> {
+                    UserListDto dto = new UserListDto();
+                    dto.setId(user.getId());
+                    dto.setName(user.getName());
+                    dto.setUsername(user.getUsername());
+                    dto.setMfaEnabled(user.isMfaEnabled());
+                    dto.setGroupCount(user.getUserGroups() != null ? user.getUserGroups().size() : 0);
+                    dto.setRoleCount(user.getRoleNames().size());
+                    return dto;
+                })
+                .collect(Collectors.toList());
     }
 
     @Override

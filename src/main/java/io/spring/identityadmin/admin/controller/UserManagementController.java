@@ -4,6 +4,7 @@ import io.spring.identityadmin.admin.service.GroupService;
 import io.spring.identityadmin.admin.service.RoleService;
 import io.spring.identityadmin.admin.service.UserManagementService;
 import io.spring.identityadmin.domain.dto.UserDto;
+import io.spring.identityadmin.domain.dto.UserListDto;
 import io.spring.identityadmin.entity.Group;
 import io.spring.identityadmin.entity.Role;
 import io.spring.identityadmin.entity.Users;
@@ -31,7 +32,7 @@ public class UserManagementController {
 	@GetMapping
 //	@PreAuthorize("hasRole('ADMIN') or hasAuthority('USER_READ')") // 권한 설정 예시
 	public String getUsers(Model model) {
-		List<Users> users = userManagementService.getUsers(); // Users 엔티티 반환
+		List<UserListDto> users = userManagementService.getUsers(); // Users 엔티티 반환
 		model.addAttribute("users", users); // Model에 Users 엔티티 리스트 그대로 전달
 		return "admin/users";
 	}
