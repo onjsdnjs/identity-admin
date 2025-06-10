@@ -1,12 +1,15 @@
 package io.spring.identityadmin.admin.controller;
 
 import io.spring.identityadmin.domain.dto.GrantRequestDto;
+import io.spring.identityadmin.domain.dto.PageResponseDto;
 import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.domain.dto.RevokeRequestDto;
+import io.spring.identityadmin.entity.ManagedResource;
 import io.spring.identityadmin.iamw.AccessGrantService;
 import io.spring.identityadmin.iamw.AccessInquiryService;
 import io.spring.identityadmin.iamw.ResourceRegistryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,7 +27,8 @@ public class WorkbenchApiController {
     public ResponseEntity<?> findResources(@RequestParam(required = false) String keyword, Pageable pageable) {
         ResourceSearchCriteria criteria = new ResourceSearchCriteria();
         criteria.setKeyword(keyword);
-        return ResponseEntity.ok(resourceRegistryService.findResources(criteria, pageable));
+        Page<ManagedResource> resourcePage = resourceRegistryService.findResources(criteria, pageable);
+        return ResponseEntity.ok(new PageResponseDto<>(resourcePage));
     }
 
     @PostMapping("/resources/refresh")
