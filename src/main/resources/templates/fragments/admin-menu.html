@@ -2,29 +2,23 @@
     <nav class="bg-app-secondary text-white w-64 min-h-full p-5 space-y-6 shadow-lg">
         <div>
             <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mb-2 px-3">
-                <a th:href="@{/admin}">관리자 메뉴</a>
+                IAM Command Center
             </h3>
-            <ul class="space-y-1">
+            <ul class="space-y-2">
                 <li>
-                    <a th:href="@{/admin/workbench}" class="flex items-center gap-x-3.5 bg-app-primary text-white px-3 py-3 rounded-md text-sm font-bold shadow-lg border border-app-accent hover:bg-app-accent transition-all duration-200">
-                        <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M10 3.5a1.5 1.5 0 011.126 2.623l-2.073 2.073a.75.75 0 00-1.06 1.06l2.073 2.073A1.5 1.5 0 1110 13.5a1.5 1.5 0 01-1.126-2.623l2.073-2.073a.75.75 0 001.06-1.06l-2.073-2.073A1.5 1.5 0 0110 3.5z"/>
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM2 10a8 8 0 1116 0 8 8 0 01-16 0z" clip-rule="evenodd"/>
-                        </svg>
-                        <span>통합 접근 관리</span>
+                    <a th:href="@{/admin/dashboard}" th:classappend="${#httpServletRequest.requestURI.startsWith('/admin/dashboard') ? 'active' : ''}"
+                       class="menu-link">
+                        <svg></svg>
+                        <span>대시보드</span>
                     </a>
                 </li>
-            </ul>
-        </div>
-        <div>
-            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mb-2 px-3">로우레벨 관리 (전문가용)</h3>
-            <ul class="space-y-1">
-                <li><a th:href="@{/admin/users}" class="block px-3 py-2.5 rounded-md hover:bg-app-primary-dark hover:text-app-accent transition-colors duration-200 text-sm">사용자 관리</a></li>
-                <li><a th:href="@{/admin/groups}" class="block px-3 py-2.5 rounded-md hover:bg-app-primary-dark hover:text-app-accent transition-colors duration-200 text-sm">그룹 관리</a></li>
-                <li><a th:href="@{/admin/roles}" class="block px-3 py-2.5 rounded-md hover:bg-app-primary-dark hover:text-app-accent transition-colors duration-200 text-sm">역할 관리</a></li>
-                <li><a th:href="@{/admin/permissions}" class="block px-3 py-2.5 rounded-md hover:bg-app-primary-dark hover:text-app-accent transition-colors duration-200 text-sm">권한 관리</a></li>
-                <li><a th:href="@{/admin/role-hierarchies}" class="block px-3 py-2.5 rounded-md hover:bg-app-primary-dark hover:text-app-accent transition-colors duration-200 text-sm">역할 계층 관리</a></li>
-                <li><a th:href="@{/admin/policies}" class="block px-3 py-2.5 rounded-md hover:bg-app-primary-dark hover:text-app-accent transition-colors duration-200 text-sm">기술 정책 관리</a></li>
+                <li>
+                    <a th:href="@{/admin/workbench}" th:classappend="${#httpServletRequest.requestURI.startsWith('/admin/workbench') ? 'active' : ''}"
+                       class="menu-link">
+                        <svg></svg>
+                        <span>통합 워크벤치</span>
+                    </a>
+                </li>
             </ul>
         </div>
     </nav>

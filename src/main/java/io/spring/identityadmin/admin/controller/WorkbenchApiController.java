@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/workbench")
 @RequiredArgsConstructor
-public class AccessWorkbenchController {
+public class WorkbenchApiController {
 
     private final ResourceRegistryService resourceRegistryService;
     private final AccessInquiryService accessInquiryService;

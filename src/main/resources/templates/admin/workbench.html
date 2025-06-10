@@ -1,85 +1,35 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
-<head th:replace="~{fragments/common-head :: head-elements(pageTitle='통합 접근 관리 워크벤치')}"></head>
+<head th:replace="~{fragments/common-head :: head-elements(pageTitle='통합 워크벤치')}"></head>
 <body class="flex flex-col min-h-screen bg-app-light-gray font-sans text-app-dark-gray">
-
 <div th:insert="~{fragments/header :: header}"></div>
-<div id="toast-container" class="fixed top-5 right-5 z-50 w-full max-w-xs sm:max-w-sm"></div>
-
+<div id="toast-container" class="fixed top-5 right-5 z-50"></div>
 <div class="flex flex-1 overflow-hidden">
     <aside th:insert="~{fragments/admin-menu :: menu}" class="hidden md:block"></aside>
-
-    <main class="flex-1 flex flex-col p-4 md:p-6 lg:p-8 gap-6 overflow-hidden">
-        <header class="flex-shrink-0">
-            <h1 class="text-3xl font-bold text-app-primary">통합 접근 관리 워크벤치</h1>
-            <p class="text-slate-600 mt-1">리소스에 대한 접근 권한을 직관적으로 검색, 확인 및 관리합니다.</p>
-        </header>
-
-        <div class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0">
-
-            <div class="lg:col-span-4 bg-white rounded-xl shadow-lg flex flex-col border border-app-border">
-                <div class="p-4 border-b border-app-border">
-                    <h2 class="font-bold text-lg text-app-secondary flex items-center">
-                        <span class="bg-app-primary text-white rounded-full h-6 w-6 text-sm flex items-center justify-center mr-2">1</span> 리소스 선택
-                    </h2>
-                    <div class="mt-2 relative">
-                        <input type="search" id="resource-search-input" placeholder="리소스 이름, URL 검색..." class="w-full pl-10 pr-4 py-2 border border-app-border rounded-lg focus:ring-app-accent focus:border-app-accent">
-                        <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                            <svg class="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd" /></svg>
-                        </div>
-                    </div>
-                </div>
-                <div id="resource-list" class="flex-1 p-2 overflow-y-auto">
-                </div>
+    <main class="flex-1 grid grid-cols-12 gap-6 p-6 min-h-0">
+        <div class="col-span-12 md:col-span-3 bg-white rounded-xl shadow-lg flex flex-col">
+            <div class="p-3 border-b">
+                <select id="view-selector" class="w-full p-2 border-app-border rounded-md font-bold">
+                    <option value="resources">자원 기준 탐색</option>
+                    <option value="subjects">주체(사용자/그룹) 기준 탐색</option>
+                    <option value="roles">역할 기준 탐색</option>
+                </select>
             </div>
-
-            <div class="lg:col-span-5 bg-white rounded-xl shadow-lg flex flex-col border border-app-border">
-                <div class="p-4 border-b border-app-border">
-                    <h2 class="font-bold text-lg text-app-secondary flex items-center">
-                        <span class="bg-app-primary text-white rounded-full h-6 w-6 text-sm flex items-center justify-center mr-2">2</span> 현재 접근 권한
-                    </h2>
-                    <p id="entitlement-subtitle" class="text-sm text-slate-500 mt-1">좌측에서 리소스를 선택해주세요.</p>
-                </div>
-                <div id="entitlement-list" class="flex-1 p-4 space-y-3 overflow-y-auto">
-                </div>
+            <div class="p-3 border-b">
+                <input type="search" id="explorer-search-input" placeholder="검색..." class="w-full px-3 py-2 border rounded-lg">
             </div>
-
-            <div class="lg:col-span-3 bg-gray-50 rounded-xl shadow-lg flex flex-col border border-app-border">
-                <div class="p-4 border-b border-app-border">
-                    <h2 class="font-bold text-lg text-app-secondary flex items-center">
-                        <span class="bg-app-primary text-white rounded-full h-6 w-6 text-sm flex items-center justify-center mr-2">3</span> 권한 부여
-                    </h2>
-                </div>
-                <form id="grant-form" class="flex-1 p-4 space-y-4 overflow-y-auto">
-                    <div>
-                        <label for="grant-subjects" class="block text-sm font-medium text-gray-700">누구에게 (주체)</label>
-                        <select id="grant-subjects" name="subjects" multiple class="mt-1 block w-full border-app-border rounded-md h-32 focus:ring-app-accent focus:border-app-accent">
-                        </select>
-                        <p class="text-xs text-slate-500 mt-1">다중 선택 가능 (Ctrl/Cmd + 클릭)</p>
-                    </div>
-                    <div>
-                        <label for="grant-actions" class="block text-sm font-medium text-gray-700">어떤 행위 (권한)</label>
-                        <select id="grant-actions" name="actions" multiple class="mt-1 block w-full border-app-border rounded-md h-24 focus:ring-app-accent focus:border-app-accent">
-                        </select>
-                    </div>
-                    <div>
-                        <label for="grant-reason" class="block text-sm font-medium text-gray-700">사유</label>
-                        <input type="text" id="grant-reason" required placeholder="권한 부여 사유 입력 (감사용)" class="mt-1 block w-full border-app-border rounded-md focus:ring-app-accent focus:border-app-accent">
-                    </div>
-                    <div class="pt-2">
-                        <button type="submit" class="w-full flex justify-center items-center gap-2 bg-app-accent hover:bg-app-accent-hover text-white font-bold py-2.5 px-4 rounded-lg transition-transform duration-150 hover:scale-105">
-                            <svg class="w-5 h-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm.75-11.25a.75.75 0 00-1.5 0v2.5h-2.5a.75.75 0 000 1.5h2.5v2.5a.75.75 0 001.5 0v-2.5h2.5a.75.75 0 000-1.5h-2.5v-2.5z" /></svg>
-                            <span>권한 부여 실행</span>
-                        </button>
-                    </div>
-                </form>
+            <div id="explorer-list" class="flex-1 p-2 overflow-y-auto"></div>
+        </div>
+        <div id="workspace" class="col-span-12 md:col-span-9 bg-white rounded-xl shadow-lg flex flex-col p-6 overflow-y-auto">
+            <div class="flex flex-col items-center justify-center h-full text-slate-500">
+                <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <p class="mt-4 text-lg">좌측 탐색기에서 항목을 선택해주세요.</p>
             </div>
-
         </div>
     </main>
 </div>
-
+<div th:insert="~{fragments/footer :: footer}" class="mt-auto"></div>
 <script th:src="@{/js/toast.js}"></script>
-<script th:src="@{/js/workbench.js}"></script>
+<script th:src="@{/js/workbench.v3.js}"></script>
 </body>
 </html>

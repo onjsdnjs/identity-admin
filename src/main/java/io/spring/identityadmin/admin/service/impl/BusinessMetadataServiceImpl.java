@@ -4,6 +4,7 @@ import io.spring.identityadmin.admin.repository.BusinessActionRepository;
 import io.spring.identityadmin.admin.repository.BusinessResourceRepository;
 import io.spring.identityadmin.admin.repository.ConditionTemplateRepository;
 import io.spring.identityadmin.admin.service.BusinessMetadataService;
+import io.spring.identityadmin.admin.service.RoleService;
 import io.spring.identityadmin.entity.*;
 import io.spring.identityadmin.admin.repository.GroupRepository;
 import io.spring.identityadmin.repository.UserRepository;
@@ -28,6 +29,7 @@ public class BusinessMetadataServiceImpl implements BusinessMetadataService {
     private final ConditionTemplateRepository conditionTemplateRepository;
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
+    private final RoleService roleService;
 
     @Override
     public List<BusinessResource> getAllBusinessResources() {
@@ -67,4 +69,11 @@ public class BusinessMetadataServiceImpl implements BusinessMetadataService {
     public List<Group> getAllGroupsForPolicy() {
         return groupRepository.findAll();
     }
+
+    @Override
+    public List<Role> getAllRoles() {
+        return roleService.getRoles();
+    }
+
+
 }

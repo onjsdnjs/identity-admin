@@ -16,7 +16,6 @@ public class WorkbenchMetadataController {
 
     @GetMapping("/subjects")
     public ResponseEntity<?> getSubjects() {
-        // 사용자, 그룹 목록을 반환
         return ResponseEntity.ok(Map.of(
                 "users", businessMetadataService.getAllUsersForPolicy(),
                 "groups", businessMetadataService.getAllGroupsForPolicy()
@@ -24,11 +23,12 @@ public class WorkbenchMetadataController {
     }
 
     @GetMapping("/actions")
-    public ResponseEntity<?> getActions(@RequestParam(required = false) Long resourceId) {
-        // 특정 리소스에 대한 행위 또는 전체 행위 목록 반환
-        if (resourceId != null) {
-            return ResponseEntity.ok(businessMetadataService.getActionsForResource(resourceId));
-        }
-        return ResponseEntity.ok(businessMetadataService.getAllBusinessActions());
+    public ResponseEntity<?> getActions(@RequestParam Long resourceId) {
+        return ResponseEntity.ok(businessMetadataService.getActionsForResource(resourceId));
+    }
+
+    @GetMapping("/roles")
+    public ResponseEntity<?> getRoles() {
+        return ResponseEntity.ok(businessMetadataService.getAllRoles()); // BusinessMetadataService에 추가 필요
     }
 }
