@@ -1,8 +1,12 @@
 package io.spring.identityadmin.iamw;
 
+import io.spring.identityadmin.admin.repository.GroupRepository;
+import io.spring.identityadmin.admin.repository.PermissionRepository;
+import io.spring.identityadmin.admin.repository.RoleRepository;
 import io.spring.identityadmin.domain.dto.EntitlementDto;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyCondition;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.SpelNode;
@@ -23,9 +27,15 @@ import java.util.stream.Stream;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class PolicyTranslator {
 
     private final SpelExpressionParser expressionParser = new SpelExpressionParser();
+    private final RoleRepository roleRepository;
+    private final GroupRepository groupRepository;
+    private final PermissionRepository permissionRepository;
+
+    private record AnalysisResult(List<String> subjectDescriptions, String subjectType, List<String> actionDescriptions, List<String> conditionDescriptions) {}
 
     /**
      * Policy 객체 하나를 EntitlementDto 스트림으로 번역합니다.
@@ -33,34 +43,64 @@ public class PolicyTranslator {
      */
     public Stream<EntitlementDto> translate(Policy policy, String resourceName) {
         return policy.getRules().stream().map(rule -> {
-            // Rule 내의 모든 Condition 들을 AND 관계로 묶어 하나의 큰 ExpressionNode로 만듭니다.
             List<ExpressionNode> conditionNodes = rule.getConditions().stream()
                     .map(this::parseCondition)
                     .collect(Collectors.toList());
+            ExpressionNode rootNode = (conditionNodes.size() == 1) ? conditionNodes.get(0) : new LogicalNode("AND", conditionNodes);
 
-            ExpressionNode rootNode = (conditionNodes.size() == 1) ?
-                    conditionNodes.getFirst() :
-                    new LogicalNode("AND", conditionNodes);
-
-            // 최종 분석된 노드에서 정보를 추출하여 DTO 생성
-            Set<String> authorities = rootNode.getRequiredAuthorities();
-
-            // 주체(Role/Group)와 행위(Permission)를 분리
-            List<String> subjects = authorities.stream().filter(a -> a.startsWith("ROLE_")).collect(Collectors.toList());
-            List<String> actions = authorities.stream().filter(a -> !a.startsWith("ROLE_")).collect(Collectors.toList());
-
-            // 실제 시스템에서는 이 이름들을 DB에서 조회하여 사용자 친화적 이름으로 바꿔야 합니다.
-            String subjectName = subjects.isEmpty() ? "모든 인증된 사용자" : String.join(", ", subjects);
+            // [수정] AST 분석 결과를 기반으로 주체, 행위, 조건의 '설명'을 생성
+            AnalysisResult analysis = analyzeNode(rootNode);
 
             return new EntitlementDto(
                     policy.getId(),
-                    subjectName,
-                    "N/A", // Type
+                    String.join(", ", analysis.subjectDescriptions),
+                    analysis.subjectType,
                     resourceName,
-                    actions,
-                    List.of(rootNode.getConditionDescription())
+                    analysis.actionDescriptions,
+                    analysis.conditionDescriptions
             );
         });
+    }
+
+    // [신규] 분석된 노드를 순회하며 최종 DTO에 필요한 정보를 추출하는 메서드
+    private AnalysisResult analyzeNode(ExpressionNode rootNode) {
+        List<String> subjectDescs = new ArrayList<>();
+        List<String> actionDescs = new ArrayList<>();
+        List<String> conditionDescs = new ArrayList<>();
+        String subjectType = "N/A";
+
+        Set<String> authorities = rootNode.getRequiredAuthorities();
+        for (String auth : authorities) {
+            if (auth.startsWith("ROLE_")) {
+                // 'ROLE_ADMIN' -> 'ADMIN'
+                String roleName = auth.substring(5);
+                // DB에서 Role 이름을 조회하여 설명 추가
+                String friendlyName = roleRepository.findByRoleName(roleName).map(r -> r.getRoleDesc()).orElse(roleName);
+                subjectDescs.add(friendlyName);
+                subjectType = "역할";
+            } else if (auth.startsWith("GROUP_")) {
+                // 'GROUP_1' -> 1L
+                Long groupId = Long.parseLong(auth.substring(6));
+                // DB에서 Group 이름을 조회하여 설명 추가
+                String friendlyName = groupRepository.findById(groupId).map(g -> g.getName()).orElse("ID: " + groupId);
+                subjectDescs.add(friendlyName);
+                subjectType = "그룹";
+            } else {
+                // DB에서 Permission 설명을 조회하여 설명 추가
+                String friendlyName = permissionRepository.findByName(auth).map(p -> p.getDescription()).orElse(auth);
+                actionDescs.add(friendlyName);
+            }
+        }
+
+        // 인증 조건 등 추가
+        if (rootNode.requiresAuthentication() && subjectDescs.isEmpty()) {
+            subjectDescs.add("인증된 사용자");
+            subjectType = "인증 상태";
+        }
+
+        conditionDescs.add(rootNode.getConditionDescription());
+
+        return new AnalysisResult(subjectDescs, subjectType, actionDescs, conditionDescs);
     }
 
     public ExpressionNode parseCondition(PolicyCondition condition) {
@@ -131,6 +171,12 @@ public class PolicyTranslator {
             SpelNode child = node.getChild(i);
             if (child instanceof StringLiteral) {
                 args.add(((StringLiteral) child).getLiteralValue().getValue().toString());
+            } else if (child instanceof CompoundExpression) { // hasAnyAuthority('A','B')
+                for (int j = 0; j < child.getChildCount(); j++) {
+                    if (child.getChild(j) instanceof StringLiteral) {
+                        args.add(((StringLiteral) child.getChild(j)).getLiteralValue().getValue().toString());
+                    }
+                }
             }
         }
         return args;

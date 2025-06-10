@@ -25,7 +25,6 @@ public class AccessGrantServiceImpl implements AccessGrantService {
 
     private final PolicyService policyService;
     private final ManagedResourceRepository managedResourceRepository;
-    private final BusinessActionRepository businessActionRepository;
     private final BusinessResourceActionRepository businessResourceActionRepository;
 
     @Override
