@@ -63,7 +63,7 @@ public class PolicyTranslator {
         });
     }
 
-    private ExpressionNode parseCondition(PolicyCondition condition) {
+    public ExpressionNode parseCondition(PolicyCondition condition) {
         try {
             Expression expression = expressionParser.parseExpression(condition.getExpression());
             SpelNode ast = ((SpelExpression) expression).getAST();

@@ -2,6 +2,7 @@ package io.spring.identityadmin.iamw;
 
 import io.spring.identityadmin.admin.repository.GroupRepository;
 import io.spring.identityadmin.admin.repository.PolicyRepository;
+import io.spring.identityadmin.admin.repository.RoleRepository;
 import io.spring.identityadmin.domain.dto.EntitlementDto;
 import io.spring.identityadmin.entity.Group;
 import io.spring.identityadmin.entity.ManagedResource;
@@ -31,6 +32,7 @@ public class AccessInquiryServiceImpl implements AccessInquiryService {
     private final ManagedResourceRepository managedResourceRepository;
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
+    private final RoleRepository roleRepository;
     private final PolicyTranslator policyTranslator;
 
     private static final Pattern AUTHORITY_PATTERN = Pattern.compile("hasAuthority\\('([^']+)'\\)|hasRole\\('([^']+)'\\)");
@@ -53,20 +55,17 @@ public class AccessInquiryServiceImpl implements AccessInquiryService {
      */
     @Override
     public List<EntitlementDto> getEntitlementsForSubject(Long subjectId, String subjectType) {
-        // 1. 주체의 모든 권한(GrantedAuthority)을 Set<String> 형태로 가져옵니다.
         Set<String> subjectAuthorities = getAuthoritiesForSubject(subjectId, subjectType);
         if (subjectAuthorities.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // 2. 시스템의 모든 정책을 조회합니다.
         List<Policy> allPolicies = policyRepository.findAllWithDetails();
 
-        // 3. 각 정책에 대해 주체가 권한을 만족하는지 검사하고, 만족하면 EntitlementDto를 생성합니다.
         return allPolicies.stream()
-                .filter(policy -> policy.getEffect() == Policy.Effect.ALLOW) // 허용 정책만 검토
+                .filter(policy -> policy.getEffect() == Policy.Effect.ALLOW)
                 .filter(policy -> isPolicySatisfiedBy(policy, subjectAuthorities))
-                .flatMap(this::translatePolicyToEntitlements)
+                .flatMap(policy -> translatePolicyToEntitlements(policy, subjectId, subjectType)) // 주체 정보 전달
                 .collect(Collectors.toList());
     }
 
@@ -122,24 +121,79 @@ public class AccessInquiryServiceImpl implements AccessInquiryService {
     }
 
     /**
-     * 만족된 정책을 기반으로, 해당 정책의 Target들을 EntitlementDto 스트림으로 변환합니다.
+     * [완전 재작성] Policy 객체를 분석하여 완전한 정보를 담은 EntitlementDto로 번역합니다.
+     * 더 이상 "N/A", "Access Granted"와 같은 placeholder를 사용하지 않습니다.
+     *
+     * @param policy 번역할 정책 객체
+     * @param subjectId 현재 조회중인 주체의 ID
+     * @param subjectType 현재 조회중인 주체의 타입
+     * @return 정책의 각 Target에 대한 EntitlementDto 스트림
      */
-    private Stream<EntitlementDto> translatePolicyToEntitlements(Policy policy) {
+    private Stream<EntitlementDto> translatePolicyToEntitlements(Policy policy, Long subjectId, String subjectType) {
+
+        // 1. 정책의 규칙(Rule)들을 구조화된 노드 트리로 변환
+        List<ExpressionNode> ruleNodes = policy.getRules().stream()
+                .map(rule -> {
+                    List<ExpressionNode> conditionNodes = rule.getConditions().stream()
+                            .map(policyTranslator::parseCondition)
+                            .collect(Collectors.toList());
+                    return new LogicalNode("AND", conditionNodes);
+                })
+                .collect(Collectors.toList());
+
+        ExpressionNode finalRuleNode = new LogicalNode("OR", ruleNodes);
+
+        // 2. 노드 트리에서 권한(주체/행위)과 조건 설명을 추출
+        Set<String> authorities = finalRuleNode.getRequiredAuthorities();
+        String conditionDescription = finalRuleNode.getConditionDescription();
+
+        // 3. 주체(Subject)의 사용자 친화적 이름 조회
+        String subjectName = getFriendlySubjectName(subjectId, subjectType);
+        String subjectTypeStr = "GROUP".equalsIgnoreCase(subjectType) ? "그룹" : "사용자";
+
+        // 4. 행위(Action)의 사용자 친화적 이름 목록 조회
+        List<String> actionNames = authorities.stream()
+                .filter(auth -> !auth.startsWith("ROLE_"))
+                .map(this::getFriendlyPermissionName) // 기술적 권한명을 친화적 이름으로 변환
+                .collect(Collectors.toList());
+
+        // 5. 정책이 적용되는 각 타겟(리소스)에 대해 EntitlementDto를 생성
         return policy.getTargets().stream().map(target -> {
-            // PolicyTranslator를 사용하여 주체, 행위, 조건 등을 해석하여 DTO를 채웁니다.
-            // 여기서는 단순화된 예시를 보여줍니다.
             String resourceName = managedResourceRepository.findByResourceIdentifier(target.getTargetIdentifier())
                     .map(m -> m.getFriendlyName())
                     .orElse(target.getTargetIdentifier());
 
-            // 실제로는 policyTranslator를 통해 더 정교하게 변환해야 함
             return new EntitlementDto(
-                    "N/A", "N/A", // 이 정보는 주체 기준 조회이므로, 정책만 보고는 알기 어려움.
+                    policy.getId(),
+                    subjectName,
+                    subjectTypeStr,
                     resourceName,
-                    List.of("Access Granted"), // 단순화된 행위
-                    List.of(), // 단순화된 조건
-                    policy.getId()
+                    actionNames,
+                    List.of(conditionDescription)
             );
         });
+    }
+
+    /**
+     * 주체 ID와 타입을 받아 사용자 친화적인 이름을 반환하는 헬퍼 메서드
+     */
+    private String getFriendlySubjectName(Long subjectId, String subjectType) {
+        if ("USER".equalsIgnoreCase(subjectType)) {
+            return userRepository.findById(subjectId).map(Users::getName).orElse("알 수 없는 사용자");
+        }
+        if ("GROUP".equalsIgnoreCase(subjectType)) {
+            return groupRepository.findById(subjectId).map(Group::getName).orElse("알 수 없는 그룹");
+        }
+        return "알 수 없음";
+    }
+
+    /**
+     * 기술적인 Permission 이름을 받아 사용자 친화적인 이름을 반환하는 헬퍼 메서드
+     * 실제 시스템에서는 Permission 엔티티의 description 필드를 활용해야 합니다.
+     */
+    private String getFriendlyPermissionName(String permissionName) {
+        // 예시: "DOCUMENT_READ" -> "문서 읽기"
+        // 실제로는 DB의 Permission 테이블을 조회하여 description을 가져오는 로직 필요
+        return permissionName;
     }
 }
