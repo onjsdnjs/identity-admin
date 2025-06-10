@@ -5,18 +5,17 @@ import io.spring.identityadmin.admin.repository.BusinessResourceRepository;
 import io.spring.identityadmin.admin.repository.ConditionTemplateRepository;
 import io.spring.identityadmin.admin.service.BusinessMetadataService;
 import io.spring.identityadmin.admin.service.RoleService;
+import io.spring.identityadmin.domain.dto.GroupMetadataDto;
+import io.spring.identityadmin.domain.dto.UserMetadataDto;
 import io.spring.identityadmin.entity.*;
 import io.spring.identityadmin.admin.repository.GroupRepository;
 import io.spring.identityadmin.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,6 +29,7 @@ public class BusinessMetadataServiceImpl implements BusinessMetadataService {
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final RoleService roleService;
+    private final ModelMapper modelMapper;
 
     @Override
     public List<BusinessResource> getAllBusinessResources() {
@@ -61,13 +61,25 @@ public class BusinessMetadataServiceImpl implements BusinessMetadataService {
     }
 
     @Override
-    public List<Users> getAllUsersForPolicy() {
-        return userRepository.findAll();
+    public List<UserMetadataDto> getAllUsersForPolicy() {
+        return userRepository.findAll().stream()
+                .map(user -> modelMapper.map(user, UserMetadataDto.class))
+                .collect(Collectors.toList());
     }
 
     @Override
-    public List<Group> getAllGroupsForPolicy() {
-        return groupRepository.findAll();
+    public List<GroupMetadataDto> getAllGroupsForPolicy() {
+        return groupRepository.findAll().stream()
+                .map(group -> modelMapper.map(group, GroupMetadataDto.class))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Map<String, Object> getAllUsersAndGroups() {
+        return Map.of(
+                "users", getAllUsersForPolicy(),
+                "groups", getAllGroupsForPolicy()
+        );
     }
 
     @Override
