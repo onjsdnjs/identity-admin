@@ -1,14 +1,13 @@
 package io.spring.identityadmin.admin.service.impl;
 
+import io.spring.identityadmin.admin.repository.PolicyRepository;
 import io.spring.identityadmin.admin.service.PolicyRetrievalPoint;
 import io.spring.identityadmin.admin.service.PolicyService;
 import io.spring.identityadmin.domain.dto.PolicyDto;
-import io.spring.identityadmin.domain.dto.PolicyListDto;
 import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyCondition;
 import io.spring.identityadmin.entity.policy.PolicyRule;
 import io.spring.identityadmin.entity.policy.PolicyTarget;
-import io.spring.identityadmin.admin.repository.PolicyRepository;
 import io.spring.identityadmin.iamw.PolicyEnrichmentService;
 import io.spring.identityadmin.security.authorization.manager.CustomDynamicAuthorizationManager;
 import lombok.RequiredArgsConstructor;
@@ -17,8 +16,6 @@ import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;

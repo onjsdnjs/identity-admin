@@ -35,6 +35,7 @@ public class PolicyTranslator {
     private final RoleRepository roleRepository;
     private final GroupRepository groupRepository;
     private final PermissionRepository permissionRepository;
+    private final List<SpelFunctionTranslator> translators;
 
     private record AnalysisResult(List<String> subjectDescriptions, String subjectType, List<String> actionDescriptions, List<String> conditionDescriptions) {}
 
@@ -131,7 +132,7 @@ public class PolicyTranslator {
                 .map(this::parseRule)
                 .collect(Collectors.toList());
 
-        return (ruleNodes.size() == 1) ? ruleNodes.get(0) : new LogicalNode("OR", ruleNodes);
+        return (ruleNodes.size() == 1) ? ruleNodes.getFirst() : new LogicalNode("OR", ruleNodes);
     }
 
     /**
@@ -152,31 +153,17 @@ public class PolicyTranslator {
         if (node instanceof OpOr) return new LogicalNode("OR", getChildren(node));
         if (node instanceof OperatorNot) return new LogicalNode("NOT", getChildren(node));
 
-        // 메서드 호출 처리
+        // [핵심 변경] 메서드 호출 부분을 전략 패턴으로 위임
         if (node instanceof MethodReference) {
-            String methodName = ((MethodReference) node).getName();
+            MethodReference methodRef = (MethodReference) node;
+            String methodName = methodRef.getName();
 
-            // [수정] 인증 상태 표현식 처리 시, requiresAuthentication 플래그를 true로 설정
-            switch (methodName) {
-                case "isAuthenticated": return new TerminalNode("인증된 사용자", true);
-                case "isFullyAuthenticated": return new TerminalNode("완전 인증 사용자 (Remember-Me 아님)", true);
-                case "isAnonymous": return new TerminalNode("익명 사용자", false);
-                case "isRememberMe": return new TerminalNode("Remember-Me 인증 사용자", true);
-            }
-
-            // [수정] 권한/역할 표현식 처리 시, requiresAuthentication 플래그를 명시적으로 false로 설정
-            if (methodName.startsWith("has")) {
-                List<String> args = getMethodArguments(node);
-                String authorities = String.join(", ", args);
-                if (methodName.contains("Role")) {
-                    return new TerminalNode("역할(" + authorities + ") 보유", "ROLE_" + args.get(0), false);
+            // 주입된 번역기 리스트를 순회하며 적절한 전략을 찾음
+            // @Order에 의해 우선순위가 높은 순서대로 순회
+            for (SpelFunctionTranslator translator : translators) {
+                if (translator.supports(methodName)) {
+                    return translator.translate(methodName, methodRef);
                 }
-                return new TerminalNode("권한(" + authorities + ") 보유", args.get(0), false);
-            }
-
-            if ("hasIpAddress".equals(methodName)) {
-                String ip = getMethodArguments(node).get(0);
-                return new TerminalNode("IP(" + ip + ")에서 접근", false);
             }
         }
 

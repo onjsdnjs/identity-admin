@@ -1,9 +1,8 @@
 package io.spring.identityadmin.admin.controller;
 
-import io.spring.identityadmin.domain.dto.PolicyDto;
-import io.spring.identityadmin.domain.dto.PolicyListDto;
-import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.admin.service.PolicyService;
+import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.entity.policy.Policy;
 import io.spring.identityadmin.entity.policy.PolicyCondition;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,8 +27,8 @@ public class PolicyController {
     @GetMapping
     public String listPolicies(Model model) {
         List<Policy> policies = policyService.getAllPolicies();
-        List<PolicyListDto> dtoList = policies.stream()
-                .map(p -> modelMapper.map(p, PolicyListDto.class))
+        List<PolicyDto> dtoList = policies.stream()
+                .map(p -> modelMapper.map(p, PolicyDto.class))
                 .collect(Collectors.toList());
         model.addAttribute("policies", dtoList);
         return "admin/policies";

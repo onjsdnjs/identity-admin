@@ -14,7 +14,10 @@
             <div class="text-center mb-8">
                 <h2 class="mt-4 text-3xl font-bold text-app-primary" th:text="${policy.id != null ? '정책 수정' : '새 정책 등록'}"></h2>
             </div>
-
+            <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h3 class="font-semibold text-lg text-blue-800">정책 요약 (자동 생성)</h3>
+                <p class="mt-2 text-sm text-slate-700 font-mono" th:text="${policy.description} ?: '저장 후 요약 정보가 생성됩니다.'"></p>
+            </div>
             <form th:action="${policy.id != null ? '/admin/policies/' + policy.id + '/edit' : '/admin/policies'}" method="post" th:object="${policy}" class="space-y-6">
                 <input type="hidden" th:field="*{id}" th:if="${policy.id != null}" />
 

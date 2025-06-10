@@ -20,22 +20,15 @@ public class PolicyEnrichmentService {
      * @param policy 정보를 채울 Policy 엔티티
      */
     public void enrichPolicyWithFriendlyDescription(Policy policy) {
-        if (policy == null || policy.getRules() == null || policy.getRules().isEmpty()) {
-            policy.setFriendlyDescription("정의된 규칙 없음");
+        if (policy == null) {
             return;
         }
 
-        // PolicyTranslator를 사용하여 정책을 EntitlementDto로 변환 (메모리상에서만)
-        // DTO 에서 최종 설명 문자열을 조합하여 가져온다.
-        String description = policyTranslator.translate(policy, "") // resourceName은 필요 없으므로 비워둠
-                .map(dto -> {
-                    String subjectPart = "주체(" + dto.subjectName() + ")";
-                    String actionPart = "행위(" + String.join(", ", dto.actions()) + ")";
-                    String conditionPart = "조건(" + String.join(" ", dto.conditions()) + ")";
-                    return String.join(" | ", subjectPart, actionPart, conditionPart);
-                })
-                .findFirst()
-                .orElse("규칙 분석 실패");
+        // PolicyTranslator를 사용하여 정책을 최종 ExpressionNode 트리로 파싱
+        ExpressionNode rootNode = policyTranslator.parsePolicy(policy);
+
+        // 파싱된 노드에서 사람이 읽을 수 있는 설명 전체를 가져옴
+        String description = rootNode.getConditionDescription();
 
         policy.setFriendlyDescription(description);
     }

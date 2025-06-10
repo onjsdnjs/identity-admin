@@ -1,7 +1,6 @@
 package io.spring.identityadmin.admin.service;
 
 import io.spring.identityadmin.domain.dto.PolicyDto;
-import io.spring.identityadmin.domain.dto.PolicyListDto;
 import io.spring.identityadmin.entity.policy.Policy;
 
 import java.util.List;
