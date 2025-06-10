@@ -21,23 +21,23 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Controller
-@RequestMapping("/admin/users") // 공통 경로 설정
+@RequestMapping("/admin/users")
 @RequiredArgsConstructor
 public class UserManagementController {
 
 	private final UserManagementService userManagementService;
-	private final RoleService roleService; // 기존에 RoleService 주입받음
-	private final GroupService groupService; // GroupService 주입
+	private final RoleService roleService;
+	private final GroupService groupService;
 
 	@GetMapping
 	public String getUsers(Model model) {
-		List<UserListDto> users = userManagementService.getUsers(); // Users 엔티티 반환
-		model.addAttribute("users", users); // Model에 Users 엔티티 리스트 그대로 전달
+		List<UserListDto> users = userManagementService.getUsers();
+		model.addAttribute("users", users);
 		return "admin/users";
 	}
 
 	@PostMapping
-	public String modifyUser(@ModelAttribute("user") UserDto userDto, RedirectAttributes ra) { // UserDto 사용
+	public String modifyUser(@ModelAttribute("user") UserDto userDto, RedirectAttributes ra) {
 		userManagementService.modifyUser(userDto);
 		ra.addFlashAttribute("message", "사용자 '" + userDto.getUsername() + "' 정보가 성공적으로 수정되었습니다!");
 		log.info("User {} modified.", userDto.getUsername());
@@ -52,7 +52,7 @@ public class UserManagementController {
 
 		List<Long> selectedGroupIds = userDto.getSelectedGroupIds();
 		if (selectedGroupIds == null) {
-			selectedGroupIds = List.of(); // null 방지
+			selectedGroupIds = List.of();
 		}
 
 		model.addAttribute("user", userDto);
