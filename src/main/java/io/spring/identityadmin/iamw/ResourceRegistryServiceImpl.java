@@ -61,6 +61,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     @Transactional(readOnly = true)
     public Page<ManagedResource> findResources(ResourceSearchCriteria criteria, Pageable pageable) {
         criteria.setManaged(true); // 워크벤치에는 관리 대상 리소스만 표시
+        Page<ManagedResource> byCriteria = managedResourceRepository.findByCriteria(criteria, pageable);
         return managedResourceRepository.findByCriteria(criteria, pageable);
     }
 
