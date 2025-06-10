@@ -3,7 +3,9 @@ package io.spring.identityadmin.admin.controller;
 import io.spring.identityadmin.admin.service.BusinessMetadataService;
 import io.spring.identityadmin.domain.dto.BusinessActionDto;
 import io.spring.identityadmin.domain.dto.RoleMetadataDto;
+import io.spring.identityadmin.entity.BusinessAction;
 import lombok.RequiredArgsConstructor;
+import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,6 +18,7 @@ import java.util.Map;
 public class WorkbenchMetadataController {
 
     private final BusinessMetadataService businessMetadataService;
+    private final ModelMapper modelMapper;
 
     @GetMapping("/subjects")
     public ResponseEntity<Map<String, List<?>>> getSubjects() {
@@ -27,7 +30,10 @@ public class WorkbenchMetadataController {
 
     @GetMapping("/actions")
     public ResponseEntity<List<BusinessActionDto>> getActions(@RequestParam Long resourceId) {
-        return ResponseEntity.ok(businessMetadataService.getActionsForResource(resourceId));
+        List<BusinessAction> businessActions = businessMetadataService.getActionsForResource(resourceId);
+        return ResponseEntity.ok(businessActions.stream()
+                .map(action -> modelMapper.map(action, BusinessActionDto.class))
+                .toList());
     }
 
     @GetMapping("/roles")
