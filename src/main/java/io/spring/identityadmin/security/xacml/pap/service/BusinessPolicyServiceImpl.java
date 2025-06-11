@@ -15,7 +15,7 @@ import io.spring.identityadmin.repository.ConditionTemplateRepository;
 import io.spring.identityadmin.repository.UserRepository;
 import io.spring.identityadmin.security.xacml.pep.CustomDynamicAuthorizationManager;
 import io.spring.identityadmin.repository.GroupRepository;
-import io.spring.identityadmin.security.xacml.prp.repository.PolicyRepository;
+import io.spring.identityadmin.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

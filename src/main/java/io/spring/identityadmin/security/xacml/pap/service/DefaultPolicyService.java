@@ -4,7 +4,7 @@ import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.domain.entity.policy.PolicyRule;
 import io.spring.identityadmin.domain.entity.policy.PolicyTarget;
-import io.spring.identityadmin.security.xacml.prp.repository.PolicyRepository;
+import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.security.xacml.prp.PolicyRetrievalPoint;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.security.xacml.pep.CustomDynamicAuthorizationManager;

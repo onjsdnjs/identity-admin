@@ -2,7 +2,7 @@ package io.spring.identityadmin.resource;
 
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyEnrichmentService;
-import io.spring.identityadmin.security.xacml.prp.repository.PolicyRepository;
+import io.spring.identityadmin.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;

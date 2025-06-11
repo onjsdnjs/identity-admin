@@ -2,7 +2,7 @@ package io.spring.identityadmin.admin.monitoring.service;
 
 import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.repository.GroupRepository;
-import io.spring.identityadmin.security.xacml.prp.repository.PolicyRepository;
+import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.repository.RoleRepository;
 import io.spring.identityadmin.domain.dto.DashboardDto;
 import io.spring.identityadmin.repository.UserRepository;

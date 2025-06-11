@@ -1,4 +1,4 @@
-package io.spring.identityadmin.security.xacml.prp.repository;
+package io.spring.identityadmin.repository;
 
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import org.springframework.data.jpa.repository.JpaRepository;

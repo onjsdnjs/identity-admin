@@ -3,89 +3,360 @@
 @tailwind components;
 @tailwind utilities;
 
-/*
-  프로젝트 전반에 걸쳐 적용될 커스텀 기본 스타일이나
-  Tailwind 유틸리티로 만들기 어려운 복잡한 컴포넌트 스타일을 정의할 수 있습니다.
-  하지만 가급적 Tailwind 유틸리티 클래스를 직접 사용하거나,
-  `@apply` 지시어를 통해 컴포넌트 클래스를 만드는 것을 권장합니다.
-*/
+/* 루트 변수 정의 - 다크모드 지원 */
+:root {
+    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --gradient-accent: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --gradient-dark: linear-gradient(135deg, #1a1c20 0%, #2d3436 100%);
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --shadow-glow: 0 0 40px rgba(102, 126, 234, 0.5);
+    --shadow-card: 0 20px 40px -12px rgba(0, 0, 0, 0.25);
+}
 
-/* 예시: 전체 페이지 기본 배경색 및 텍스트 색상 (tailwind.config.js의 theme 확장과 연동 가능) */
+/* 다크모드 변수 */
+@media (prefers-color-scheme: dark) {
+    :root {
+        --glass-bg: rgba(0, 0, 0, 0.3);
+        --glass-border: rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* 기본 body 스타일 - 모던 그라디언트 배경 */
 body {
     @apply bg-app-light-gray text-app-dark-gray font-sans antialiased;
-    /* antialiased: 폰트 렌더링 부드럽게 처리 */
+    background: linear-gradient(120deg, #f6f7ff 0%, #f5f7ff 25%, #eff2ff 50%, #f3f5ff 100%);
+    min-height: 100vh;
+    position: relative;
 }
 
-/* 예시: 공통 컨테이너 스타일 */
-.app-layout-container { /* HTML에서 이 클래스를 사용 */
+/* 다크모드 body */
+@media (prefers-color-scheme: dark) {
+    body {
+        @apply bg-gray-900 text-gray-100;
+        background: linear-gradient(120deg, #0f1419 0%, #1a1f2e 25%, #16213e 50%, #0f1419 100%);
+    }
+}
+
+/* 애니메이션 정의 */
+@keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-20px); }
+}
+
+@keyframes glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.8; }
+}
+
+@keyframes slideInFromTop {
+    from { opacity: 0; transform: translateY(-30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-border {
+    0%, 100% { border-color: rgba(102, 126, 234, 0.5); }
+    50% { border-color: rgba(102, 126, 234, 1); }
+}
+
+/* 컨테이너 - 글래스모피즘 효과 */
+.app-layout-container {
     @apply container mx-auto px-4 sm:px-6 lg:px-8;
+    animation: slideInFromTop 0.6s ease-out;
 }
 
-
-/* 예시: 버튼 기본 스타일 (선택 사항 - Tailwind 플러그인 또는 컴포넌트화로 대체 가능) */
+/* 버튼 - 3D 효과와 그라디언트 */
 .btn {
-    @apply inline-flex items-center justify-center px-4 py-2 border border-transparent
-    text-sm font-medium rounded-md shadow-sm focus:outline-none
-    focus:ring-2 focus:ring-offset-2 transition-colors duration-150;
+    @apply inline-flex items-center justify-center px-6 py-3 border border-transparent
+    text-sm font-medium rounded-xl shadow-sm focus:outline-none
+    focus:ring-2 focus:ring-offset-2 transition-all duration-300;
+    position: relative;
+    overflow: hidden;
+    transform-style: preserve-3d;
+    transform: perspective(1000px) rotateX(0deg);
+}
+
+.btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+}
+
+.btn:hover::before {
+    transform: translateX(100%);
+}
+
+.btn:hover {
+    transform: perspective(1000px) rotateX(10deg) translateY(-2px);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
 
 .btn-primary {
-    @apply text-white bg-app-accent hover:bg-app-accent-hover focus:ring-app-accent;
+    @apply text-white;
+    background: var(--gradient-primary);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:hover {
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
 }
 
 .btn-secondary {
-    @apply text-app-dark-gray bg-gray-200 hover:bg-gray-300 focus:ring-gray-400;
+    @apply text-app-dark-gray;
+    background: linear-gradient(135deg, #e0e0e0 0%, #f5f5f5 100%);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
 }
 
 .btn-danger {
-    @apply text-white bg-error hover:bg-red-700 focus:ring-error;
+    @apply text-white;
+    background: var(--gradient-secondary);
+    box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
 }
 
-/* 예시: 폼 입력 필드 기본 스타일 */
+/* 폼 입력 - 글래스모피즘과 애니메이션 */
 .form-input {
-    @apply block w-full px-3 py-2 border border-app-border rounded-md
+    @apply block w-full px-4 py-3 border rounded-xl
     shadow-sm placeholder-gray-400
-    focus:outline-none focus:ring-app-input-focus-border focus:border-app-input-focus-border
-    sm:text-sm;
+    focus:outline-none focus:ring-2 focus:ring-app-input-focus-border
+    sm:text-sm transition-all duration-300;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.form-input:focus {
+    background: rgba(255, 255, 255, 1);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.3);
+    animation: pulse-border 2s infinite;
 }
 
 .form-label {
-    @apply block text-sm font-medium text-gray-700 mb-1;
+    @apply block text-sm font-semibold text-gray-700 mb-2;
+    letter-spacing: 0.5px;
 }
 
-/* Toast 메시지 스타일 (toast.js와 연동) */
+/* 카드 컴포넌트 - 글래스모피즘 */
+.card {
+    @apply rounded-2xl p-6;
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-card);
+    transition: all 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-glow), var(--shadow-card);
+}
+
+/* Toast 메시지 - 모던 스타일 */
 .toast-success {
-    @apply bg-success;
+    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    backdrop-filter: blur(10px);
+    border-left: 4px solid #10b981;
+    animation: slideInFromTop 0.4s ease-out;
 }
+
 .toast-error {
-    @apply bg-error;
+    background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    backdrop-filter: blur(10px);
+    border-left: 4px solid #ef4444;
+    animation: slideInFromTop 0.4s ease-out;
 }
+
 .toast-info {
-    @apply bg-info;
+    background: linear-gradient(135deg, #2196f3 0%, #21cbf3 100%);
+    backdrop-filter: blur(10px);
+    border-left: 4px solid #3b82f6;
+    animation: slideInFromTop 0.4s ease-out;
 }
 
-/* MFA 단계별 화면 전환 시 부드러운 효과 (선택 사항) */
+/* MFA 단계 - 부드러운 전환 */
 .mfa-step {
-    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center;
 }
-.mfa-step:not([style*="display:none"]):not([style*="display: none;"]) { /* 보이는 스텝 */
+
+.mfa-step:not([style*="display:none"]):not([style*="display: none;"]) {
     opacity: 1;
-    transform: translateX(0);
+    transform: scale(1) translateX(0);
 }
-.mfa-step[style*="display:none"], .mfa-step[style*="display: none;"] { /* 숨겨진 스텝 (초기 상태) */
+
+.mfa-step[style*="display:none"], .mfa-step[style*="display: none;"] {
     opacity: 0;
-    transform: translateX(-20px); /* 왼쪽에서 나타나는 효과 */
-    position: absolute; /* 레이아웃 깨짐 방지 */
-    width: 100%; /* 부모 너비 유지 */
+    transform: scale(0.95) translateX(-30px);
+    position: absolute;
+    width: 100%;
 }
 
+/* 테이블 - 모던 스타일 */
+table {
+    @apply rounded-xl overflow-hidden;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+}
 
-/* 모바일 화면에서 사이드바 숨김 처리 (JavaScript로 제어할 수도 있음) */
+thead {
+    background: var(--gradient-primary);
+}
+
+tbody tr {
+    @apply transition-all duration-200;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+tbody tr:hover {
+    background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, rgba(102, 126, 234, 0.05) 100%);
+    transform: scale(1.01);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 링크 - 현대적 효과 */
+a {
+    @apply transition-all duration-300;
+    position: relative;
+}
+
+a::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    width: 0;
+    height: 2px;
+    background: var(--gradient-accent);
+    transition: width 0.3s ease;
+}
+
+a:hover::after {
+    width: 100%;
+}
+
+/* 사이드바 - 글래스모피즘 */
+aside nav {
+    background: linear-gradient(180deg, rgba(69, 90, 100, 0.95) 0%, rgba(55, 71, 79, 0.95) 100%);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 헤더 - 그라디언트와 그림자 */
+header {
+    background: var(--gradient-dark);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+}
+
+/* 애니메이션 로딩 효과 */
+.loading-skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* 스크롤바 커스터마이징 */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--gradient-primary);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--gradient-secondary);
+}
+
+/* 워크벤치 특별 스타일 */
+.explorer-item {
+    @apply p-3 rounded-lg cursor-pointer transition-all duration-300;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid transparent;
+}
+
+.explorer-item:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(102, 126, 234, 0.05) 100%);
+    border-color: rgba(102, 126, 234, 0.3);
+    transform: translateX(5px);
+}
+
+.explorer-item.selected {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* 액션 버튼 - 플로팅 효과 */
+.action-button {
+    @apply inline-flex items-center px-4 py-2 rounded-lg text-white font-medium transition-all duration-300;
+    background: var(--gradient-accent);
+    box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
+    animation: float 3s ease-in-out infinite;
+}
+
+.action-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(79, 172, 254, 0.6);
+}
+
+/* 모바일 반응형 개선 */
 @media (max-width: 768px) {
-    /* aside 태그 또는 menu 프래그먼트 최상위 div에 'md:block hidden' 클래스 대신 사용 가능 */
-    /*
-    .sidebar-mobile-hidden {
-      display: none;
+    .btn {
+        @apply text-sm py-2 px-4;
     }
-    */
+
+    .card {
+        @apply p-4;
+    }
+
+    body {
+        background: linear-gradient(180deg, #f6f7ff 0%, #eff2ff 100%);
+    }
+}
+
+/* 다크모드 추가 스타일 */
+@media (prefers-color-scheme: dark) {
+    .form-input {
+        background: rgba(0, 0, 0, 0.5);
+        border-color: rgba(255, 255, 255, 0.1);
+        color: white;
+    }
+
+    .form-input:focus {
+        background: rgba(0, 0, 0, 0.7);
+    }
+
+    .card {
+        background: rgba(0, 0, 0, 0.5);
+        border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    table {
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    tbody tr:hover {
+        background: linear-gradient(90deg, rgba(102, 126, 234, 0.2) 0%, rgba(102, 126, 234, 0.1) 100%);
+    }
 }

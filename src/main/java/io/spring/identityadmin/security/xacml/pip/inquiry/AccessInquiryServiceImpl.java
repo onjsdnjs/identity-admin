@@ -7,7 +7,7 @@ import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.repository.GroupRepository;
 import io.spring.identityadmin.repository.ManagedResourceRepository;
 import io.spring.identityadmin.security.xacml.pip.resolver.SubjectAuthorityResolver;
-import io.spring.identityadmin.security.xacml.prp.repository.PolicyRepository;
+import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.repository.PermissionRepository;
 import io.spring.identityadmin.repository.RoleRepository;
 import io.spring.identityadmin.domain.dto.EntitlementDto;

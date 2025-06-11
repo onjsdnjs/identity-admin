@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.xacml.prp;
 
 import io.spring.identityadmin.domain.entity.policy.Policy;
-import io.spring.identityadmin.security.xacml.prp.repository.PolicyRepository;
+import io.spring.identityadmin.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
