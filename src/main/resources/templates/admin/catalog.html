@@ -3,7 +3,7 @@
 <head>
     <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='기능 카탈로그 통합 관리')}"></th:block>
     <style>
-        .tab-item { padding: 0.75rem 0.25rem; margin-right: 2rem; border-bottom: 3px solid transparent; color: #6b7280; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
+        .tab-item { padding: 0.75rem 0.25rem; margin-right: 2rem; border-bottom: 3px solid transparent; color: #6b7280; font-weight: 500; cursor: pointer; transition: all 0.2s ease; display: inline-flex; align-items: center; }
         .tab-item:hover { color: #3f51b5; }
         .tab-item.active { border-color: #3f51b5; color: #3f51b5; font-weight: 700; }
         .tab-pane { display: none; }
@@ -11,7 +11,6 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         .tab-count { font-size: 0.75rem; padding: 0.125rem 0.5rem; margin-left: 0.5rem; border-radius: 9999px; font-weight: 600; }
         .tech-identifier { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; color: #4b5563; }
-        .details-box { display: none; background-color: #f9fafb; border-left: 3px solid #e5e7eb; padding: 8px; margin-top: 4px; border-radius: 4px; font-size: 0.75rem; }
         .toggle-switch-label { position: relative; display: inline-block; width: 44px; height: 24px; }
         .toggle-switch-label input { opacity: 0; width: 0; height: 0; }
         .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
@@ -50,30 +49,34 @@
             <div id="unconfirmed-pane" class="tab-pane active">
                 <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
                     <div class="flex items-center justify-between mb-4">
-                        <p class="text-sm font-medium text-gray-700">새로 발견된 기능 <strong class="text-red-600" th:text="${catalogData.unconfirmed.size()}"></strong>개를 확인하고 등록해주세요.</p>
+                        <div class="flex items-center gap-4">
+                            <input type="checkbox" class="select-all-checkbox h-4 w-4" data-pane-id="unconfirmed-pane">
+                            <label class="text-sm font-medium">전체 선택</label>
+                        </div>
+                        <p class="text-sm text-gray-700">새로 발견된 기능 <strong class="text-red-600" th:text="${catalogData.unconfirmed.size()}"></strong>개를 확인하고 등록해주세요.</p>
                         <button id="batch-confirm-btn" class="px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700" th:disabled="${catalogData.unconfirmed.isEmpty()}">선택 항목 일괄 등록</button>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full text-sm">
                             <thead class="bg-gray-100">
                             <tr>
-                                <th class="p-3 w-12 text-center"><input type="checkbox" class="select-all-checkbox" data-pane-id="unconfirmed-pane"></th>
+                                <th class="p-3 w-12 text-center">선택</th>
                                 <th class="p-3 text-left">타입</th>
                                 <th class="p-3 text-left">기술 식별자 (자동 스캔)</th>
-                                <th class="p-3 text-left font-semibold">기능 이름 (자동 제안)</th>
+                                <th class="p-3 text-left">기능 이름 (자동 제안)</th>
                                 <th class="p-3 text-left">기능 그룹 할당</th>
                             </tr>
                             </thead>
                             <tbody class="divide-y">
                             <tr th:each="func : ${catalogData.unconfirmed}" class="hover:bg-gray-50">
-                                <td class="p-3 text-center">
-                                    <input type="checkbox" class="catalog-checkbox" th:data-catalog-id="${func.id}">
+                                <td class="p-3 text-center align-middle">
+                                    <input type="checkbox" class="catalog-checkbox" th:data-catalog-id="${func.id}" data-pane-id="unconfirmed-pane">
                                 </td>
-                                <td class="p-3">
+                                <td class="p-3 align-middle">
                                     <span class="px-2 py-1 text-xs font-semibold rounded-full" th:classappend="${func.resourceType == 'URL' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}" th:text="${func.resourceType}"></span>
                                 </td>
-                                <td class="p-3 font-mono text-xs" th:text="${func.resourceIdentifier}"></td>
-                                <td class="p-3 font-medium" th:text="${func.friendlyName}"></td>
+                                <td class="p-3 font-mono text-xs align-middle" th:text="${func.resourceIdentifier}"></td>
+                                <td class="p-3 font-medium align-middle" th:text="${func.friendlyName}"></td>
                                 <td class="p-3">
                                     <select class="form-input w-full p-2 text-sm group-selector">
                                         <option value="" disabled selected>그룹 선택</option>
@@ -90,14 +93,24 @@
                 </div>
             </div>
 
-            <th:block th:fragment="catalog-table(paneId, catalogList, is_active_pane, functionGroups)">
+            <th:block th:fragment="catalog-table(paneId, catalogList, functionGroups, is_active_pane)">
                 <div th:id="${paneId}" class="tab-pane">
                     <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-4">
+                                <input type="checkbox" class="select-all-checkbox h-4 w-4" th:data-pane-id="${paneId}">
+                                <label class="text-sm font-medium">전체 선택</label>
+                            </div>
+                            <div>
+                                <button th:if="${is_active_pane}" class="batch-update-btn px-3 py-1.5 bg-gray-600 text-white text-xs font-semibold rounded-md" data-status="INACTIVE" th:data-pane-id="${paneId}">선택 항목 비활성화</button>
+                                <button th:unless="${is_active_pane}" class="batch-update-btn px-3 py-1.5 bg-green-600 text-white text-xs font-semibold rounded-md" data-status="ACTIVE" th:data-pane-id="${paneId}">선택 항목 활성화</button>
+                            </div>
+                        </div>
                         <table class="min-w-full text-sm">
                             <thead class="bg-gray-100">
                             <tr>
-                                <th class="p-3 w-12 text-center"><input type="checkbox" class="select-all-checkbox" th:data-pane-id="${paneId}"></th>
-                                <th class="p-3 w-24 text-center">상태</th>
+                                <th class="p-3 w-12 text-center">선택</th>
+                                <th class="p-3 w-24 text-center">상태 (활성/비활성)</th>
                                 <th class="p-3 text-left w-1/3">기능 이름 및 설명</th>
                                 <th class="p-3 text-left">기능 그룹</th>
                                 <th class="p-3 text-left">연결된 리소스</th>
@@ -107,26 +120,26 @@
                             <tbody class="divide-y divide-gray-200">
                             <tr th:each="cat : ${catalogList}" class="hover:bg-gray-50 align-top" th:data-catalog-id="${cat.id}">
                                 <form th:action="@{/admin/catalog/{id}/update(id=${cat.id})}" method="post">
-                                    <td class="p-3 text-center">
-                                        <input type="checkbox" name="catalogId" th:value="${cat.id}" class="catalog-checkbox" th:data-pane-id="${paneId}">
+                                    <td class="p-3 text-center align-middle">
+                                        <input type="checkbox" th:value="${cat.id}" class="catalog-checkbox" th:data-pane-id="${paneId}">
                                     </td>
-                                    <td class="p-3 text-center">
+                                    <td class="p-3 text-center align-middle">
                                         <label class="toggle-switch-label">
                                             <input type="checkbox" class="status-toggle" th:checked="${cat.status.name() == 'ACTIVE'}">
                                         </label>
                                         <input type="hidden" name="status" th:value="${cat.status.name()}" class="status-hidden-input">
                                     </td>
                                     <td class="p-3">
-                                        <input type="text" name="friendlyName" th:value="${cat.friendlyName}" class="form-input w-full font-semibold mb-1">
-                                        <textarea name="description" class="form-input w-full text-xs" rows="2" th:text="${cat.description}" placeholder="기능 설명을 입력하세요..."></textarea>
+                                        <input type="text" name="friendlyName" th:value="${cat.friendlyName}" class="form-input w-full font-semibold mb-1" placeholder="사용자 친화적 이름">
+                                        <textarea name="description" class="form-input w-full text-xs" rows="2" th:text="${cat.description}" placeholder="이 기능에 대한 설명을 입력하세요..."></textarea>
                                     </td>
-                                    <td class="p-3">
+                                    <td class="p-3 align-middle">
                                         <select name="groupId" class="form-input w-full p-2 text-sm">
                                             <option th:each="group : ${functionGroups}" th:value="${group.id}" th:text="${group.name}" th:selected="${group.name == cat.functionGroupName}"></option>
                                         </select>
                                     </td>
-                                    <td class="p-3 font-mono text-xs" th:text="${cat.resourceIdentifier}"></td>
-                                    <td class="p-3">
+                                    <td class="p-3 font-mono text-xs align-middle" th:text="${cat.resourceIdentifier}"></td>
+                                    <td class="p-3 align-middle">
                                         <button type="submit" class="w-full px-3 py-2 bg-app-accent text-white font-medium rounded-md hover:bg-app-accent-hover">저장</button>
                                     </td>
                                 </form>
@@ -140,8 +153,8 @@
                 </div>
             </th:block>
 
-            <div th:replace="~{:: catalog-table(paneId='active-pane', catalogList=${catalogData.active}, is_active_pane=true, functionGroups=${functionGroups})}"></div>
-            <div th:replace="~{:: catalog-table(paneId='inactive-pane', catalogList=${catalogData.inactive}, is_active_pane=false, functionGroups=${functionGroups})}"></div>
+            <div th:replace="~{:: catalog-table(paneId='active-pane', catalogList=${catalogData.active}, functionGroups=${functionGroups}, is_active_pane=true)}"></div>
+            <div th:replace="~{:: catalog-table(paneId='inactive-pane', catalogList=${catalogData.inactive}, functionGroups=${functionGroups}, is_active_pane=false)}"></div>
         </div>
     </main>
 </div>
@@ -171,17 +184,20 @@
         if (batchConfirmBtn) {
             batchConfirmBtn.addEventListener('click', () => {
                 const payload = [];
-                document.querySelectorAll('.unconfirmed-checkbox:checked').forEach(cb => {
+                let hasError = false;
+                document.querySelectorAll('#unconfirmed-pane .catalog-checkbox:checked').forEach(cb => {
                     const row = cb.closest('tr');
                     const catalogId = cb.dataset.catalogId;
                     const groupId = row.querySelector('.group-selector').value;
                     if (!groupId) {
                         showToast(`기능(ID: ${catalogId})의 그룹을 선택해주세요.`, 'error');
-                        payload.length = 0; // Abort
+                        hasError = true;
                         return;
                     }
                     payload.push({ catalogId: parseInt(catalogId), groupId: parseInt(groupId) });
                 });
+
+                if(hasError) return;
 
                 if (payload.length > 0) {
                     fetch('/api/admin/catalog/confirm-batch', {
@@ -194,6 +210,8 @@
                             showToast(data.message, 'success');
                             setTimeout(() => window.location.reload(), 1500);
                         }).catch(err => showToast(err.toString(), 'error'));
+                } else {
+                    showToast('등록할 항목을 선택해주세요.', 'info');
                 }
             });
         }
@@ -234,10 +252,10 @@
             });
         });
 
-        // Individual status toggle logic
+        // Individual status toggle logic to update hidden input for form submission
         document.querySelectorAll('.status-toggle').forEach(toggle => {
             toggle.addEventListener('change', (e) => {
-                const hiddenInput = e.target.parentElement.nextElementSibling;
+                const hiddenInput = e.target.closest('td').querySelector('.status-hidden-input');
                 hiddenInput.value = e.target.checked ? 'ACTIVE' : 'INACTIVE';
             });
         });
