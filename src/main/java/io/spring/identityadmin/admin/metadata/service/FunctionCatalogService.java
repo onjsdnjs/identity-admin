@@ -1,53 +1,42 @@
 package io.spring.identityadmin.admin.metadata.service;
 
+import io.spring.identityadmin.domain.dto.FunctionCatalogDto;
+import io.spring.identityadmin.domain.dto.FunctionCatalogUpdateDto;
 import io.spring.identityadmin.domain.entity.FunctionCatalog;
 import io.spring.identityadmin.domain.entity.FunctionGroup;
 import io.spring.identityadmin.repository.FunctionCatalogRepository;
 import io.spring.identityadmin.repository.FunctionGroupRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class FunctionCatalogService {
 
     private final FunctionCatalogRepository functionCatalogRepository;
     private final FunctionGroupRepository functionGroupRepository;
+    private final ModelMapper modelMapper;
 
-    /**
-     * Phase 1: 개발자가 검토해야 할 '미확인' 상태의 모든 기능을 조회합니다.
-     * @return List of FunctionCatalog in UNCONFIRMED state.
-     */
-    @Transactional
     public List<FunctionCatalog> findUnconfirmedFunctions() {
-        return functionCatalogRepository.findUnconfirmedFunctions();
+        return functionCatalogRepository.findUnconfirmedFunctionsWithDetails();
     }
 
-    /**
-     * Phase 1: 기능 그룹 선택 드롭다운을 채우기 위해 모든 기능 그룹을 조회합니다.
-     * @return List of all FunctionGroup.
-     */
-    @Transactional
     public List<FunctionGroup> getAllFunctionGroups() {
-        // 간단한 예시로, 초기 데이터가 없다면 기본 그룹을 생성해줍니다.
         if (functionGroupRepository.count() == 0) {
             functionGroupRepository.save(FunctionGroup.builder().name("일반").build());
             functionGroupRepository.save(FunctionGroup.builder().name("사용자 관리").build());
-            functionGroupRepository.save(FunctionGroup.builder().name("정책 관리").build());
         }
         return functionGroupRepository.findAll();
     }
 
-    /**
-     * Phase 1: 개발자가 '미확인 기능'을 '활성' 상태로 변경하고 기능 그룹을 할당합니다.
-     * @param catalogId 확인할 기능 카탈로그의 ID
-     * @param groupId 할당할 기능 그룹의 ID
-     */
     @Transactional
     public void confirmFunction(Long catalogId, Long groupId) {
         FunctionCatalog catalog = functionCatalogRepository.findById(catalogId)
@@ -59,5 +48,64 @@ public class FunctionCatalogService {
         catalog.setFunctionGroup(group);
         functionCatalogRepository.save(catalog);
         log.info("기능이 확인 및 등록되었습니다. [ID: {}, 이름: {}, 그룹: {}]", catalog.getId(), catalog.getFriendlyName(), group.getName());
+    }
+
+    // --- Phase 2: 기능 카탈로그 관리 관련 ---
+
+    /**
+     * 관리 가능한 모든 카탈로그(활성/비활성)를 DTO로 변환하여 조회합니다.
+     * @return List of FunctionCatalogDto
+     */
+    public List<FunctionCatalogDto> getManageableCatalogs() {
+        return functionCatalogRepository.findAllManageableWithDetails().stream()
+                .map(this::convertToDto)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 특정 기능 카탈로그 항목을 업데이트합니다.
+     * @param id 카탈로그 ID
+     * @param dto 업데이트 정보
+     */
+    @Transactional
+    public void updateCatalog(Long id, FunctionCatalogUpdateDto dto) {
+        FunctionCatalog catalog = functionCatalogRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 기능 카탈로그 ID: " + id));
+        FunctionGroup group = functionGroupRepository.findById(dto.getGroupId())
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 기능 그룹 ID: " + dto.getGroupId()));
+
+        catalog.setFriendlyName(dto.getFriendlyName());
+        catalog.setDescription(dto.getDescription());
+        catalog.setStatus(dto.getStatus());
+        catalog.setFunctionGroup(group);
+        functionCatalogRepository.save(catalog);
+    }
+
+    /**
+     * 여러 기능 카탈로그의 상태를 일괄 변경합니다.
+     * @param ids 카탈로그 ID 목록
+     * @param status 변경할 상태 (ACTIVE or INACTIVE)
+     */
+    @Transactional
+    public void batchUpdateStatus(List<Long> ids, String status) {
+        FunctionCatalog.CatalogStatus newStatus = FunctionCatalog.CatalogStatus.valueOf(status.toUpperCase());
+        List<FunctionCatalog> catalogs = functionCatalogRepository.findAllById(ids);
+        catalogs.forEach(catalog -> catalog.setStatus(newStatus));
+        functionCatalogRepository.saveAll(catalogs);
+    }
+
+    private FunctionCatalogDto convertToDto(FunctionCatalog catalog) {
+        FunctionCatalogDto dto = modelMapper.map(catalog, FunctionCatalogDto.class);
+        if (catalog.getManagedResource() != null) {
+            dto.setResourceIdentifier(catalog.getManagedResource().getResourceIdentifier());
+            dto.setResourceType(catalog.getManagedResource().getResourceType().name());
+            dto.setOwner(catalog.getManagedResource().getServiceOwner());
+            dto.setParameterTypes(catalog.getManagedResource().getParameterTypes());
+            dto.setReturnType(catalog.getManagedResource().getReturnType());
+        }
+        if (catalog.getFunctionGroup() != null) {
+            dto.setFunctionGroupName(catalog.getFunctionGroup().getName());
+        }
+        return dto;
     }
 }
