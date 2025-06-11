@@ -1,0 +1,122 @@
+package io.spring.identityadmin.admin.iam.controller;
+
+import io.spring.identityadmin.admin.iam.service.PermissionService;
+import io.spring.identityadmin.domain.dto.PermissionDto;
+import io.spring.identityadmin.domain.entity.Permission;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
+import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.List;
+
+@Controller
+@RequestMapping("/admin/permissions") // 권한 관리를 위한 공통 경로 설정
+@RequiredArgsConstructor
+@Slf4j
+public class PermissionController {
+
+    private final PermissionService permissionService;
+    private final ModelMapper modelMapper;
+
+    /**
+     * 권한 목록 페이지를 반환합니다.
+     * @param model Model 객체
+     * @return admin/permissions.html 템플릿 경로
+     */
+    @GetMapping
+    public String getPermissions(Model model) {
+        List<Permission> permissions = permissionService.getAllPermissions();
+        List<PermissionDto> dtoList = permissions.stream()
+                .map(p -> modelMapper.map(p, PermissionDto.class))
+                .toList();
+        model.addAttribute("permissions", dtoList);
+        return "admin/permissions";
+    }
+
+    /**
+     * 새 권한 등록 폼 페이지를 반환합니다.
+     * @param model Model 객체
+     * @return admin/permissiondetails.html 템플릿 경로
+     */
+    @GetMapping("/register")
+    public String registerPermissionForm(Model model) {
+        model.addAttribute("permission", new PermissionDto()); // 빈 DTO 객체 전달
+        log.info("Displaying new permission registration form.");
+        return "admin/permissiondetails";
+    }
+
+    /**
+     * 새 권한을 생성하는 POST 요청을 처리합니다.
+     * @param permissionDto 폼에서 전송된 Permission 데이터
+     * @param ra RedirectAttributes for flash messages
+     * @return 리다이렉트 경로
+     */
+    @PostMapping
+    public String createPermission(@ModelAttribute("permission") PermissionDto permissionDto, RedirectAttributes ra) {
+
+        Permission permission = modelMapper.map(permissionDto, Permission.class);
+        permissionService.createPermission(permission);
+        ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 생성되었습니다.");
+        log.info("Permission created: {}", permission.getName());
+
+        return "redirect:/admin/permissions";
+    }
+
+    /**
+     * 특정 권한의 상세 정보 및 수정 폼 페이지를 반환합니다.
+     * @param id 조회할 권한 ID
+     * @param model Model 객체
+     * @return admin/permissiondetails.html 템플릿 경로
+     */
+    @GetMapping("/{id}")
+    public String permissionDetails(@PathVariable Long id, Model model) {
+        // 서비스는 엔티티를 반환
+        Permission permission = permissionService.getPermission(id)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid permission ID: " + id));
+        // [수정] 컨트롤러에서 DTO로 변환
+        model.addAttribute("permission", modelMapper.map(permission, PermissionDto.class));
+        return "admin/permissiondetails";
+    }
+
+    /**
+     * 특정 권한을 업데이트하는 POST 요청을 처리합니다.
+     * @param id 업데이트할 권한 ID
+     * @param permissionDto 폼에서 전송된 Permission 데이터
+     * @param ra RedirectAttributes for flash messages
+     * @return 리다이렉트 경로
+     */
+    @PostMapping("/{id}/edit")
+    public String updatePermission(@PathVariable Long id, @ModelAttribute("permission") PermissionDto permissionDto, RedirectAttributes ra) {
+
+        permissionDto.setId(id); // URL 경로에서 받은 ID를 DTO에 설정
+        Permission permission = modelMapper.map(permissionDto, Permission.class);
+        permissionService.updatePermission(permission);
+        ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 업데이트되었습니다.");
+        log.info("Permission updated: {}", permission.getName());
+
+        return "redirect:/admin/permissions";
+    }
+
+    /**
+     * 특정 권한을 삭제하는 GET 요청을 처리합니다.
+     * @param id 삭제할 권한 ID
+     * @param ra RedirectAttributes for flash messages
+     * @return 리다이렉트 경로
+     */
+    @GetMapping("/delete/{id}")
+    public String deletePermission(@PathVariable Long id, RedirectAttributes ra) {
+        try {
+            permissionService.deletePermission(id);
+            ra.addFlashAttribute("message", "권한 (ID: " + id + ")이 성공적으로 삭제되었습니다.");
+            log.info("Permission deleted: ID {}", id);
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage", "권한 삭제 중 오류 발생: " + e.getMessage());
+            log.error("Error deleting permission ID: {}", id, e);
+        }
+        return "redirect:/admin/permissions";
+    }
+}

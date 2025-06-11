@@ -1,8 +1,8 @@
 package io.spring.identityadmin.security.xacml.pdp.evaluation;
 
 import io.spring.identityadmin.domain.entity.Permission;
-import io.spring.identityadmin.security.xacml.pip.repository.PermissionRepository;
-import io.spring.identityadmin.admin.service.DocumentService;
+import io.spring.identityadmin.repository.PermissionRepository;
+import io.spring.identityadmin.common.DocumentService;
 import io.spring.identityadmin.security.core.auth.PermissionAuthority;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.core;
 
 import io.spring.identityadmin.domain.entity.Users;
-import io.spring.identityadmin.security.xacml.pip.repository.UserRepository;
+import io.spring.identityadmin.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;

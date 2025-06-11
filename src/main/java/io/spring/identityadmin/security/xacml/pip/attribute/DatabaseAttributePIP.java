@@ -1,6 +1,6 @@
 package io.spring.identityadmin.security.xacml.pip.attribute;
 
-import io.spring.identityadmin.security.xacml.pip.repository.UserRepository;
+import io.spring.identityadmin.repository.UserRepository;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.xacml.pip.resolver;
 
 import io.spring.identityadmin.domain.entity.Role;
-import io.spring.identityadmin.security.xacml.pip.repository.RoleRepository;
+import io.spring.identityadmin.repository.RoleRepository;
 import io.spring.identityadmin.security.core.auth.PermissionAuthority;
 import io.spring.identityadmin.security.core.auth.RoleAuthority;
 import lombok.RequiredArgsConstructor;

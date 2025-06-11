@@ -1,6 +1,5 @@
 package io.spring.identityadmin.security.xacml.pap.service;
 
-import io.spring.identityadmin.admin.repository.*;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.entity.ConditionTemplate;
 import io.spring.identityadmin.domain.entity.business.BusinessResource;
@@ -9,9 +8,13 @@ import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.domain.entity.policy.PolicyRule;
 import io.spring.identityadmin.domain.entity.policy.PolicyTarget;
-import io.spring.identityadmin.security.xacml.pip.repository.UserRepository;
+import io.spring.identityadmin.repository.BusinessActionRepository;
+import io.spring.identityadmin.repository.BusinessResourceActionRepository;
+import io.spring.identityadmin.repository.BusinessResourceRepository;
+import io.spring.identityadmin.repository.ConditionTemplateRepository;
+import io.spring.identityadmin.repository.UserRepository;
 import io.spring.identityadmin.security.xacml.pep.CustomDynamicAuthorizationManager;
-import io.spring.identityadmin.security.xacml.pip.repository.GroupRepository;
+import io.spring.identityadmin.repository.GroupRepository;
 import io.spring.identityadmin.security.xacml.prp.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

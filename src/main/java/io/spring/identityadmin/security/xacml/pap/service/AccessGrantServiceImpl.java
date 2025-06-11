@@ -1,14 +1,14 @@
 package io.spring.identityadmin.security.xacml.pap.service;
 
-import io.spring.identityadmin.admin.repository.BusinessResourceActionRepository;
+import io.spring.identityadmin.repository.BusinessResourceActionRepository;
 import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.domain.entity.business.BusinessResourceAction;
 import io.spring.identityadmin.domain.entity.policy.Policy;
-import io.spring.identityadmin.resource.ManagedResourceRepository;
+import io.spring.identityadmin.repository.ManagedResourceRepository;
 import io.spring.identityadmin.domain.dto.GrantRequestDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.dto.RevokeRequestDto;
-import io.spring.identityadmin.security.xacml.pip.repository.UserRepository;
+import io.spring.identityadmin.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;

@@ -141,51 +141,51 @@ INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (2, 2, 'hasRole(''U
 -- 2.2. 메서드 기반 정책 (기존 METHOD_RESOURCES 테이블 마이그레이션)
 -- 정책 100번대: UserManagementService 관련 정책
 INSERT INTO POLICY(id, name, description, effect, priority) VALUES (100, 'Get Users Method Policy', 'getUsers 메서드 접근 제어', 'ALLOW', 100);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (100, 100, 'METHOD', 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl.getUsers');
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (100, 100, 'METHOD', 'io.spring.identityadmin.admin.iam.service.impl.UserManagementServiceImpl.getUsers');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (100, 100, 'Requires USER_READ authority');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (100, 100, 'hasAuthority(''USER_READ'')');
 
 INSERT INTO POLICY(id, name, description, effect, priority) VALUES (101, 'Get User Method Policy', 'getUser 메서드 접근 제어', 'ALLOW', 100);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (101, 101, 'METHOD', 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl.getUser');
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (101, 101, 'METHOD', 'io.spring.identityadmin.admin.iam.service.impl.UserManagementServiceImpl.getUser');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (101, 101, 'Requires USER_READ authority');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (101, 101, 'hasAuthority(''USER_READ'')');
 
 INSERT INTO POLICY(id, name, description, effect, priority) VALUES (102, 'Modify User Method Policy', 'modifyUser 메서드 접근 제어', 'ALLOW', 100);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (102, 102, 'METHOD', 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl.modifyUser');
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (102, 102, 'METHOD', 'io.spring.identityadmin.admin.iam.service.impl.UserManagementServiceImpl.modifyUser');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (102, 102, 'Requires USER_UPDATE authority');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (102, 102, 'hasAuthority(''USER_UPDATE'')');
 
 INSERT INTO POLICY(id, name, description, effect, priority) VALUES (103, 'Delete User Method Policy', 'deleteUser 메서드 접근 제어', 'ALLOW', 100);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (103, 103, 'METHOD', 'io.spring.identityadmin.admin.service.impl.UserManagementServiceImpl.deleteUser');
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (103, 103, 'METHOD', 'io.spring.identityadmin.admin.iam.service.impl.UserManagementServiceImpl.deleteUser');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (103, 103, 'Requires USER_DELETE authority');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (103, 103, 'hasAuthority(''USER_DELETE'')');
 
 -- 정책 200번대: RoleService 관련 정책
 INSERT INTO POLICY(id, name, description, effect, priority) VALUES (200, 'Get Roles Method Policy', 'getRoles 메서드 접근 제어', 'ALLOW', 100);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (200, 200, 'METHOD', 'io.spring.identityadmin.admin.service.impl.RoleServiceImpl.getRoles');
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (200, 200, 'METHOD', 'io.spring.identityadmin.admin.iam.service.impl.RoleServiceImpl.getRoles');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (200, 200, 'Requires ROLE_READ authority');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (200, 200, 'hasAuthority(''ROLE_READ'')');
 
 -- ... (다른 모든 RoleService, GroupService, PermissionService 등의 메서드에 대해서도 동일한 패턴으로 POLICY 데이터를 추가합니다)
 -- 예: createRole에 대한 정책
 INSERT INTO POLICY(id, name, description, effect, priority) VALUES (201, 'Create Role Method Policy', 'createRole 메서드 접근 제어', 'ALLOW', 100);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (201, 201, 'METHOD', 'io.spring.identityadmin.admin.service.impl.RoleServiceImpl.createRole');
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (201, 201, 'METHOD', 'io.spring.identityadmin.admin.iam.service.impl.RoleServiceImpl.createRole');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (201, 201, 'Requires ROLE_CREATE authority');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (201, 201, 'hasAuthority(''ROLE_CREATE'')');
 
 -- 정책 300번대: DocumentService 관련 정책 (복합 조건 예시)
 INSERT INTO POLICY(id, name, description, effect, priority) VALUES (300, 'Read Document Method Policy', 'readDocument 메서드 접근 제어 (소유권 체크)', 'ALLOW', 100);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (300, 300, 'METHOD', 'io.spring.identityadmin.admin.service.DocumentService.readDocument');
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (300, 300, 'METHOD', 'io.spring.identityadmin.common.DocumentService.readDocument');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (300, 300, 'Requires DOCUMENT_READ permission and ownership');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (300, 300, 'hasPermission(#id, ''DOCUMENT'', ''READ'')'); -- #id는 메서드 파라미터 이름
 
 INSERT INTO POLICY(id, name, description, effect, priority) VALUES (301, 'Update Document Method Policy', 'updateDocumentContent 메서드 접근 제어', 'ALLOW', 100);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (301, 301, 'METHOD', 'io.spring.identityadmin.admin.service.DocumentService.updateDocumentContent');
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (301, 301, 'METHOD', 'io.spring.identityadmin.common.DocumentService.updateDocumentContent');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (301, 301, 'Requires DOCUMENT_WRITE permission');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (301, 301, 'hasPermission(#id, ''DOCUMENT'', ''WRITE'')');
 
 INSERT INTO POLICY(id, name, description, effect, priority) VALUES (302, 'Delete Document Method Policy', 'deleteDocument 메서드 접근 제어', 'ALLOW', 100);
-INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (302, 302, 'METHOD', 'io.spring.identityadmin.admin.service.DocumentService.deleteDocument');
+INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier) VALUES (302, 302, 'METHOD', 'io.spring.identityadmin.common.DocumentService.deleteDocument');
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES (302, 302, 'Requires DOCUMENT_DELETE permission');
 INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES (302, 302, 'hasPermission(#id, ''DOCUMENT'', ''DELETE'')');
 

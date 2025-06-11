@@ -1,4 +1,4 @@
-package io.spring.identityadmin.security.xacml.pap.controller;
+package io.spring.identityadmin.admin.monitoring.controller;
 
 import io.spring.identityadmin.admin.monitoring.service.DashboardService;
 import io.spring.identityadmin.domain.dto.DashboardDto;
@@ -13,11 +13,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 @RequestMapping("/admin")
 @RequiredArgsConstructor
 @Slf4j
-public class WorkbenchController {
+public class DashboardController {
 
-    @GetMapping("/workbench")
-    public String workbench(Model model) {
-        model.addAttribute("activePage", "workbench");
-        return "admin/workbench";
+    private final DashboardService dashboardService;
+
+    @GetMapping("/dashboard")
+    public String dashboard(Model model) {
+
+        DashboardDto dashboardData = dashboardService.getDashboardData();
+
+        model.addAttribute("activePage", "dashboard");
+        model.addAttribute("dashboardData", dashboardData);
+        return "admin/dashboard";
     }
 }
