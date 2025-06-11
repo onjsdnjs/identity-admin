@@ -60,7 +60,7 @@ public class CustomMethodSecurityExpressionHandler extends DefaultMethodSecurity
     protected MethodSecurityExpressionOperations createSecurityExpressionRoot(Authentication authentication, MethodInvocation invocation) {
         // 1. 컨텍스트 핸들러를 통해 표준 AuthorizationContext 생성
         String methodIdentifier = invocation.getMethod().getDeclaringClass().getName() + "." + invocation.getMethod().getName();
-        AuthorizationContext authorizationContext = contextHandler.create(authentication, methodIdentifier);
+        AuthorizationContext authorizationContext = contextHandler.create(authentication, invocation);
 
         // 2. 올바르게 구현된 CustomMethodSecurityExpressionRoot 인스턴스화
         CustomMethodSecurityExpressionRoot root = new CustomMethodSecurityExpressionRoot(authentication, riskEngine, attributePIP, authorizationContext);
