@@ -105,7 +105,7 @@ public class FunctionCatalogService {
     }
 
     /**
-     * [재설계] 모든 카탈로그를 상태별로 그룹화하여 조회합니다.
+     * 모든 카탈로그를 상태별로 그룹화하여 조회합니다.
      */
     public GroupedFunctionCatalogDto getGroupedCatalogs() {
         List<FunctionCatalog> allCatalogs = functionCatalogRepository.findAllWithDetails();
@@ -143,6 +143,38 @@ public class FunctionCatalogService {
     }
 
     private FunctionCatalogDto convertToDto(FunctionCatalog catalog) {
+        if (catalog == null) {
+            return null;
+        }
+
+        FunctionCatalogDto dto = new FunctionCatalogDto();
+
+        // FunctionCatalog 자체의 필드 설정
+        dto.setId(catalog.getId());
+        dto.setFriendlyName(catalog.getFriendlyName());
+        dto.setDescription(catalog.getDescription());
+        dto.setStatus(catalog.getStatus());
+
+        // 중첩된 ManagedResource의 필드 설정
+        if (catalog.getManagedResource() != null) {
+            dto.setResourceIdentifier(catalog.getManagedResource().getResourceIdentifier());
+            dto.setResourceType(catalog.getManagedResource().getResourceType().name());
+            dto.setOwner(catalog.getManagedResource().getServiceOwner());
+            dto.setParameterTypes(catalog.getManagedResource().getParameterTypes());
+            dto.setReturnType(catalog.getManagedResource().getReturnType());
+        }
+
+        // 중첩된 FunctionGroup의 필드 설정
+        if (catalog.getFunctionGroup() != null) {
+            dto.setFunctionGroupName(catalog.getFunctionGroup().getName());
+        } else {
+            dto.setFunctionGroupName("미지정");
+        }
+
+        return dto;
+    }
+
+    /*private FunctionCatalogDto convertToDto(FunctionCatalog catalog) {
         FunctionCatalogDto dto = modelMapper.map(catalog, FunctionCatalogDto.class);
         if (catalog.getManagedResource() != null) {
             dto.setResourceIdentifier(catalog.getManagedResource().getResourceIdentifier());
@@ -155,5 +187,5 @@ public class FunctionCatalogService {
             dto.setFunctionGroupName(catalog.getFunctionGroup().getName());
         }
         return dto;
-    }
+    }*/
 }

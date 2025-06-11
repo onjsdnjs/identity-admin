@@ -60,12 +60,17 @@ public class MvcResourceScanner implements ResourceScanner {
                     .findFirst().map(Enum::name).orElse("ANY");
 
             Operation operation = handlerMethod.getMethodAnnotation(Operation.class);
-            String friendlyName = (operation != null && !operation.summary().isEmpty()) ? operation.summary() : convertCamelCaseToTitleCase(handlerMethod.getMethod().getName());
-            String description = (operation != null) ? operation.description() : "Mapped to: " + handlerMethod.toString();
+            String friendlyName;
+            String description;
 
-//            final String methodName = handlerMethod.getMethod().getName();
-//            final String friendlyName = convertCamelCaseToTitleCase(methodName);
-//            final String description = "Mapped to: " + handlerMethod.toString();
+            if (operation != null && !operation.summary().isEmpty()) {
+                friendlyName = operation.summary(); // 어노테이션의 summary를 최우선으로 사용
+                description = operation.description();
+            } else {
+                friendlyName = convertCamelCaseToTitleCase(handlerMethod.getMethod().getName()); // 차선책
+                description = "Mapped to: " + handlerMethod.getBeanType().getSimpleName() + "." + handlerMethod.getMethod().getName();
+            }
+
 
             resources.add(ManagedResource.builder()
                     .resourceIdentifier(urlPattern)
