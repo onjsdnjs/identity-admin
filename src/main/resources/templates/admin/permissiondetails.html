@@ -40,6 +40,22 @@
                     <p class="text-xs text-slate-500 mt-1">SpEL을 사용하여 동적 조건을 명시합니다. 비워두면 조건 없이 평가됩니다.</p>
                 </div>
 
+                <div>
+                    <label class="block text-sm font-medium text-app-dark-gray mb-2">이 권한에 포함될 기능 선택:</label>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 bg-gray-50 rounded-lg border border-app-border max-h-60 overflow-y-auto">
+                        <div th:each="func : ${allFunctions}">
+                            <input type="checkbox" th:id="'func_' + ${func.id}" name="functionIds" th:value="${func.id}"
+                                   th:checked="${#sets.contains(selectedFunctionIds, func.id)}"
+                                   class="mr-2 h-4 w-4 text-app-accent border-app-border rounded focus:ring-app-accent" />
+                            <label th:for="'func_' + ${func.id}" th:text="${func.friendlyName}" class="text-sm font-medium text-app-dark-gray"></label>
+                            <p class="text-xs text-slate-500 ml-6" th:text="${func.description}"></p>
+                        </div>
+                        <div th:if="${#lists.isEmpty(allFunctions)}" class="text-sm text-slate-500 col-span-full text-center">
+                            정책 설정에 사용 가능한 기능이 없습니다. '기능 카탈로그 관리'에서 기능을 활성화해주세요.
+                        </div>
+                    </div>
+                </div>
+
                 <div class="pt-2">
                     <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-app-accent hover:bg-app-accent-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-app-accent transition-all duration-150 ease-in-out transform hover:scale-105" th:text="${permission.id != null ? '권한 저장' : '권한 등록'}"></button>
                 </div>

@@ -1,6 +1,7 @@
 package io.spring.identityadmin.resource;
 
 import io.spring.identityadmin.domain.entity.ManagedResource;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -58,9 +59,13 @@ public class MvcResourceScanner implements ResourceScanner {
             final String httpMethod = mappingInfo.getMethodsCondition().getMethods().stream()
                     .findFirst().map(Enum::name).orElse("ANY");
 
-            final String methodName = handlerMethod.getMethod().getName();
-            final String friendlyName = convertCamelCaseToTitleCase(methodName);
-            final String description = "Mapped to: " + handlerMethod.toString();
+            Operation operation = handlerMethod.getMethodAnnotation(Operation.class);
+            String friendlyName = (operation != null && !operation.summary().isEmpty()) ? operation.summary() : convertCamelCaseToTitleCase(handlerMethod.getMethod().getName());
+            String description = (operation != null) ? operation.description() : "Mapped to: " + handlerMethod.toString();
+
+//            final String methodName = handlerMethod.getMethod().getName();
+//            final String friendlyName = convertCamelCaseToTitleCase(methodName);
+//            final String description = "Mapped to: " + handlerMethod.toString();
 
             resources.add(ManagedResource.builder()
                     .resourceIdentifier(urlPattern)

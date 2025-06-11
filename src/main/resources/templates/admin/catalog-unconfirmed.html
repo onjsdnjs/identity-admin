@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head th:replace="~{fragments/common-head :: head-elements(pageTitle='미확인 기능 등록')}"></head>
+<body class="flex flex-col min-h-screen bg-app-light-gray">
+<main class="flex-1 p-6 lg:p-8 overflow-y-auto">
+    <h1 class="text-3xl font-bold text-app-primary">미확인 기능 등록</h1>
+    <p class="text-slate-600 my-2">시스템이 새로 발견했지만 아직 카탈로그에 등록되지 않은 기능들입니다. 검토 후 그룹을 할당하고 등록해주세요.</p>
+
+    <div class="bg-white p-6 rounded-xl shadow-lg mt-6">
+        <table class="min-w-full text-sm">
+            <tbody>
+            <tr th:each="func : ${unconfirmedFunctions}">
+                <td th:text="${func.managedResource.resourceType}"></td>
+                <td class="font-mono" th:text="${func.managedResource.resourceIdentifier}"></td>
+                <td th:text="${func.friendlyName}"></td>
+                <td>
+                    <form th:action="@{/admin/catalog/{id}/confirm(id=${func.id})}" method="post" class="flex items-center gap-2">
+                        <select name="groupId" class="form-input">
+                            <option th:each="group : ${functionGroups}" th:value="${group.id}" th:text="${group.name}"></option>
+                        </select>
+                        <button type="submit" class="btn-primary">확인 및 등록</button>
+                    </form>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+</main>
+</body>
+</html>

@@ -1,5 +1,6 @@
 package io.spring.identityadmin.admin.metadata.controller;
 
+import io.spring.identityadmin.admin.metadata.service.FunctionCatalogService;
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
 import io.spring.identityadmin.resource.ResourceEnhancementService;
 import io.spring.identityadmin.resource.ResourceRegistryService;
@@ -22,8 +23,22 @@ public class FunctionCatalogController {
 
     private final ResourceRegistryService resourceRegistryService;
     private final ResourceEnhancementService resourceEnhancementService;
+    private final FunctionCatalogService functionCatalogService;
 
-    // 1. 새로운 '기능 카탈로그' 페이지를 렌더링합니다.
+    @GetMapping("/unconfirmed")
+    public String unconfirmedListPage(Model model) {
+        model.addAttribute("unconfirmedFunctions", functionCatalogService.findUnconfirmedFunctions());
+        model.addAttribute("functionGroups", functionCatalogService.getAllFunctionGroups());
+        return "admin/catalog-unconfirmed";
+    }
+
+    @PostMapping("/{catalogId}/confirm")
+    public String confirmFunction(@PathVariable Long catalogId, @RequestParam Long groupId, RedirectAttributes ra) {
+        functionCatalogService.confirmFunction(catalogId, groupId);
+        ra.addFlashAttribute("message", "기능이 성공적으로 확인 및 등록되었습니다.");
+        return "redirect:/admin/catalog/unconfirmed";
+    }
+
     @GetMapping
     public String catalogListPage(Model model) {
         model.addAttribute("resources", resourceRegistryService.findAllForAdmin());

@@ -1,7 +1,10 @@
 package io.spring.identityadmin.admin.iam.service.impl;
 
 import io.spring.identityadmin.admin.iam.service.PermissionService;
+import io.spring.identityadmin.domain.dto.PermissionDto;
+import io.spring.identityadmin.domain.entity.FunctionCatalog;
 import io.spring.identityadmin.domain.entity.Permission;
+import io.spring.identityadmin.repository.FunctionCatalogRepository;
 import io.spring.identityadmin.repository.PermissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
@@ -13,12 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true) // 기본적으로 읽기 전용 트랜잭션 적용
 public class PermissionServiceImpl implements PermissionService {
     private final PermissionRepository permissionRepository;
+    private final FunctionCatalogRepository functionCatalogRepository;
 
     /**
      * 새로운 Permission을 생성하고 저장합니다.
@@ -82,7 +87,6 @@ public class PermissionServiceImpl implements PermissionService {
     /**
      * Permission 엔티티를 업데이트합니다.
      * 관련 캐시(usersWithRolesAndPermissions, 특정 Permission 캐시)를 갱신합니다.
-     * @param permission 업데이트할 Permission 엔티티 (ID 포함)
      * @return 업데이트된 Permission 엔티티
      */
     @Transactional
@@ -91,11 +95,20 @@ public class PermissionServiceImpl implements PermissionService {
             put = {@CachePut(value = "permissions", key = "#result.id")} // 특정 Permission 캐시 갱신
     )
     @Override
-    public Permission updatePermission(Permission permission) {
-        // ID 존재 여부 확인 로직 (선택적)
-        // if (!permissionRepository.existsById(permission.getId())) {
-        //     throw new IllegalArgumentException("Permission with ID " + permission.getId() + " not found for update.");
-        // }
+    public Permission updatePermission(Long id, PermissionDto permissionDto, Set<Long> functionIds) {
+        Permission permission = permissionRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Permission not found: " + id));
+
+        permission.setName(permissionDto.getName());
+        permission.setDescription(permissionDto.getDescription());
+        permission.setConditionExpression(permissionDto.getConditionExpression());
+
+        permission.getFunctions().clear();
+        if (functionIds != null && !functionIds.isEmpty()) {
+            List<FunctionCatalog> functions = functionCatalogRepository.findAllById(functionIds);
+            permission.getFunctions().addAll(functions);
+        }
+
         return permissionRepository.save(permission);
     }
 

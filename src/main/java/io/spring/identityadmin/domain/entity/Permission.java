@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.io.Serializable;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "PERMISSION")
@@ -30,7 +32,15 @@ public class Permission implements Serializable {
     @Column(name = "action_type")
     private String actionType;
 
-    // ABAC 조건을 위한 SpEL 표현식 필드
     @Column(name = "condition_expression", length = 2048)
     private String conditionExpression;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "PERMISSION_FUNCTIONS",
+            joinColumns = @JoinColumn(name = "permission_id"),
+            inverseJoinColumns = @JoinColumn(name = "function_catalog_id")
+    )
+    @Builder.Default
+    private Set<FunctionCatalog> functions = new HashSet<>();
 }
