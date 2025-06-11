@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.xacml.pip.risk;
 
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
-import jakarta.servlet.http.HttpServletRequest; // HttpServletRequest 임포트
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import java.util.Set;
