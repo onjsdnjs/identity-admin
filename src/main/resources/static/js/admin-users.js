@@ -1,8 +1,3 @@
-// Path: src/main/resources/static/js/admin-users.js
-
-// 주의: 이 파일 내부에 fetchWithAuth와 refreshTokensIfNeeded 함수가 정의됩니다.
-// token-holder.js와 toast.js는 이 파일보다 먼저 로드되어야 합니다.
-
 document.addEventListener("DOMContentLoaded", async () => {
     const usersTableBody = document.querySelector("#usersTable tbody");
     if (!usersTableBody) return;
