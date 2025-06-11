@@ -116,7 +116,6 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
                 AuthorizationManager<RequestAuthorizationContext> manager = mapping.getEntry();
                 AuthorizationDecision decision = manager.check(authentication, context);
 
-                // [신규] 감사 로그 기록
                 String reason = "Policy rule matched: " + mapping.getRequestMatcher();
                 auditLogService.logDecision(principal, resource, action, decision.isGranted() ? "ALLOW" : "DENY", reason, clientIp);
 

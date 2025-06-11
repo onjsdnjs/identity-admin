@@ -4,12 +4,16 @@ import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import io.spring.identityadmin.security.xacml.pip.context.ContextHandler;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
 import io.spring.identityadmin.security.xacml.pip.risk.RiskEngine;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.security.access.expression.SecurityExpressionOperations;
 import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.FilterInvocation;
 import org.springframework.security.web.access.expression.DefaultHttpSecurityExpressionHandler;
+import org.springframework.security.web.access.expression.WebSecurityExpressionRoot;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.stereotype.Component;
 
@@ -28,30 +32,35 @@ public class CustomWebSecurityExpressionHandler extends DefaultHttpSecurityExpre
     private final AttributeInformationPoint attributePIP;
 
     /**
-     * <<< 핵심 수정: 스프링 시큐리티 6.1+의 올바른 확장 포인트인 createSecurityExpressionRoot를 오버라이드 >>>
+     * WebExpressionAuthorizationManager에 의해 호출되는 실제 진입점입니다.
+     * 이 메서드를 오버라이드하여 커스텀 EvaluationContext를 생성합니다.
      */
     @Override
-    protected SecurityExpressionOperations createSecurityExpressionRoot(Authentication authentication, RequestAuthorizationContext context) {
-        // createSecurityExpressionRoot(Supplier, RequestContext)를 호출하여 일관성 유지
-        return createSecurityExpressionRoot(() -> authentication, context);
-    }
+    public EvaluationContext createEvaluationContext(Supplier<Authentication> authentication, RequestAuthorizationContext requestContext) {
 
-    /**
-     * Supplier<Authentication>을 받는 오버로딩된 메서드를 만들어 로직을 중앙에서 관리.
-     */
-    private CustomWebSecurityExpressionRoot createSecurityExpressionRoot(Supplier<Authentication> authentication, RequestAuthorizationContext context) {
-        // 1. ContextHandler를 통해 표준 AuthorizationContext 생성
-        AuthorizationContext authorizationContext = contextHandler.create(authentication.get(), context.getRequest());
+        // 1. CustomWebSecurityExpressionRoot를 생성하기 위해 FilterInvocation 객체를 만듭니다.
+        Authentication auth = authentication.get();
+        HttpServletRequest request = requestContext.getRequest();
 
-        // 2. 커스텀 Root 객체 생성 시, 표준 컨텍스트와 PIP 들을 함께 전달
-        CustomWebSecurityExpressionRoot root = new CustomWebSecurityExpressionRoot(authentication.get(), new FilterInvocation("",null), riskEngine, attributePIP, authorizationContext);
+        // 2. ContextHandler를 통해 표준 AuthorizationContext를 생성합니다.
+        AuthorizationContext authorizationContext = contextHandler.create(auth, request);
 
-        // 3. 부모 클래스가 하던 것처럼 필수 컴포넌트 설정
+        // 3. 우리의 커스텀 기능을 포함하는 CustomWebSecurityExpressionRoot를 인스턴스화합니다.
+        CustomWebSecurityExpressionRoot root = new CustomWebSecurityExpressionRoot(auth, request, riskEngine, attributePIP, authorizationContext);
+
+        // 4. ExpressionRoot에 표준 헬퍼 컴포넌트들을 설정합니다.
         root.setPermissionEvaluator(getPermissionEvaluator());
         root.setTrustResolver(new AuthenticationTrustResolverImpl());
         root.setRoleHierarchy(getRoleHierarchy());
         root.setDefaultRolePrefix("ROLE_");
 
-        return root;
+        // 5. 생성된 커스텀 root 객체를 기반으로 StandardEvaluationContext를 생성합니다.
+        StandardEvaluationContext ctx = new StandardEvaluationContext(root);
+        ctx.setBeanResolver(getBeanResolver());
+
+        // 6. RequestAuthorizationContext에 추가 변수가 있다면(미래 확장성) 컨텍스트에 복사합니다.
+        requestContext.getVariables().forEach(ctx::setVariable);
+
+        return ctx;
     }
 }

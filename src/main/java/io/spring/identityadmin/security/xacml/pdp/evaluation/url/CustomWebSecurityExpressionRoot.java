@@ -3,6 +3,7 @@ package io.spring.identityadmin.security.xacml.pdp.evaluation.url;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
 import io.spring.identityadmin.security.xacml.pip.risk.RiskEngine;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.FilterInvocation;
 import org.springframework.security.web.access.expression.WebSecurityExpressionRoot;
@@ -15,10 +16,10 @@ public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
     private final AttributeInformationPoint attributePIP;
     private final AuthorizationContext authorizationContext;
 
-    public CustomWebSecurityExpressionRoot(Authentication authentication, FilterInvocation fi,
+    public CustomWebSecurityExpressionRoot(Authentication authentication, HttpServletRequest request,
                                            RiskEngine riskEngine, AttributeInformationPoint attributePIP,
                                            AuthorizationContext authorizationContext) {
-        super(authentication, fi);
+        super(() -> authentication, request);
         this.riskEngine = riskEngine;
         this.attributePIP = attributePIP;
         this.authorizationContext = authorizationContext;

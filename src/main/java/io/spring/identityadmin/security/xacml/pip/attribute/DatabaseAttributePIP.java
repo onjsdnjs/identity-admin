@@ -1,5 +1,6 @@
 package io.spring.identityadmin.security.xacml.pip.attribute;
 
+import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.repository.UserRepository;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import lombok.RequiredArgsConstructor;
@@ -19,9 +20,9 @@ public class DatabaseAttributePIP implements AttributeInformationPoint {
         Map<String, Object> attributes = new HashMap<>();
 
         if (context.subject() != null) {
-            userRepository.findByUsernameWithGroupsRolesAndPermissions(context.subject().getName()).ifPresent(user -> {
+            userRepository.findByUsernameWithGroupsRolesAndPermissions(((UserDto)(context.subject().getPrincipal())).getUsername()).ifPresent(user -> {
                 // SpEL 에서 #userAge로 접근 가능하도록 속성 추가
-                attributes.put("Username", user.getUsername());
+                attributes.put("username", user.getUsername());
                 // 필요시 다른 사용자 속성(부서, 직책 등) 추가
             });
         }
