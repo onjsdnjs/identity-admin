@@ -26,7 +26,8 @@ public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
     }
 
     public int getRiskScore() {
-        return riskEngine.calculateRiskScore(getAuthentication(), this.request);
+        // [최종 수정] 자신이 가진 표준 컨텍스트 객체를 그대로 전달합니다.
+        return riskEngine.calculateRiskScore(this.authorizationContext);
     }
 
     /**

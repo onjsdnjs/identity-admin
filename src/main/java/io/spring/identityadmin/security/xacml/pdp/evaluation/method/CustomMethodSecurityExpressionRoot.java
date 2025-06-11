@@ -35,7 +35,8 @@ public class CustomMethodSecurityExpressionRoot extends SecurityExpressionRoot i
      * SpEL 표현식에서 #riskScore로 접근 가능한 커스텀 메서드.
      */
     public int getRiskScore() {
-        return riskEngine.calculateRiskScore(this.getAuthentication(), null);
+        // [최종 수정] 자신이 가진 표준 컨텍스트 객체를 그대로 전달합니다.
+        return riskEngine.calculateRiskScore(this.authorizationContext);
     }
 
     /**
