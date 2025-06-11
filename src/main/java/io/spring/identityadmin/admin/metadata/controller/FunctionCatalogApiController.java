@@ -48,4 +48,18 @@ public class FunctionCatalogApiController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+    /**
+     * [신규] 여러 미확인 기능을 일괄 등록합니다.
+     */
+    @PostMapping("/confirm-batch")
+    public ResponseEntity<?> confirmBatch(@RequestBody List<Map<String, Long>> payload) {
+        try {
+            functionCatalogService.confirmBatch(payload);
+            return ResponseEntity.ok(Map.of("message", "선택된 기능들이 성공적으로 등록되었습니다."));
+        } catch (Exception e) {
+            log.error("미확인 기능 일괄 등록 중 오류 발생", e);
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

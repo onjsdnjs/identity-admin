@@ -39,4 +39,7 @@ public interface FunctionCatalogRepository extends JpaRepository<FunctionCatalog
     @Query("SELECT fc FROM FunctionCatalog fc " +
             "WHERE fc.status = 'ACTIVE'")
     List<FunctionCatalog> findAllActiveFunctions();
+
+    @Query("SELECT fc FROM FunctionCatalog fc JOIN FETCH fc.managedResource LEFT JOIN FETCH fc.functionGroup")
+    List<FunctionCatalog> findAllWithDetails();
 }

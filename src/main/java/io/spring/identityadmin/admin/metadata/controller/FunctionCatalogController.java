@@ -42,7 +42,8 @@ public class FunctionCatalogController {
 
     @GetMapping
     public String catalogListPage(Model model) {
-        model.addAttribute("resources", resourceRegistryService.findAllForAdmin());
+        model.addAttribute("catalogData", functionCatalogService.getGroupedCatalogs());
+        model.addAttribute("functionGroups", functionCatalogService.getAllFunctionGroups());
         // 'message' 또는 'errorMessage' 가 flash attribute로 전달될 경우 모델에 추가
         if (model.containsAttribute("message")) {
             model.addAttribute("message", model.asMap().get("message"));

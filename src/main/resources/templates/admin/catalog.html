@@ -1,17 +1,7 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <head>
-    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='기능 카탈로그 관리')}"></th:block>
-    <style>
-        .tech-identifier { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace; }
-        .details-box { display: none; background-color: #f9fafb; border-left: 3px solid #e5e7eb; padding: 8px; margin-top: 4px; border-radius: 4px; }
-        .toggle-switch-label { position: relative; display: inline-block; width: 44px; height: 24px; }
-        .toggle-switch-label input { opacity: 0; width: 0; height: 0; }
-        .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
-        .toggle-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .toggle-slider { background-color: #2196F3; }
-        input:checked + .toggle-slider:before { transform: translateX(20px); }
-    </style>
+    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='기능 카탈로그 통합 관리')}"></th:block>
 </head>
 <body class="flex flex-col min-h-screen bg-app-light-gray">
 <div th:insert="~{fragments/header :: header}"></div>
@@ -19,46 +9,47 @@
 <div class="flex flex-1 overflow-hidden">
     <aside th:insert="~{fragments/admin-menu :: menu}"></aside>
     <main class="flex-1 p-6 lg:p-8 overflow-y-auto">
-        <h1 class="text-3xl font-bold text-app-primary">기능 카탈로그 관리</h1>
-        <p class="text-slate-600 my-2">이곳에서 '활성화'된 기능들만 **[권한 정의]** 메뉴에서 권한으로 묶을 수 있습니다.</p>
+        <h1 class="text-3xl font-bold text-app-primary">기능 카탈로그 통합 관리</h1>
+        <p class="text-slate-600 my-2">시스템의 모든 기능을 이곳에서 확인, 등록, 관리합니다.</p>
 
-        <div class="bg-white p-4 sm:p-6 rounded-xl shadow-lg mt-6">
-            <div class="flex items-center justify-between mb-4 border-b pb-4">
+        <div class="border-b border-gray-200">
+            <nav id="catalog-tabs" class="-mb-px flex space-x-8" aria-label="Tabs">
+                <a href="#unconfirmed" class="tab-item active">
+                    미확인 기능
+                    <span th:text="${catalogData.unconfirmed.size()}" class="tab-count bg-red-100 text-red-600"></span>
+                </a>
+                <a href="#active" class="tab-item">
+                    활성 기능
+                    <span th:text="${catalogData.active.size()}" class="tab-count bg-green-100 text-green-600"></span>
+                </a>
+                <a href="#inactive" class="tab-item">
+                    비활성 기능
+                    <span th:text="${catalogData.inactive.size()}" class="tab-count bg-gray-100 text-gray-600"></span>
+                </a>
+            </nav>
+        </div>
+
+        <div id="tab-content" class="mt-5">
+            <div id="unconfirmed-pane" class="tab-pane active">
+                <div th:if="${!catalogData.unconfirmed.isEmpty()}">
+                    <button id="batch-confirm-btn" class="mb-4 px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700">선택 항목 일괄 등록</button>
+                    <table class="min-w-full text-sm">
+                        <tbody>
+                        <tr th:each="func : ${catalogData.unconfirmed}" class="hover:bg-gray-50">
+                            <td class="p-3 text-center">
+                                <input type="checkbox" class="unconfirmed-checkbox" th:data-catalog-id="${func.id}">
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div th:if="${catalogData.unconfirmed.isEmpty()}" class="text-center p-8 text-slate-500">
+                    새롭게 발견된 미확인 기능이 없습니다.
+                </div>
             </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full text-sm">
-                    <tbody class="divide-y divide-gray-200">
-                    <tr th:each="cat : ${catalogs}" class="hover:bg-gray-50 align-top" th:data-catalog-id="${cat.id}">
-                        <form th:action="@{/admin/catalog/{id}/update(id=${cat.id})}" method="post">
-                            <td class="p-3 text-center">
-                                <input type="checkbox" name="catalogId" th:value="${cat.id}" class="catalog-checkbox h-4 w-4 rounded">
-                            </td>
-                            <td class="p-3 text-center">
-                                <label class="toggle-switch-label">
-                                    <input type="checkbox" class="status-toggle" name="status" value="ACTIVE" th:checked="${cat.status.name() == 'ACTIVE'}">
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </td>
-                            <td class="p-3">
-                                <input type="text" name="friendlyName" th:value="${cat.friendlyName}" class="form-input w-full font-semibold mb-1">
-                                <textarea name="description" class="form-input w-full text-xs" rows="2" th:text="${cat.description}" placeholder="기능 설명을 입력하세요..."></textarea>
-                            </td>
-                            <td class="p-3">
-                                <div class="tech-identifier text-xs text-slate-700" th:text="${cat.resourceIdentifier}"></div>
-                                <button type="button" class="text-xs text-blue-600 hover:underline mt-1" onclick="toggleDetails(this)">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                    상세 정보
-                                </button>
-                                <div class="details-box">
-                                </div>
-                            </td>
-                            <td class="p-3">
-                                <button type="submit" class="w-full px-3 py-2 bg-app-accent text-white font-medium rounded-md">저장</button>
-                            </td>
-                        </form>
-                    </tr>
-                    </tbody>
-                </table>
+            <div id="active-pane" class="tab-pane">
+            </div>
+            <div id="inactive-pane" class="tab-pane">
             </div>
         </div>
     </main>

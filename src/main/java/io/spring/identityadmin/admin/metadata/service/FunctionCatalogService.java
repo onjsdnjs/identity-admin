@@ -2,6 +2,7 @@ package io.spring.identityadmin.admin.metadata.service;
 
 import io.spring.identityadmin.domain.dto.FunctionCatalogDto;
 import io.spring.identityadmin.domain.dto.FunctionCatalogUpdateDto;
+import io.spring.identityadmin.domain.dto.GroupedFunctionCatalogDto;
 import io.spring.identityadmin.domain.entity.FunctionCatalog;
 import io.spring.identityadmin.domain.entity.FunctionGroup;
 import io.spring.identityadmin.repository.FunctionCatalogRepository;
@@ -13,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -100,6 +102,31 @@ public class FunctionCatalogService {
     public List<FunctionCatalog> findAllActiveFunctions() {
         // [오류 수정] 정확한 메소드와 파라미터로 호출
         return functionCatalogRepository.findFunctionsByStatusWithDetails(FunctionCatalog.CatalogStatus.ACTIVE);
+    }
+
+    /**
+     * [재설계] 모든 카탈로그를 상태별로 그룹화하여 조회합니다.
+     */
+    public GroupedFunctionCatalogDto getGroupedCatalogs() {
+        List<FunctionCatalog> allCatalogs = functionCatalogRepository.findAllWithDetails();
+
+        Map<FunctionCatalog.CatalogStatus, List<FunctionCatalogDto>> grouped = allCatalogs.stream()
+                .map(this::convertToDto)
+                .collect(Collectors.groupingBy(FunctionCatalogDto::getStatus));
+
+        return new GroupedFunctionCatalogDto(grouped);
+    }
+
+    /**
+     * [신규] 미확인 기능 일괄 등록 로직
+     */
+    @Transactional
+    public void confirmBatch(List<Map<String, Long>> payload) {
+        for (Map<String, Long> item : payload) {
+            Long catalogId = item.get("catalogId");
+            Long groupId = item.get("groupId");
+            confirmFunction(catalogId, groupId); // 기존 개별 등록 로직 재활용
+        }
     }
 
     /**
