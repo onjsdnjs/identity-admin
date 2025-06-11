@@ -26,7 +26,7 @@ public class FunctionCatalogService {
     private final ModelMapper modelMapper;
 
     public List<FunctionCatalog> findUnconfirmedFunctions() {
-        return functionCatalogRepository.findUnconfirmedFunctionsWithDetails();
+        return functionCatalogRepository.findFunctionsByStatusWithDetails(FunctionCatalog.CatalogStatus.UNCONFIRMED);
     }
 
     public List<FunctionGroup> getAllFunctionGroups() {
@@ -57,7 +57,7 @@ public class FunctionCatalogService {
      * @return List of FunctionCatalogDto
      */
     public List<FunctionCatalogDto> getManageableCatalogs() {
-        return functionCatalogRepository.findAllManageableWithDetails().stream()
+        return functionCatalogRepository.findAllByStatusNotWithDetails(FunctionCatalog.CatalogStatus.UNCONFIRMED).stream()
                 .map(this::convertToDto)
                 .collect(Collectors.toList());
     }
@@ -79,6 +79,27 @@ public class FunctionCatalogService {
         catalog.setStatus(dto.getStatus());
         catalog.setFunctionGroup(group);
         functionCatalogRepository.save(catalog);
+    }
+
+    /**
+     * [신규 및 오류 수정] 개별 기능 카탈로그의 상태를 업데이트합니다.
+     * @param catalogId 업데이트할 카탈로그 ID
+     * @param status 변경할 상태 문자열 ("ACTIVE" or "INACTIVE")
+     */
+    @Transactional
+    public void updateSingleStatus(Long catalogId, String status) {
+        FunctionCatalog catalog = functionCatalogRepository.findById(catalogId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 기능 카탈로그 ID: " + catalogId));
+        FunctionCatalog.CatalogStatus newStatus = FunctionCatalog.CatalogStatus.valueOf(status.toUpperCase());
+        catalog.setStatus(newStatus);
+        functionCatalogRepository.save(catalog);
+        log.info("카탈로그 ID {}의 상태가 {}로 변경되었습니다.", catalogId, newStatus);
+    }
+
+    // '권한 정의' 화면을 위한 활성화된 기능 목록 조회
+    public List<FunctionCatalog> findAllActiveFunctions() {
+        // [오류 수정] 정확한 메소드와 파라미터로 호출
+        return functionCatalogRepository.findFunctionsByStatusWithDetails(FunctionCatalog.CatalogStatus.ACTIVE);
     }
 
     /**

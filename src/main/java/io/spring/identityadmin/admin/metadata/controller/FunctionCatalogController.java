@@ -42,9 +42,15 @@ public class FunctionCatalogController {
 
     @GetMapping
     public String catalogListPage(Model model) {
-        List<FunctionCatalogDto> catalogs = functionCatalogService.getManageableCatalogs();
-        model.addAttribute("catalogs", catalogs);
-        return "admin/catalog";
+        model.addAttribute("resources", resourceRegistryService.findAllForAdmin());
+        // 'message' 또는 'errorMessage' 가 flash attribute로 전달될 경우 모델에 추가
+        if (model.containsAttribute("message")) {
+            model.addAttribute("message", model.asMap().get("message"));
+        }
+        if (model.containsAttribute("errorMessage")) {
+            model.addAttribute("errorMessage", model.asMap().get("errorMessage"));
+        }
+        return "admin/catalog"; // 새로운 뷰 템플릿 반환
     }
 
     // 2. 개별 기능(리소스) 정보 업데이트를 처리합니다. (기존 로직과 동일하지만 새로운 서비스 호출)
@@ -66,14 +72,10 @@ public class FunctionCatalogController {
     // 4. '워크벤치 표시' 일괄 업데이트 API
     @PostMapping("/batch-status")
     public ResponseEntity<?> batchUpdateStatus(@RequestBody Map<String, Object> payload) {
-        try {
-            List<Integer> idsAsInteger = (List<Integer>) payload.get("ids");
-            List<Long> ids = idsAsInteger.stream().map(Integer::longValue).toList();
-            String status = (String) payload.get("status");
-            functionCatalogService.batchUpdateStatus(ids, status);
-            return ResponseEntity.ok(Map.of("message", "선택된 기능들의 상태가 성공적으로 변경되었습니다."));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        }
+        List<Integer> idsAsInteger = (List<Integer>) payload.get("ids");
+        List<Long> ids = idsAsInteger.stream().map(Integer::longValue).toList();
+        String status = (String) payload.get("status");
+        functionCatalogService.batchUpdateStatus(ids, status);
+        return ResponseEntity.ok(Map.of("message", "선택된 기능들의 상태가 성공적으로 변경되었습니다."));
     }
 }
