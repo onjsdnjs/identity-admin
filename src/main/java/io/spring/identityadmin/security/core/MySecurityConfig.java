@@ -1,8 +1,12 @@
 package io.spring.identityadmin.security.core;
 
+import io.spring.identityadmin.admin.monitoring.service.AuditLogService;
 import io.spring.identityadmin.security.xacml.pdp.evaluation.CustomMethodSecurityExpressionHandler;
 import io.spring.identityadmin.security.xacml.pdp.evaluation.CustomPermissionEvaluator;
 import io.spring.identityadmin.security.xacml.pep.CustomDynamicAuthorizationManager;
+import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
+import io.spring.identityadmin.security.xacml.pip.context.ContextHandler;
+import io.spring.identityadmin.security.xacml.pip.risk.RiskEngine;
 import io.spring.identityadmin.security.xacml.prp.PolicyRetrievalPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
@@ -50,9 +54,17 @@ public class MySecurityConfig {
     public MethodSecurityExpressionHandler methodSecurityExpressionHandler(
             CustomPermissionEvaluator customPermissionEvaluator,
             RoleHierarchy roleHierarchy,
-            PolicyRetrievalPoint policyRetrievalPoint) {
-        return new CustomMethodSecurityExpressionHandler(customPermissionEvaluator, roleHierarchy, policyRetrievalPoint);
+            PolicyRetrievalPoint policyRetrievalPoint,
+            ContextHandler contextHandler,
+            RiskEngine riskEngine,
+            AttributeInformationPoint attributePIP,
+            AuditLogService auditLogService) {
+        return new CustomMethodSecurityExpressionHandler(
+                customPermissionEvaluator, roleHierarchy, policyRetrievalPoint,
+                contextHandler, riskEngine, attributePIP, auditLogService
+        );
     }
+
 
     // RoleHierarchy 빈 등록 (계층적 역할 지원)
     @Bean

@@ -1,5 +1,6 @@
 package io.spring.identityadmin.security.xacml.pep;
 
+import io.spring.identityadmin.admin.monitoring.service.AuditLogService;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.domain.entity.policy.PolicyTarget;
@@ -32,6 +33,7 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
     private final ExpressionAuthorizationManagerResolver managerResolver;
     private List<RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>>> mappings;
     private static final Pattern AUTHORITY_PATTERN = Pattern.compile("^[A-Z_]+$");
+    private final AuditLogService auditLogService; // [신규] 감사 서비스 주입
 
     @PostConstruct
     public void initialize() {
@@ -101,14 +103,30 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
     @Override
     public AuthorizationDecision check(Supplier<Authentication> authentication, RequestAuthorizationContext context) {
         log.trace("Checking authorization for request: {}", context.getRequest().getRequestURI());
+
+        String principal = authentication.get().getName();
+        String resource = context.getRequest().getRequestURI();
+        String action = context.getRequest().getMethod();
+        String clientIp = context.getRequest().getRemoteAddr();
+
         for (RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>> mapping : this.mappings) {
             if (mapping.getRequestMatcher().matcher(context.getRequest()).isMatch()) {
                 log.debug("Request matched by '{}'. Delegating to its AuthorizationManager.", mapping.getRequestMatcher());
-                return mapping.getEntry().check(authentication, context);
+
+                AuthorizationManager<RequestAuthorizationContext> manager = mapping.getEntry();
+                AuthorizationDecision decision = manager.check(authentication, context);
+
+                // [신규] 감사 로그 기록
+                String reason = "Policy rule matched: " + mapping.getRequestMatcher();
+                auditLogService.logDecision(principal, resource, action, decision.isGranted() ? "ALLOW" : "DENY", reason, clientIp);
+
+                return decision;
             }
         }
         log.trace("No matching policy found for request. Denying access by default.");
-        return new AuthorizationDecision(true);
+        AuthorizationDecision authorizationDecision = new AuthorizationDecision(true);
+        auditLogService.logDecision(principal, resource, action, "DENY", "No matching policy found (Default Deny)", clientIp);
+        return authorizationDecision;
     }
 
     public synchronized void reload() {

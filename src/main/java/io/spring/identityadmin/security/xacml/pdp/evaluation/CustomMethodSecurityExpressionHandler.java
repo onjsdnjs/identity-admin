@@ -1,12 +1,19 @@
 package io.spring.identityadmin.security.xacml.pdp.evaluation;
 
+import io.spring.identityadmin.admin.monitoring.service.AuditLogService;
 import io.spring.identityadmin.domain.entity.policy.Policy;
+import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
+import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
+import io.spring.identityadmin.security.xacml.pip.context.ContextHandler;
+import io.spring.identityadmin.security.xacml.pip.risk.RiskEngine;
 import io.spring.identityadmin.security.xacml.prp.PolicyRetrievalPoint;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionOperations;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.Assert;
@@ -21,16 +28,54 @@ import java.util.stream.Collectors;
 public class CustomMethodSecurityExpressionHandler extends DefaultMethodSecurityExpressionHandler {
 
     private final PolicyRetrievalPoint policyRetrievalPoint;
+    private final ContextHandler contextHandler;
+    private final RiskEngine riskEngine;
+    private final AttributeInformationPoint attributePIP;
+    private final AuditLogService auditLogService;
 
     public CustomMethodSecurityExpressionHandler(
             CustomPermissionEvaluator customPermissionEvaluator,
             RoleHierarchy roleHierarchy,
-            PolicyRetrievalPoint policyRetrievalPoint) {
+            PolicyRetrievalPoint policyRetrievalPoint,
+            ContextHandler contextHandler,
+            RiskEngine riskEngine,
+            AttributeInformationPoint attributePIP,
+            AuditLogService auditLogService) {
         Assert.notNull(policyRetrievalPoint, "PolicyRetrievalPoint cannot be null");
         this.policyRetrievalPoint = policyRetrievalPoint;
+        this.contextHandler = contextHandler;
+        this.riskEngine = riskEngine;
+        this.attributePIP = attributePIP;
+        this.auditLogService = auditLogService;
         super.setPermissionEvaluator(customPermissionEvaluator);
         super.setRoleHierarchy(roleHierarchy);
-        log.info("CustomMethodSecurityExpressionHandler initialized with DYNAMIC lookup via PolicyRetrievalPoint.");
+        log.info("CustomMethodSecurityExpressionHandler initialized with DYNAMIC lookup and full AuthorizationContext.");
+    }
+
+    /**
+     * [최종 수정] Spring Security의 표준 확장 포인트를 오버라이드하여
+     * 올바르게 상속 구조를 갖춘 CustomMethodSecurityExpressionRoot를 생성합니다.
+     */
+    @Override
+    protected MethodSecurityExpressionOperations createSecurityExpressionRoot(Authentication authentication, MethodInvocation invocation) {
+        // 1. 컨텍스트 핸들러를 통해 표준 AuthorizationContext 생성
+        String methodIdentifier = invocation.getMethod().getDeclaringClass().getName() + "." + invocation.getMethod().getName();
+        AuthorizationContext authorizationContext = contextHandler.create(authentication, methodIdentifier);
+
+        // 2. 올바르게 구현된 CustomMethodSecurityExpressionRoot 인스턴스화
+        CustomMethodSecurityExpressionRoot root = new CustomMethodSecurityExpressionRoot(authentication, riskEngine, attributePIP, authorizationContext);
+
+        // 3. 필수 컴포넌트 설정
+        root.setPermissionEvaluator(getPermissionEvaluator());
+        root.setTrustResolver(getTrustResolver());
+        root.setRoleHierarchy(getRoleHierarchy());
+        root.setDefaultRolePrefix(getDefaultRolePrefix());
+        root.setThis(invocation.getThis()); // #this 객체 설정
+
+        // 감사 로그 기록
+        auditLogService.logDecision(authentication.getName(), methodIdentifier, "METHOD_INVOCATION", "EVALUATING", "Method authorization evaluation started.", null);
+
+        return root;
     }
 
     @Override
