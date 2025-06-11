@@ -5,9 +5,8 @@ import io.spring.identityadmin.admin.service.RoleService;
 import io.spring.identityadmin.admin.service.UserManagementService;
 import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.dto.UserListDto;
-import io.spring.identityadmin.entity.Group;
-import io.spring.identityadmin.entity.Role;
-import io.spring.identityadmin.entity.Users;
+import io.spring.identityadmin.domain.entity.Group;
+import io.spring.identityadmin.domain.entity.Role;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -15,9 +14,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Controller

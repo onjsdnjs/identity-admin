@@ -1,11 +1,13 @@
 package io.spring.identityadmin.admin.service.impl;
 
-import io.spring.identityadmin.admin.repository.GroupRepository;
+import io.spring.identityadmin.domain.entity.Group;
+import io.spring.identityadmin.domain.entity.UserGroup;
+import io.spring.identityadmin.domain.entity.Users;
+import io.spring.identityadmin.security.xacml.pip.repository.GroupRepository;
 import io.spring.identityadmin.admin.service.UserManagementService;
 import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.dto.UserListDto;
-import io.spring.identityadmin.entity.*;
-import io.spring.identityadmin.repository.UserRepository;
+import io.spring.identityadmin.security.xacml.pip.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -19,7 +21,6 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service("userManagementService")

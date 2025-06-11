@@ -1,8 +1,8 @@
 package io.spring.identityadmin.admin.service.impl;
 
-import io.spring.identityadmin.admin.repository.RoleHierarchyRepository;
-import io.spring.identityadmin.admin.repository.RoleRepository;
-import io.spring.identityadmin.entity.RoleHierarchyEntity;
+import io.spring.identityadmin.domain.entity.RoleHierarchyEntity;
+import io.spring.identityadmin.security.xacml.pip.repository.RoleHierarchyRepository;
+import io.spring.identityadmin.security.xacml.pip.repository.RoleRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

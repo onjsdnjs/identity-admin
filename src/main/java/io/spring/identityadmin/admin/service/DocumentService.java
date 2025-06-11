@@ -1,7 +1,7 @@
 package io.spring.identityadmin.admin.service;
 
 import io.spring.identityadmin.admin.repository.DocumentRepository;
-import io.spring.identityadmin.entity.Document;
+import io.spring.identityadmin.domain.entity.Document;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

@@ -4,8 +4,7 @@ import io.spring.identityadmin.admin.service.GroupService;
 import io.spring.identityadmin.admin.service.RoleService;
 import io.spring.identityadmin.domain.dto.GroupDto;
 import io.spring.identityadmin.domain.dto.RoleMetadataDto;
-import io.spring.identityadmin.entity.Group;
-import io.spring.identityadmin.entity.Role;
+import io.spring.identityadmin.domain.entity.Group;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -14,6 +13,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import javax.management.relation.Role;
 import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;

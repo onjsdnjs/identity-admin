@@ -1,7 +1,9 @@
 package io.spring.identityadmin.admin.service;
 
 import io.spring.identityadmin.domain.dto.*;
-import io.spring.identityadmin.entity.*;
+import io.spring.identityadmin.domain.entity.ConditionTemplate;
+import io.spring.identityadmin.domain.entity.business.BusinessAction;
+
 import java.util.List;
 import java.util.Map;
 

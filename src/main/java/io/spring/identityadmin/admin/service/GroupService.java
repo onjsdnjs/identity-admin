@@ -1,6 +1,6 @@
 package io.spring.identityadmin.admin.service;
 
-import io.spring.identityadmin.entity.Group;
+import io.spring.identityadmin.domain.entity.Group;
 
 import java.util.List;
 import java.util.Optional;

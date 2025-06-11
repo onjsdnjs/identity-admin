@@ -1,6 +1,6 @@
 package io.spring.identityadmin.admin.repository;
 
-import io.spring.identityadmin.entity.BusinessResourceAction;
+import io.spring.identityadmin.domain.entity.business.BusinessResourceAction;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 

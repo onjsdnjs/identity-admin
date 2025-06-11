@@ -1,7 +1,7 @@
 package io.spring.identityadmin.admin.controller;
 
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
-import io.spring.identityadmin.iamw.ResourceRegistryService;
+import io.spring.identityadmin.resource.ResourceRegistryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;

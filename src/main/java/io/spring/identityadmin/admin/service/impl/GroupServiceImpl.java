@@ -1,11 +1,11 @@
 package io.spring.identityadmin.admin.service.impl;
 
-import io.spring.identityadmin.admin.repository.GroupRepository;
-import io.spring.identityadmin.admin.repository.RoleRepository;
+import io.spring.identityadmin.domain.entity.Group;
+import io.spring.identityadmin.domain.entity.GroupRole;
+import io.spring.identityadmin.domain.entity.Role;
+import io.spring.identityadmin.security.xacml.pip.repository.GroupRepository;
+import io.spring.identityadmin.security.xacml.pip.repository.RoleRepository;
 import io.spring.identityadmin.admin.service.GroupService;
-import io.spring.identityadmin.entity.Group;
-import io.spring.identityadmin.entity.GroupRole;
-import io.spring.identityadmin.entity.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;

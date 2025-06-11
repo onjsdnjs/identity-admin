@@ -1,6 +1,6 @@
 package io.spring.identityadmin.domain.dto;
 
-import io.spring.identityadmin.entity.ManagedResource;
+import io.spring.identityadmin.domain.entity.ManagedResource;
 import lombok.Data;
 
 /**

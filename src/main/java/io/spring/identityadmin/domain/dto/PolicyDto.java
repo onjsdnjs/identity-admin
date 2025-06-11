@@ -1,6 +1,6 @@
 package io.spring.identityadmin.domain.dto;
 
-import io.spring.identityadmin.entity.policy.Policy;
+import io.spring.identityadmin.domain.entity.policy.Policy;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

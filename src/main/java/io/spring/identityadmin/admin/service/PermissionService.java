@@ -1,6 +1,6 @@
 package io.spring.identityadmin.admin.service;
 
-import io.spring.identityadmin.entity.Permission;
+import io.spring.identityadmin.domain.entity.Permission;
 
 import java.util.List;
 import java.util.Optional;

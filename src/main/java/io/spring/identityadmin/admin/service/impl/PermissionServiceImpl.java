@@ -1,8 +1,8 @@
 package io.spring.identityadmin.admin.service.impl;
 
-import io.spring.identityadmin.admin.repository.PermissionRepository;
+import io.spring.identityadmin.domain.entity.Permission;
+import io.spring.identityadmin.security.xacml.pip.repository.PermissionRepository;
 import io.spring.identityadmin.admin.service.PermissionService;
-import io.spring.identityadmin.entity.Permission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;

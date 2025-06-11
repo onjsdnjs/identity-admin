@@ -1,11 +1,11 @@
 package io.spring.identityadmin.admin.service.impl;
 
-import io.spring.identityadmin.admin.repository.GroupRepository;
-import io.spring.identityadmin.admin.repository.PolicyRepository;
-import io.spring.identityadmin.admin.repository.RoleRepository;
+import io.spring.identityadmin.domain.entity.Users;
+import io.spring.identityadmin.security.xacml.pip.repository.GroupRepository;
+import io.spring.identityadmin.security.xacml.prp.repository.PolicyRepository;
+import io.spring.identityadmin.security.xacml.pip.repository.RoleRepository;
 import io.spring.identityadmin.domain.dto.DashboardDto;
-import io.spring.identityadmin.entity.Users;
-import io.spring.identityadmin.repository.UserRepository;
+import io.spring.identityadmin.security.xacml.pip.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

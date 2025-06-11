@@ -1,10 +1,11 @@
 package io.spring.identityadmin.domain.dto;
 
-import io.spring.identityadmin.entity.GroupRole;
-import io.spring.identityadmin.entity.UserGroup;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.OneToMany;
-import lombok.*;
+import io.spring.identityadmin.domain.entity.GroupRole;
+import io.spring.identityadmin.domain.entity.UserGroup;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.HashSet;
 import java.util.List;

@@ -1,7 +1,6 @@
 package io.spring.identityadmin.admin.service;
 
-
-import io.spring.identityadmin.entity.Role;
+import io.spring.identityadmin.domain.entity.Role;
 
 import java.util.List;
 
