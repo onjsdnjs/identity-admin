@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.parameters.P;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,8 +63,8 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     @Transactional(readOnly = true)
 //    @PreAuthorize("#dynamicRule.getValue(#root)")
-    @PreAuthorize("hasPermission(#id, 'Document', 'WRITE')")
-    public UserDto getUser(Long id) {
+    @PreAuthorize("hasPermission(#userId, 'Document', 'WRITE')")
+    public UserDto getUser(@P("userId") Long id) {
         Users users = userRepository.findByIdWithGroupsRolesAndPermissions(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));
         /*List<String> roles = users.getUserGroups().stream()
