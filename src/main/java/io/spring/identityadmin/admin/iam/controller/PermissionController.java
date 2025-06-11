@@ -1,6 +1,7 @@
 package io.spring.identityadmin.admin.iam.controller;
 
 import io.spring.identityadmin.admin.iam.service.PermissionService;
+import io.spring.identityadmin.admin.metadata.service.FunctionCatalogService;
 import io.spring.identityadmin.domain.dto.PermissionDto;
 import io.spring.identityadmin.domain.entity.FunctionCatalog;
 import io.spring.identityadmin.domain.entity.Permission;
@@ -13,7 +14,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -26,7 +27,7 @@ public class PermissionController {
 
     private final PermissionService permissionService;
     private final ModelMapper modelMapper;
-    private final FunctionCatalogRepository functionCatalogRepository;
+    private final FunctionCatalogService functionCatalogService;
 
     /**
      * 권한 목록 페이지를 반환합니다.
@@ -50,8 +51,10 @@ public class PermissionController {
      */
     @GetMapping("/register")
     public String registerPermissionForm(Model model) {
-        model.addAttribute("permission", new PermissionDto()); // 빈 DTO 객체 전달
-        log.info("Displaying new permission registration form.");
+        model.addAttribute("permission", new PermissionDto());
+        model.addAttribute("selectedFunctionIds", new ArrayList<Long>());
+        // 공통 로직을 호출하여 모델에 데이터를 추가합니다.
+        addCommonAttributesToModel(model);
         return "admin/permissiondetails";
     }
 
@@ -83,21 +86,22 @@ public class PermissionController {
         Permission permission = permissionService.getPermission(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid permission ID: " + id));
 
-        // 이 권한에 현재 매핑된 기능 ID 목록
+        PermissionDto permissionDto = modelMapper.map(permission, PermissionDto.class);
         Set<Long> selectedFunctionIds = permission.getFunctions().stream()
                 .map(FunctionCatalog::getId)
                 .collect(Collectors.toSet());
 
-        // 선택 가능한 전체 기능 목록 (Active 상태인 것만)
-        List<FunctionCatalog> allActiveFunctions = functionCatalogRepository.findAll().stream()
-                .filter(fc -> fc.getStatus() == FunctionCatalog.CatalogStatus.ACTIVE)
-                .toList();
-
-        model.addAttribute("permission", modelMapper.map(permission, PermissionDto.class));
-        model.addAttribute("allFunctions", allActiveFunctions);
+        model.addAttribute("permission", permissionDto);
         model.addAttribute("selectedFunctionIds", selectedFunctionIds);
+        // 공통 로직을 호출하여 모델에 데이터를 추가합니다.
+        addCommonAttributesToModel(model);
 
         return "admin/permissiondetails";
+    }
+
+    private void addCommonAttributesToModel(Model model) {
+        List<FunctionCatalog> allActiveFunctions = functionCatalogService.findAllActiveFunctions();
+        model.addAttribute("allFunctions", allActiveFunctions);
     }
 
     /**
