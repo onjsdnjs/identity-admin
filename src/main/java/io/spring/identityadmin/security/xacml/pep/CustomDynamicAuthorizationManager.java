@@ -33,7 +33,7 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
     private final ExpressionAuthorizationManagerResolver managerResolver;
     private List<RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>>> mappings;
     private static final Pattern AUTHORITY_PATTERN = Pattern.compile("^[A-Z_]+$");
-    private final AuditLogService auditLogService; // [신규] 감사 서비스 주입
+    private final AuditLogService auditLogService;
 
     @PostConstruct
     public void initialize() {
