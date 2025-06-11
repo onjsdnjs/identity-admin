@@ -33,7 +33,7 @@
                     <div>
                         <label for="effect" class="block text-sm font-medium text-app-dark-gray">효과 (Effect):</label>
                         <select id="effect" th:field="*{effect}" class="mt-1 block w-full px-4 py-2.5 bg-white border border-app-border rounded-lg shadow-sm">
-                            <option th:each="eff : ${T(io.spring.identityadmin.entity.policy.Policy.Effect).values()}" th:value="${eff}" th:text="${eff.name()}"></option>
+                            <option th:each="eff : ${T(io.spring.identityadmin.domain.entity.policy.Policy.Effect).values()}" th:value="${eff}" th:text="${eff.name()}"></option>
                         </select>
                     </div>
                     <div>
