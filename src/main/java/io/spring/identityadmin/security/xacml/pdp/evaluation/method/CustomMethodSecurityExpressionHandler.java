@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionOperations;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
@@ -51,33 +52,50 @@ public class CustomMethodSecurityExpressionHandler extends DefaultMethodSecurity
         log.info("CustomMethodSecurityExpressionHandler initialized with DYNAMIC lookup and full AuthorizationContext.");
     }
 
-    /**
-     * [최종 수정] Spring Security의 표준 확장 포인트를 오버라이드하여
-     * 올바르게 상속 구조를 갖춘 CustomMethodSecurityExpressionRoot를 생성합니다.
-     */
     @Override
-    protected MethodSecurityExpressionOperations createSecurityExpressionRoot(Authentication authentication, MethodInvocation invocation) {
-        // 1. 컨텍스트 핸들러를 통해 표준 AuthorizationContext 생성
-        String methodIdentifier = invocation.getMethod().getDeclaringClass().getName() + "." + invocation.getMethod().getName();
-        AuthorizationContext authorizationContext = contextHandler.create(authentication, invocation);
+    public EvaluationContext createEvaluationContext(Supplier<Authentication> authentication, MethodInvocation mi) {
 
-        // 2. 올바르게 구현된 CustomMethodSecurityExpressionRoot 인스턴스화
-        CustomMethodSecurityExpressionRoot root = new CustomMethodSecurityExpressionRoot(authentication, riskEngine, attributePIP, authorizationContext);
+        // 1. 커스텀 Expression Root 객체 생성 및 설정
+        Authentication auth = authentication.get();
+        AuthorizationContext authorizationContext = contextHandler.create(auth, mi);
+        CustomMethodSecurityExpressionRoot root = new CustomMethodSecurityExpressionRoot(auth, riskEngine, attributePIP, authorizationContext);
 
-        // 3. 필수 컴포넌트 설정
         root.setPermissionEvaluator(getPermissionEvaluator());
         root.setTrustResolver(getTrustResolver());
         root.setRoleHierarchy(getRoleHierarchy());
         root.setDefaultRolePrefix(getDefaultRolePrefix());
-        root.setThis(invocation.getThis()); // #this 객체 설정
+        root.setThis(mi.getThis());
 
-        // 감사 로그 기록
-        auditLogService.logDecision(authentication.getName(), methodIdentifier, "METHOD_INVOCATION", "EVALUATING", "Method authorization evaluation started.", null);
+        // 2. ExpressionRoot를 기반으로 최종 EvaluationContext 생성
+        StandardEvaluationContext ctx = new StandardEvaluationContext(root);
+        ctx.setBeanResolver(getBeanResolver());
 
-        return root;
+        // 3. PRP를 통해 동적 규칙(SpEL) 조회
+        Method method = mi.getMethod();
+        String methodIdentifier = method.getDeclaringClass().getName() + "." + method.getName();
+        List<Policy> policies = policyRetrievalPoint.findMethodPolicies(methodIdentifier);
+
+        // 4. 조회된 정책을 기반으로 최종 SpEL 표현식 생성 (기본값: denyAll)
+        String finalExpression = "denyAll";
+        if (!CollectionUtils.isEmpty(policies)) {
+            finalExpression = buildExpressionFromPolicies(policies);
+        } else {
+            log.trace("No dynamic method policy for [{}]. Denying by default.", methodIdentifier);
+        }
+
+        // 5. 최종 표현식을 파싱하여 컨텍스트 변수 #dynamicRule 에 할당
+        Expression dynamicRuleExpression = getExpressionParser().parseExpression(finalExpression);
+        ctx.setVariable("dynamicRule", dynamicRuleExpression);
+
+        log.debug("Dynamic SpEL for method [{}] is: {}", methodIdentifier, finalExpression);
+
+        // 6. 감사 로그 기록
+        auditLogService.logDecision(auth.getName(), methodIdentifier, "METHOD_INVOCATION", "EVALUATING", "Evaluating with dynamic rule: " + finalExpression, null);
+
+        return ctx;
     }
 
-    @Override
+    /*@Override
     public EvaluationContext createEvaluationContext(Supplier<Authentication> authentication, MethodInvocation mi) {
         // 1. 부모 클래스의 메서드를 호출하여 기본적인 EvaluationContext(#root 객체 포함)를 생성
         EvaluationContext ctx = super.createEvaluationContext(authentication, mi);
@@ -104,7 +122,7 @@ public class CustomMethodSecurityExpressionHandler extends DefaultMethodSecurity
         ctx.setVariable("dynamicRule", dynamicRuleExpression);
 
         return ctx;
-    }
+    }*/
 
     private String buildExpressionFromPolicies(List<Policy> policies) {
         // 가장 우선순위가 높은 정책 하나만 사용.
