@@ -124,6 +124,7 @@
                                 <td class="p-3 text-center align-middle">
                                     <label class="toggle-switch-label">
                                         <input type="checkbox" class="status-toggle" th:checked="${cat.status.name() == 'ACTIVE'}">
+                                        <span class="toggle-slider"></span>
                                     </label>
                                     <input type="hidden" name="status" th:value="${cat.status.name()}" class="status-hidden-input">
                                 </td>
@@ -181,6 +182,7 @@
                                 <td class="p-3 text-center align-middle">
                                     <label class="toggle-switch-label">
                                         <input type="checkbox" class="status-toggle" th:checked="${cat.status.name() == 'ACTIVE'}">
+                                        <span class="toggle-slider"></span>
                                     </label>
                                     <input type="hidden" name="status" th:value="${cat.status.name()}" class="status-hidden-input">
                                 </td>
@@ -217,7 +219,7 @@
         const csrfToken = /*[[${_csrf.token}]]*/ null;
         const csrfHeader = /*[[${_csrf.headerName}]]*/ null;
 
-        // Tab-switching logic
+        // Tab-switching logic - 수정된 부분
         const tabs = document.querySelectorAll('.tab-item');
         const panes = document.querySelectorAll('.tab-pane');
         tabs.forEach(tab => {
@@ -226,7 +228,13 @@
                 tabs.forEach(t => t.classList.remove('active'));
                 panes.forEach(p => p.classList.remove('active'));
                 e.currentTarget.classList.add('active');
-                document.querySelector(e.currentTarget.getAttribute('href')).classList.add('active');
+
+                // href에서 # 제거하고 -pane 추가
+                const targetId = e.currentTarget.getAttribute('href').substring(1) + '-pane';
+                const targetPane = document.getElementById(targetId);
+                if (targetPane) {
+                    targetPane.classList.add('active');
+                }
             });
         });
 
