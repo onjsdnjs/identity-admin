@@ -9,6 +9,7 @@ import io.spring.identityadmin.security.xacml.pip.risk.RiskEngine;
 import io.spring.identityadmin.security.xacml.prp.PolicyRetrievalPoint;
 import lombok.extern.slf4j.Slf4j;
 import org.aopalliance.intercept.MethodInvocation;
+import org.springframework.context.expression.MethodBasedEvaluationContext;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
@@ -67,7 +68,8 @@ public class CustomMethodSecurityExpressionHandler extends DefaultMethodSecurity
         root.setThis(mi.getThis());
 
         // 2. ExpressionRoot를 기반으로 최종 EvaluationContext 생성
-        StandardEvaluationContext ctx = new StandardEvaluationContext(root);
+//        StandardEvaluationContext ctx = new StandardEvaluationContext(root);
+        MethodBasedEvaluationContext ctx = new MethodBasedEvaluationContext(root, mi.getMethod(), mi.getArguments(), getParameterNameDiscoverer());
         ctx.setBeanResolver(getBeanResolver());
 
         // 3. PRP를 통해 동적 규칙(SpEL) 조회
@@ -94,35 +96,6 @@ public class CustomMethodSecurityExpressionHandler extends DefaultMethodSecurity
 
         return ctx;
     }
-
-    /*@Override
-    public EvaluationContext createEvaluationContext(Supplier<Authentication> authentication, MethodInvocation mi) {
-        // 1. 부모 클래스의 메서드를 호출하여 기본적인 EvaluationContext(#root 객체 포함)를 생성
-        EvaluationContext ctx = super.createEvaluationContext(authentication, mi);
-
-        // 2. 현재 호출된 메서드의 식별자 생성
-        Method method = mi.getMethod();
-        String methodIdentifier = method.getDeclaringClass().getName() + "." + method.getName();
-
-        // 3. PRP를 통해 DB 에서 해당 메서드에 대한 정책 조회
-        List<Policy> policies = policyRetrievalPoint.findMethodPolicies(methodIdentifier);
-
-        // 4. 조회된 정책을 기반으로 최종 SpEL 표현식 생성
-        String finalExpression = "false"; // 기본값은 거부
-        if (!CollectionUtils.isEmpty(policies)) {
-            finalExpression = buildExpressionFromPolicies(policies);
-        } else {
-            log.trace("No dynamic method policy for [{}]. Denying by default.", methodIdentifier);
-        }
-
-        log.debug("Dynamic SpEL for method [{}] is: {}", methodIdentifier, finalExpression);
-
-        // 5. 최종 표현식을 파싱하여 컨텍스트 변수 #dynamicRule 에 할당
-        Expression dynamicRuleExpression = getExpressionParser().parseExpression(finalExpression);
-        ctx.setVariable("dynamicRule", dynamicRuleExpression);
-
-        return ctx;
-    }*/
 
     private String buildExpressionFromPolicies(List<Policy> policies) {
         // 가장 우선순위가 높은 정책 하나만 사용.

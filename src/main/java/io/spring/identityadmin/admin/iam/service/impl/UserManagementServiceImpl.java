@@ -63,8 +63,8 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     @Transactional(readOnly = true)
 //    @PreAuthorize("#dynamicRule.getValue(#root)")
-    @PreAuthorize("hasPermission(#userId, 'Document', 'WRITE')")
-    public UserDto getUser(@P("userId") Long id) {
+    @PreAuthorize("hasPermission(#id, 'Document', 'WRITE')")
+    public UserDto getUser(Long id) {
         Users users = userRepository.findByIdWithGroupsRolesAndPermissions(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));
         /*List<String> roles = users.getUserGroups().stream()
