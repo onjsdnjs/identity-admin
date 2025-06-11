@@ -1,7 +1,7 @@
 package io.spring.identityadmin.security.xacml.pep;
 
-import io.spring.identityadmin.security.xacml.pdp.evaluation.ExpressionEvaluator;
-import io.spring.identityadmin.security.xacml.pdp.evaluation.WebSpelExpressionEvaluator;
+import io.spring.identityadmin.security.xacml.pdp.evaluation.url.ExpressionEvaluator;
+import io.spring.identityadmin.security.xacml.pdp.evaluation.url.WebSpelExpressionEvaluator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.expression.SecurityExpressionHandler;
 import org.springframework.security.authorization.AuthorizationManager;

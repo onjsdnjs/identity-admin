@@ -1,4 +1,4 @@
-package io.spring.identityadmin.security.xacml.pdp.evaluation;
+package io.spring.identityadmin.security.xacml.pdp.evaluation.url;
 
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;

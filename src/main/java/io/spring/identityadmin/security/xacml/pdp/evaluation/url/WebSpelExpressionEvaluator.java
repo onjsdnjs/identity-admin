@@ -1,4 +1,4 @@
-package io.spring.identityadmin.security.xacml.pdp.evaluation;
+package io.spring.identityadmin.security.xacml.pdp.evaluation.url;
 
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authorization.AuthorizationManager;

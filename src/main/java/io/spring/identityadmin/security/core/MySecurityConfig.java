@@ -1,8 +1,8 @@
 package io.spring.identityadmin.security.core;
 
 import io.spring.identityadmin.admin.monitoring.service.AuditLogService;
-import io.spring.identityadmin.security.xacml.pdp.evaluation.CustomMethodSecurityExpressionHandler;
-import io.spring.identityadmin.security.xacml.pdp.evaluation.CustomPermissionEvaluator;
+import io.spring.identityadmin.security.xacml.pdp.evaluation.method.CustomMethodSecurityExpressionHandler;
+import io.spring.identityadmin.security.xacml.pdp.evaluation.method.CustomPermissionEvaluator;
 import io.spring.identityadmin.security.xacml.pep.CustomDynamicAuthorizationManager;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
 import io.spring.identityadmin.security.xacml.pip.context.ContextHandler;

@@ -1,4 +1,4 @@
-package io.spring.identityadmin.security.xacml.pdp.evaluation;
+package io.spring.identityadmin.security.xacml.pdp.evaluation.method;
 
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.repository.PermissionRepository;
