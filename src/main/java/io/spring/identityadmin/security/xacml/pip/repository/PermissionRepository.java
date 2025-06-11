@@ -3,6 +3,7 @@ package io.spring.identityadmin.security.xacml.pip.repository;
 import io.spring.identityadmin.domain.entity.Permission;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface PermissionRepository extends JpaRepository<Permission, Long> {
@@ -13,6 +14,5 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
      */
     Optional<Permission> findByName(String name);
 
-    // 필요시 targetType과 actionType으로 조회하는 메서드 추가 가능
-    // List<Permission> findByTargetTypeAndActionType(String targetType, String actionType);
+     List<Permission> findByTargetTypeAndActionType(String targetType, String actionType);
 }
