@@ -9,38 +9,38 @@
                         <span>대시보드</span>
                     </a>
                 </li>
-                <li>
-                    <a th:href="@{/admin/workbench}" class="menu-link">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                        <span>통합 워크벤치</span>
-                    </a>
-                </li>
             </ul>
         </div>
 
         <div>
-            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mt-4 mb-2 px-3">기능 & 권한 관리</h3>
+            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mt-4 mb-2 px-3">인가 정책</h3>
             <ul class="space-y-1">
-                <li><a th:href="@{/admin/catalog}" class="menu-link-sub">기능 카탈로그 관리</a></li>
-                <li><a th:href="@{/admin/permissions}" class="menu-link-sub">권한 정의</a></li>
+                <li><a th:href="@{/admin/studio}" class="menu-link-sub">Authorization Studio</a></li>
+                <li><a th:href="@{/admin/policies}" class="menu-link-sub">전체 정책 목록</a></li>
             </ul>
         </div>
 
         <div>
-            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mt-4 mb-2 px-3">상세 관리</h3>
+            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mt-4 mb-2 px-3">ID 및 접근 관리</h3>
             <ul class="space-y-1">
                 <li><a th:href="@{/admin/users}" class="menu-link-sub">사용자 관리</a></li>
                 <li><a th:href="@{/admin/groups}" class="menu-link-sub">그룹 관리</a></li>
                 <li><a th:href="@{/admin/roles}" class="menu-link-sub">역할 관리</a></li>
                 <li><a th:href="@{/admin/role-hierarchies}" class="menu-link-sub">역할 계층 관리</a></li>
-                <li><a th:href="@{/admin/policies}" class="menu-link-sub">기술 정책 관리</a></li>
+            </ul>
+        </div>
+
+        <div>
+            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mt-4 mb-2 px-3">시스템</h3>
+            <ul class="space-y-1">
+                <li><a th:href="@{/admin/permissions/catalog}" class="menu-link-sub">권한 카탈로그</a></li>
                 <li><a th:href="@{/admin/resources}" class="menu-link-sub">(개발자용) 전체 리소스</a></li>
             </ul>
         </div>
     </nav>
     <style>
         .menu-link, .menu-link-sub { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.75rem; border-radius: 0.375rem; color: #D1D5DB; font-weight: 500; transition: background-color 0.2s, color 0.2s; cursor: pointer; }
-        .menu-link-sub { font-size: 0.875rem; }
+        .menu-link-sub { font-size: 0.875rem; padding-left: 2.5rem; }
         .menu-link:hover, .menu-link-sub:hover { background-color: #303f9f; color: white; }
         .menu-link.active { background-color: #2196f3; color: white; font-weight: bold; }
     </style>

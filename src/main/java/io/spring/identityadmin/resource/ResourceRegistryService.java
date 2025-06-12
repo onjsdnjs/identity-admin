@@ -28,4 +28,6 @@ public interface ResourceRegistryService {
     List<ManagedResource> findAllForAdmin();
 
     void updateResource(Long id, ResourceMetadataDto metadataDto);
+
+    void refreshAndSynchronizePermissions();
 }

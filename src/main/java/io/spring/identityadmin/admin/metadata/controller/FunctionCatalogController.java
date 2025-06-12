@@ -1,7 +1,6 @@
 package io.spring.identityadmin.admin.metadata.controller;
 
 import io.spring.identityadmin.admin.metadata.service.FunctionCatalogService;
-import io.spring.identityadmin.domain.dto.FunctionCatalogDto;
 import io.spring.identityadmin.domain.dto.FunctionCatalogUpdateDto;
 import io.spring.identityadmin.resource.ResourceEnhancementService;
 import io.spring.identityadmin.resource.ResourceRegistryService;
@@ -51,7 +50,7 @@ public class FunctionCatalogController {
         if (model.containsAttribute("errorMessage")) {
             model.addAttribute("errorMessage", model.asMap().get("errorMessage"));
         }
-        return "admin/catalog"; // 새로운 뷰 템플릿 반환
+        return "admin/permissions-catalog"; // 새로운 뷰 템플릿 반환
     }
 
     // 2. 개별 기능(리소스) 정보 업데이트를 처리합니다. (기존 로직과 동일하지만 새로운 서비스 호출)

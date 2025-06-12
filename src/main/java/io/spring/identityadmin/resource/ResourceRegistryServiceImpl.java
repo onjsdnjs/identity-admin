@@ -1,5 +1,6 @@
 package io.spring.identityadmin.resource;
 
+import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
 import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.domain.entity.FunctionCatalog;
@@ -28,6 +29,53 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     private final List<ResourceScanner> scanners;
     private final ManagedResourceRepository managedResourceRepository;
     private final FunctionCatalogRepository functionCatalogRepository;
+    private final PermissionCatalogService permissionCatalogService;
+
+    @Override
+    @Transactional
+    public void refreshAndSynchronizePermissions() {
+        log.info("Starting resource scanning for permission synchronization...");
+
+        // 1. 시스템의 모든 기술 리소스 스캔
+        Map<String, ManagedResource> discoveredResourcesMap = scanners.stream()
+                .flatMap(scanner -> scanner.scan().stream())
+                .collect(Collectors.toMap(
+                        ManagedResource::getResourceIdentifier,
+                        Function.identity(),
+                        (existing, replacement) -> existing // 중복 키 발생 시 기존 값 유지
+                ));
+
+        // 2. DB에 이미 존재하는 리소스와 비교하여 신규/업데이트 대상 선정
+        Map<String, ManagedResource> existingResourcesMap = managedResourceRepository.findAll().stream()
+                .collect(Collectors.toMap(ManagedResource::getResourceIdentifier, Function.identity()));
+
+        List<ManagedResource> resourcesToSave = discoveredResourcesMap.values().stream()
+                .map(discovered -> {
+                    ManagedResource existing = existingResourcesMap.get(discovered.getResourceIdentifier());
+                    if (existing != null) {
+                        // 기존 리소스가 있으면, 스캔된 정보(이름, 설명 초안)로 업데이트
+                        existing.setFriendlyName(discovered.getFriendlyName());
+                        existing.setDescription(discovered.getDescription());
+                        existing.setServiceOwner(discovered.getServiceOwner());
+                        return existing;
+                    } else {
+                        // 새로운 리소스면 그대로 반환
+                        return discovered;
+                    }
+                })
+                .collect(Collectors.toList());
+
+        // 3. 신규/업데이트된 리소스를 DB에 저장
+        List<ManagedResource> savedResources = managedResourceRepository.saveAll(resourcesToSave);
+        log.info("{} resources have been saved or updated in the resource registry.", savedResources.size());
+
+
+        // 4. 저장된 최신 리소스 목록 전체를 권한 카탈로그 서비스에 전달하여 동기화 실행
+        List<ManagedResource> allLatestResources = managedResourceRepository.findAll();
+        permissionCatalogService.synchronize(allLatestResources);
+
+        log.info("Resource scanning and permission synchronization process completed successfully.");
+    }
 
     @Override
     @Transactional
