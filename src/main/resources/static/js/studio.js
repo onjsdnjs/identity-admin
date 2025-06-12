@@ -53,11 +53,12 @@ class StudioState {
         const permission = this.getPermission();
         if (!subject || !permission) return null;
 
-        return {
-            subjectIds: subject.type === 'USER' ? [subject.id] : [],
+        const request = {
+            userIds: subject.type === 'USER' ? [subject.id] : [],
             groupIds: subject.type === 'GROUP' ? [subject.id] : [],
             permissionIds: [permission.id]
         };
+        return request;
     }
 }
 
@@ -78,15 +79,16 @@ class StudioUI {
     createSectionHtml(title, items, type) {
         if (!items || items.length === 0) return '';
         const itemsHtml = items.map(item => `
-            <div class="explorer-item" data-id="<span class="math-inline">\{item\.id\}" data\-type\="</span>{type}" data-name="<span class="math-inline">\{item\.name\}" data\-description\="</span>{item.description || ''}">
-                <div class="item-name"><span class="math-inline">\{item\.name\}</div\>
-<div class="item-description" title="{item.description || ''}">${item.description || ''}</div>
-</div>
-).join(''); return<h3 class="explorer-header">title</h3><divclass="explorer−section−body">{itemsHtml}</div>`;
+            <div class="explorer-item" data-id="${item.id}" data-type="${type}" data-name="${item.name}" data-description="${item.description || ''}">
+                <div class="item-name">${item.name}</div>
+                <div class="item-description" title="${item.description || ''}">${item.description || ''}</div>
+            </div>
+        `).join('');
+        return `<h3 class="explorer-header">${title}</h3><div class="explorer-section-body">${itemsHtml}</div>`;
     }
 
     updateExplorerSelection(state) {
-        document.querySelectorAll('.explorer-item').forEach(el => {
+        this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(el => {
             const { id, type } = el.dataset;
             const selectedItem = state.selected[type];
             el.classList.toggle('selected', selectedItem && selectedItem.id == id);
@@ -96,36 +98,35 @@ class StudioUI {
     renderAccessPath(subject, permission, data) {
         const pathHtml = data.nodes.map((node, index) => `
             <div class="path-node">
-                <div class="path-icon"><span class="math-inline">\{index \+ 1\}</div\>
-<div class="path-details">
-<div class="path-type">{node.type}</div>
-<div class="path-name">${node.name}</div>
-</div>
-</div>
-${index < data.nodes.length - 1 ? '<div class="path-arrow"><i class="fas fa-arrow-down"></i></div>' : ''}
-).join(''); const resultColor = data.accessGranted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; const resultIcon = data.accessGranted ? 'fa-check-circle' : 'fa-times-circle'; this.elements.canvasContent.innerHTML =
-<h2 class="text-xl font-bold mb-2 text-center">접근 경로 분석</h2>
-<p class="text-sm text-center text-slate-500 mb-6">'subject.name 
-′
- <iclass="fasfa−long−arrow−alt−rightmx−2"></i> 
-′
- {permission.name}'</p>
-<div class="path-container">${pathHtml}</div>
-<div class="mt-6 p-4 rounded-lg text-center ${resultColor}">
-<h3 class="font-semibold">최종 결론</h3>
-<p class="text-lg font-bold"><i class="fas resultIconmr−2"></i>{data.finalReason}</p>
-</div>`;
+                <div class="path-icon">${index + 1}</div>
+                <div class="path-details">
+                    <div class="path-type">${node.type}</div>
+                    <div class="path-name">${node.name}</div>
+                </div>
+            </div>
+            ${index < data.nodes.length - 1 ? '<div class="path-arrow"><i class="fas fa-arrow-down"></i></div>' : ''}
+        `).join('');
+        const resultColor = data.accessGranted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+        const resultIcon = data.accessGranted ? 'fa-check-circle' : 'fa-times-circle';
+        this.elements.canvasContent.innerHTML = `
+            <h2 class="text-xl font-bold mb-2 text-center">접근 경로 분석</h2>
+            <p class="text-sm text-center text-slate-500 mb-6">'${subject.name}' <i class="fas fa-long-arrow-alt-right mx-2"></i> '${permission.name}'</p>
+            <div class="path-container">${pathHtml}</div>
+            <div class="mt-6 p-4 rounded-lg text-center ${resultColor}">
+                <h3 class="font-semibold">최종 결론</h3>
+                <p class="text-lg font-bold"><i class="fas ${resultIcon} mr-2"></i>${data.finalReason}</p>
+            </div>`;
     }
 
     renderEffectivePermissions(subject, data) {
         const permsHtml = data.map(perm => `
             <div class="p-3 border rounded-md mb-2 bg-white hover:shadow-md transition-shadow">
-                <p class="font-semibold text-gray-800"><span class="math-inline">\{perm\.permissionDescription\}</p\>
-<p class="text-sm text-slate-600 mt-1">획득 경로: <span class="font-mono text-xs bg-slate-100 p-1 rounded">{perm.origin}</span></p>
-</div>).join(''); this.elements.canvasContent.innerHTML =
-<h2 class="text-xl font-bold mb-4">'subject.name 
-′
- 의유효권한목록</h2><divclass="space−y−2">{permsHtml.length > 0 ? permsHtml : '<p class="text-slate-500 p-4 bg-slate-50 rounded-md text-center">부여된 권한이 없습니다.</p>'}</div>`;
+                <p class="font-semibold text-gray-800">${perm.permissionDescription}</p>
+                <p class="text-sm text-slate-600 mt-1">획득 경로: <span class="font-mono text-xs bg-slate-100 p-1 rounded">${perm.origin}</span></p>
+            </div>`).join('');
+        this.elements.canvasContent.innerHTML = `
+            <h2 class="text-xl font-bold mb-4">'${subject.name}'의 유효 권한 목록</h2>
+            <div class="space-y-2">${permsHtml.length > 0 ? permsHtml : '<p class="text-slate-500 p-4 bg-slate-50 rounded-md text-center">부여된 권한이 없습니다.</p>'}</div>`;
     }
 
     renderInspector(state) {
@@ -166,7 +167,7 @@ ${index < data.nodes.length - 1 ? '<div class="path-arrow"><i class="fas fa-arro
         const icon = { USER: 'fa-user', GROUP: 'fa-users', PERMISSION: 'fa-key', POLICY: 'fa-file-alt' }[item.type] || 'fa-question-circle';
         return `
             <div class="p-3 bg-white rounded-md border text-sm">
-                <p class="text-xs font-semibold uppercase text-app-accent"><i class="fas <span class="math-inline">\{icon\} mr\-2"\></i\></span>{item.type}</p>
+                <p class="text-xs font-semibold uppercase text-app-accent"><i class="fas ${icon} mr-2"></i>${item.type}</p>
                 <p class="font-bold text-md text-gray-800">${item.name}</p>
             </div>
         `;
@@ -197,14 +198,20 @@ class StudioAPI {
             const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
             const fetchOptions = { ...options };
             if (!fetchOptions.headers) fetchOptions.headers = {};
-            if (options.body) fetchOptions.headers['Content-Type'] = 'application/json';
-            if (csrfToken && csrfHeader && options.method && options.method !== 'GET') {
+            if (options.body && !(options.body instanceof URLSearchParams)) {
+                fetchOptions.headers['Content-Type'] = 'application/json';
+            }
+            if (csrfToken && csrfHeader && options.method && options.method.toUpperCase() !== 'GET') {
                 fetchOptions.headers[csrfHeader] = csrfToken;
             }
             const response = await fetch(url, fetchOptions);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: `서버 오류 (상태: ${response.status})`}));
                 throw new Error(errorData.message);
+            }
+            if(response.redirected) {
+                window.location.href = response.url;
+                return null;
             }
             return response.status === 204 ? null : response.json();
         } catch (error) {
@@ -214,14 +221,16 @@ class StudioAPI {
         }
     }
     getExplorerItems() { return this.fetchApi('/admin/studio/api/explorer-items'); }
-    getAccessPath(subjectId, subjectType, permissionId) { return this.fetchApi(`/admin/studio/api/access-path?subjectId=<span class="math-inline">\{subjectId\}&subjectType\=</span>{subjectType}&permissionId=${permissionId}`); }
-    getEffectivePermissions(subjectId, subjectType) { return this.fetchApi(`/admin/studio/api/effective-permissions?subjectId=<span class="math-inline">\{subjectId\}&subjectType\=</span>{subjectType}`); }
-    initiateGrant(request) {
-        return this.fetchApi('/admin/policy-wizard/start', {
-            method: 'POST',
-            body: new URLSearchParams(request) // POST를 form-urlencoded 방식으로 변경
-        });
-    }
+    getAccessPath(subjectId, subjectType, permissionId) { return this.fetchApi(`/admin/studio/api/access-path?subjectId=${subjectId}&subjectType=${subjectType}&permissionId=${permissionId}`); }
+    getEffectivePermissions(subjectId, subjectType) { return this.fetchApi(`/admin/studio/api/effective-permissions?subjectId=${subjectId}&subjectType=${subjectType}`); }
+
+    // 이 메서드는 직접 호출되지 않고, form submit으로 대체됩니다.
+    // initiateGrant(request) {
+    //     return this.fetchApi('/admin/policy-wizard/start', {
+    //         method: 'POST',
+    //         body: JSON.stringify(request)
+    //     });
+    // }
 }
 
 // 4. 메인 애플리케이션 클래스
@@ -277,7 +286,7 @@ class StudioApp {
     }
 
     async updateCanvasAndInspector() {
-        this.ui.showLoading(this.ui.elements.canvasContent);
+        this.ui.showLoading(this.elements.canvasContent);
         this.ui.renderInspector(this.state); // Inspector 먼저 렌더링
 
         const subject = this.state.getSubject();
@@ -297,14 +306,15 @@ class StudioApp {
         }
     }
 
-    async handleGrantClick() {
+    handleGrantClick() {
         const grantData = this.state.getSelectedItemsForAction();
         if(!grantData) {
             showToast("권한을 부여할 주체와 권한을 모두 선택해주세요.", "error");
             return;
         }
-        // Studio에서는 마법사 시작만 담당. 실제 마법사 페이지로 POST 리다이렉트
-        // 이를 위해 임시 form을 생성하여 submit
+
+        // Studio에서는 마법사 시작만 담당.
+        // 마법사 페이지로 POST 리다이렉트하기 위해 임시 form을 생성하여 submit합니다.
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/admin/policy-wizard/start';
@@ -312,21 +322,28 @@ class StudioApp {
         const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
         const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
 
-        const data = {
+        const dataForForm = {
             ...grantData,
             policyName: `Studio 빠른 권한 부여`,
             policyDescription: `${this.state.getSubject().name}에게 ${this.state.getPermission().name} 권한을 부여합니다.`
         };
 
-        for(const key in data) {
-            if(data.hasOwnProperty(key) && Array.isArray(data[key])) {
-                data[key].forEach(value => {
+        for(const key in dataForForm) {
+            const value = dataForForm[key];
+            if (Array.isArray(value)) {
+                value.forEach(v => {
                     const input = document.createElement('input');
                     input.type = 'hidden';
                     input.name = key;
-                    input.value = value;
+                    input.value = v;
                     form.appendChild(input);
                 });
+            } else {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = value;
+                form.appendChild(input);
             }
         }
 
@@ -344,7 +361,7 @@ class StudioApp {
         this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
             const name = item.dataset.name.toLowerCase();
             const description = item.dataset.description.toLowerCase();
-            item.style.display = (name.includes(term) || description.includes(term)) ? '' : 'none';
+            item.style.display = (name.includes(term) || description.includes(term)) ? '' : 'block';
         });
     }
 }
