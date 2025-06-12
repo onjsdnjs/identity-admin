@@ -9,4 +9,4 @@ public record InitiateGrantRequestDto(
         Set<Long> subjectIds, // 사용자와 그룹 ID 목록
         Set<String> subjectTypes,
         Set<Long> permissionIds
-) {}
+){}
