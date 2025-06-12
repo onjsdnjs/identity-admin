@@ -71,6 +71,7 @@ public class DefaultPolicyService implements PolicyService {
     @Override
     public void deletePolicy(Long id) {
         policyRepository.deleteById(id);
+        eventBus.publish(new PolicyChangedEvent(id));
         reloadAuthorizationSystem();
         log.info("Policy deleted and authorization system reloaded. Policy ID: {}", id);
     }

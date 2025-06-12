@@ -1,0 +1,51 @@
+.step-item {
+    @apply flex flex-col items-center text-center;
+}
+.step-circle {
+    @apply w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg transition-all duration-300;
+}
+.step-label {
+    @apply text-xs font-semibold mt-2 transition-all duration-300;
+}
+.step-connector {
+    @apply flex-1 h-1 bg-gray-200 mx-4;
+}
+
+/* Active State */
+.step-item.step-active .step-circle {
+    @apply bg-indigo-600 text-white scale-110 shadow-lg;
+}
+.step-item.step-active .step-label {
+    @apply text-indigo-600;
+}
+
+/* Complete State */
+.step-item.step-complete .step-circle {
+    @apply bg-green-500 text-white;
+}
+.step-item.step-complete .step-label {
+    @apply text-green-600;
+}
+.step-item.step-complete + .step-connector {
+    @apply bg-green-500;
+}
+
+/* Inactive State */
+.step-item.step-inactive .step-circle {
+    @apply bg-gray-200 text-gray-500;
+}
+.step-item.step-inactive .step-label {
+    @apply text-gray-400;
+}
+
+.wizard-card {
+    display: none;
+    animation: fadeIn 0.5s ease-in-out;
+}
+.wizard-card.active {
+    display: block;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

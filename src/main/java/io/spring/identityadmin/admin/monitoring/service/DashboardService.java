@@ -4,7 +4,6 @@ import io.spring.identityadmin.admin.monitoring.dto.MatrixFilter;
 import io.spring.identityadmin.admin.monitoring.dto.PermissionMatrixDto;
 import io.spring.identityadmin.admin.monitoring.dto.RiskIndicatorDto;
 import io.spring.identityadmin.admin.monitoring.dto.SecurityScoreDto;
-import io.spring.identityadmin.domain.dto.DashboardDto;
 
 import java.util.List;
 

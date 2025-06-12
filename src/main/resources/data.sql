@@ -238,3 +238,33 @@ INSERT INTO CONDITION_TEMPLATE (id, name, description, category, parameter_count
                                                                                                      (2, '사내 IP 대역에서만 허용', '사내 IP 대역(예: 192.168.1.0/24)에서만 접근을 허용합니다.', '위치 기반', 1, 'hasIpAddress(''?'')'),
                                                                                                      (3, '문서 소유자 본인만 허용', '문서의 소유자만 해당 문서에 접근할 수 있도록 제한합니다.', '데이터 기반', 0, '@documentService.isUserOwnerOfDocument(#target, authentication.name)')
     ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO POLICY_TEMPLATE (id, template_id, name, description, category, policy_draft_json) VALUES
+                                                                                                  (1, 'new-hire-template', '신입사원 기본 권한', '모든 신입사원에게 적용되는 기본적인 읽기 권한을 부여합니다.', 'HR',
+                                                                                                   '{
+                                                                                                      "name": "신입사원 기본 정책",
+                                                                                                      "description": "신입사원 그룹에게 기본적인 읽기 권한을 부여합니다.",
+                                                                                                      "effect": "ALLOW",
+                                                                                                      "rules": [
+                                                                                                          {
+                                                                                                              "conditions": ["hasAuthority(''GROUP_USER_GROUP'')"]
+                                                                                                          }
+                                                                                                      ],
+                                                                                                      "targets": [
+                                                                                                          { "targetType": "URL", "targetIdentifier": "/docs/**", "httpMethod": "GET" }
+                                                                                                      ]
+                                                                                                   }'),
+                                                                                                  (2, 'dev-team-template', '개발팀 기본 권한', '개발팀에게 개발 서버 접근 및 관련 리소스에 대한 권한을 부여합니다.', 'Development',
+                                                                                                   '{
+                                                                                                      "name": "개발팀 기본 정책",
+                                                                                                      "description": "개발팀 그룹에게 개발 관련 리소스 접근 권한을 부여합니다.",
+                                                                                                      "effect": "ALLOW",
+                                                                                                      "rules": [
+                                                                                                          {
+                                                                                                              "conditions": ["hasAuthority(''GROUP_DEVELOPER_GROUP'')"]
+                                                                                                          }
+                                                                                                      ],
+                                                                                                      "targets": [
+                                                                                                          { "targetType": "URL", "targetIdentifier": "/dev/**", "httpMethod": "ALL" }
+                                                                                                      ]
+                                                                                                   }');

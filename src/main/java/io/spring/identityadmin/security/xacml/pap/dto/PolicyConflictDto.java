@@ -5,6 +5,6 @@ package io.spring.identityadmin.security.xacml.pap.dto;
  */
 public record PolicyConflictDto(
         Long newPolicyId,
-        Long existingPolicyId,
-        String conflictDescription // 예: "동일한 리소스에 대해 ALLOW와 DENY 정책이 충돌합니다."
-) {}
+        String newPolicyName, Long existingPolicyId,
+        String existingPolicyName,
+        String conflictDescription) {}// 예: "동일한 리소스에 대해 ALLOW와 DENY 정책이 충돌합니다."

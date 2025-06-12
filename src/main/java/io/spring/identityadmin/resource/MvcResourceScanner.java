@@ -36,26 +36,16 @@ public class MvcResourceScanner implements ResourceScanner {
             final RequestMappingInfo mappingInfo = entry.getKey();
             final HandlerMethod handlerMethod = entry.getValue();
 
-            // [핵심 수정] getPatternsCondition()이 null을 반환하는 경우를 방어합니다.
             PathPatternsRequestCondition pathPatternsCondition = mappingInfo.getPathPatternsCondition();
-            if (pathPatternsCondition == null) {
-                continue; // URL 패턴이 없는 매핑은 건너뜁니다.
-            }
-
-            Set<PathPattern> urlPatterns = pathPatternsCondition.getPatterns();
-            if (urlPatterns.isEmpty()) {
+            if (pathPatternsCondition == null || pathPatternsCondition.getPatterns().isEmpty()) {
                 continue;
             }
 
-            // 프로젝트 내부의 컨트롤러만 대상으로 필터링
             if (!handlerMethod.getBeanType().getPackageName().startsWith("io.spring.identityadmin")) {
                 continue;
             }
 
-            // 대표 URL 패턴 하나만 사용
-            final String urlPattern = urlPatterns.stream().findFirst().get().getPatternString();
-
-            // HTTP 메서드 추출
+            final String urlPattern = pathPatternsCondition.getPatterns().stream().findFirst().get().getPatternString();
             final String httpMethod = mappingInfo.getMethodsCondition().getMethods().stream()
                     .findFirst().map(Enum::name).orElse("ANY");
 
@@ -63,22 +53,24 @@ public class MvcResourceScanner implements ResourceScanner {
             String friendlyName;
             String description;
 
+            // [핵심] @Operation 어노테이션에서 비즈니스 용어 추출
             if (operation != null && !operation.summary().isEmpty()) {
-                friendlyName = operation.summary(); // 어노테이션의 summary를 최우선으로 사용
+                friendlyName = operation.summary();
                 description = operation.description();
             } else {
-                friendlyName = convertCamelCaseToTitleCase(handlerMethod.getMethod().getName()); // 차선책
-                description = "Mapped to: " + handlerMethod.getBeanType().getSimpleName() + "." + handlerMethod.getMethod().getName();
+                // 어노테이션이 없는 경우, 개발자에게만 보이는 관리용 이름 생성
+                friendlyName = "미정의 리소스: " + handlerMethod.getMethod().getName();
+                description = "개발자는 코드에 @Operation 어노테이션을 추가하여 이 리소스의 비즈니스 용도를 명시해야 합니다.";
             }
-
 
             resources.add(ManagedResource.builder()
                     .resourceIdentifier(urlPattern)
-                    .httpMethod(ManagedResource.HttpMethod.valueOf(httpMethod))
+                    .httpMethod(ManagedResource.HttpMethod.valueOf(httpMethod.toUpperCase()))
                     .resourceType(ManagedResource.ResourceType.URL)
-                    .friendlyName(friendlyName)
-                    .description(description)
+                    .friendlyName(friendlyName) // 사용자 친화적 이름(초안)
+                    .description(description)     // 상세 설명
                     .serviceOwner(handlerMethod.getBeanType().getSimpleName())
+                    .isManaged(operation != null) // @Operation이 있는 경우에만 기본 관리 대상으로 설정
                     .build());
         }
 

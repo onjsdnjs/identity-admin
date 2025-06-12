@@ -1,4 +1,4 @@
-package io.spring.identityadmin.domain.dto;
+package io.spring.identityadmin.admin.monitoring.service;
 
 import lombok.Builder;
 import java.util.List;

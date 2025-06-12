@@ -1,54 +1,139 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <head>
-    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='스마트 대시보드')}"></th:block>
+    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='IAM 대시보드')}"></th:block>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <style>
+        .card-hover { transition: all 0.3s ease; }
+        .card-hover:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+    </style>
 </head>
 <body class="flex flex-col min-h-screen bg-gray-50">
+
 <div th:insert="~{fragments/header :: header}"></div>
+
 <div class="flex flex-1 overflow-hidden">
     <aside th:insert="~{fragments/admin-menu :: menu}"></aside>
+
     <main class="flex-1 p-6 lg:p-8 overflow-y-auto">
-        <h1 class="text-3xl font-bold text-gray-800 mb-6">스마트 대시보드</h1>
+
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold text-gray-800 mb-6">빠른 작업</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <a th:href="@{/admin/users}" class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white card-hover cursor-pointer block">
+                    <i class="fas fa-user-plus text-3xl mb-3"></i>
+                    <h3 class="font-semibold text-lg">새 사용자 추가</h3>
+                    <p class="text-sm opacity-90 mt-1">조직에 새 구성원 초대</p>
+                </a>
+                <a th:href="@{/admin/studio}" class="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white card-hover cursor-pointer block">
+                    <i class="fas fa-key text-3xl mb-3"></i>
+                    <h3 class="font-semibold text-lg">권한 부여</h3>
+                    <p class="text-sm opacity-90 mt-1">Authorization Studio 실행</p>
+                </a>
+                <a th:href="@{/admin/groups}" class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white card-hover cursor-pointer block">
+                    <i class="fas fa-users text-3xl mb-3"></i>
+                    <h3 class="font-semibold text-lg">그룹 생성</h3>
+                    <p class="text-sm opacity-90 mt-1">팀 또는 부서 그룹 구성</p>
+                </a>
+                <a th:href="@{/admin/policy-builder}" class="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-6 text-white card-hover cursor-pointer block">
+                    <i class="fas fa-file-alt text-3xl mb-3"></i>
+                    <h3 class="font-semibold text-lg">정책 템플릿</h3>
+                    <p class="text-sm opacity-90 mt-1">사전 정의된 정책 적용</p>
+                </a>
+            </div>
+        </div>
 
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="bg-white rounded-xl shadow-lg p-6 flex flex-col justify-center items-center">
-                <h3 class="text-lg font-semibold text-gray-700">종합 보안 점수</h3>
-                <p class="text-7xl font-bold my-4"
-                   th:classappend="${dashboardData.securityScore.score() >= 80 ? 'text-green-500' : (dashboardData.securityScore.score() >= 50 ? 'text-yellow-500' : 'text-red-500')}"
-                   th:text="${dashboardData.securityScore.score()}">85</p>
-                <p class="text-gray-600 text-center" th:text="${dashboardData.securityScore.summary()}">전반적으로 양호한 상태입니다.</p>
-            </div>
-            <div class="bg-white rounded-xl shadow-lg p-6 md:col-span-2">
-                <h3 class="text-lg font-semibold text-gray-700 mb-4">주요 위험 지표</h3>
-                <div th:if="${#lists.isEmpty(dashboardData.riskIndicators())}" class="text-center text-gray-500 py-8">
-                    <i class="fas fa-check-circle text-4xl text-green-400"></i>
-                    <p class="mt-2 font-semibold">발견된 주요 위험이 없습니다.</p>
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-gray-700">보안 점수</h3>
+                    <i class="fas fa-shield-alt text-2xl" th:classappend="${dashboardData.securityScore.score() < 50 ? 'text-red-500' : (dashboardData.securityScore.score() < 80 ? 'text-yellow-500' : 'text-green-500')}"></i>
                 </div>
-                <div th:unless="${#lists.isEmpty(dashboardData.riskIndicators())}" class="space-y-4">
-                    <div th:each="risk : ${dashboardData.riskIndicators()}" class="flex items-start p-4 rounded-lg"
-                         th:classappend="${risk.level() == 'CRITICAL' ? 'bg-red-50 border-red-200' : 'bg-yellow-50 border-yellow-200'}">
-                        <i class="fas fa-exclamation-triangle text-xl mt-1 mr-4"
-                           th:classappend="${risk.level() == 'CRITICAL' ? 'text-red-500' : 'text-yellow-500'}"></i>
-                        <div>
-                            <p class="font-bold" th:classappend="${risk.level() == 'CRITICAL' ? 'text-red-800' : 'text-yellow-800'}" th:text="${risk.title()}">MFA 미사용 관리자</p>
-                            <p class="text-sm" th:classappend="${risk.level() == 'CRITICAL' ? 'text-red-700' : 'text-yellow-700'}" th:text="${risk.description()}">2명의 관리자가 MFA를 사용하지 않습니다.</p>
-                            <a th:href="@{${risk.link()}}" class="text-sm hover:underline font-semibold mt-1 inline-block"
-                               th:classappend="${risk.level() == 'CRITICAL' ? 'text-red-600' : 'text-yellow-600'}">즉시 조치하기 &rarr;</a>
+                <div class="relative w-32 h-32 mx-auto">
+                    <svg class="w-32 h-32" viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="54" stroke="#e5e7eb" stroke-width="12" fill="none"/>
+                        <circle cx="60" cy="60" r="54" stroke-width="12" fill="none" class="progress-ring__circle"
+                                th:classappend="${dashboardData.securityScore.score() < 50 ? 'text-red-500' : (dashboardData.securityScore.score() < 80 ? 'text-yellow-500' : 'text-green-500')}"
+                                th:data-score="${dashboardData.securityScore.score()}" stroke="currentColor" />
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span class="text-3xl font-bold text-gray-800" th:text="${dashboardData.securityScore.score() + '%'}">85%</span>
+                    </div>
+                </div>
+                <p class="text-center mt-4 text-sm text-gray-600" th:text="${dashboardData.securityScore.summary()}">전반적으로 양호한 상태입니다.</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4">활성 사용자 현황</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center"><span class="text-gray-600">총 사용자</span><span class="font-semibold" th:text="${dashboardData.totalUserCount} + '명'">0명</span></div>
+                    <div class="flex justify-between items-center"><span class="text-gray-600">활성 세션</span><span class="font-semibold text-green-600" th:text="${dashboardData.activeSessionCount} + '명'">0명</span></div>
+                    <div class="flex justify-between items-center"><span class="text-gray-600">비활성 계정</span><span class="font-semibold text-orange-600" th:text="${dashboardData.inactiveUserCount} + '명'">0명</span></div>
+                    <div class="flex justify-between items-center"><span class="text-gray-600">MFA 미사용 관리자</span><span class="font-semibold text-red-600" th:text="${dashboardData.mfaMissingCount} + '명'">0명</span></div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-semibold text-gray-700 mb-4">최근 활동</h3>
+                <div class="space-y-3">
+                    <div th:each="activity : ${dashboardData.recentActivities}" class="flex items-start space-x-3">
+                        <div class="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                        <div class="flex-1">
+                            <p class="text-sm text-gray-800" th:text="${activity.action} + ' ' + ${activity.target}"></p>
+                            <p class="text-xs text-gray-500" th:text="${#temporals.format(activity.timestamp, 'yyyy-MM-dd HH:mm')}"></p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="bg-white rounded-xl shadow-lg p-6">
-            <h3 class="text-lg font-semibold text-gray-700 mb-4">권한 매트릭스 요약</h3>
-            <div class="text-center text-gray-400 py-10">
-                <i class="fas fa-table text-3xl"></i>
-                <p class="mt-2">권한 매트릭스 시각화 기능이 여기에 표시됩니다.</p>
+        <div class="bg-white rounded-lg shadow p-6 mb-8">
+            <h3 class="text-lg font-semibold text-gray-700 mb-4">권한 매트릭스 개요</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">그룹/역할</th>
+                        <th th:each="perm : ${dashboardData.permissionMatrix.permissions}" th:text="${perm}" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                    </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tr th:each="subject : ${dashboardData.permissionMatrix.subjects}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" th:text="${subject}"></td>
+                        <td th:each="perm : ${dashboardData.permissionMatrix.permissions}" class="px-6 py-4 text-center">
+                            <span th:if="${dashboardData.permissionMatrix.matrixData.get(subject)?.get(perm) == 'GRANT'}" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">모든 권한</span>
+                            <span th:if="${dashboardData.permissionMatrix.matrixData.get(subject)?.get(perm) == 'PARTIAL'}" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">일부 권한</span>
+                            <span th:if="${dashboardData.permissionMatrix.matrixData.get(subject)?.get(perm) == 'NONE'}" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">권한 없음</span>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
+
     </main>
 </div>
+
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', function() {
+        // 보안 점수 게이지 애니메이션
+        const circle = document.querySelector('.progress-ring__circle');
+        if(circle) {
+            const radius = circle.r.baseVal.value;
+            const circumference = 2 * Math.PI * radius;
+            const score = circle.dataset.score;
+            const offset = circumference - (score / 100) * circumference;
+
+            circle.style.strokeDasharray = `${circumference} ${circumference}`;
+            circle.style.strokeDashoffset = circumference;
+            setTimeout(() => {
+                circle.style.strokeDashoffset = offset;
+            }, 100);
+        }
+    });
+</script>
 </body>
 </html>
