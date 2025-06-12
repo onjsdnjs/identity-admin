@@ -85,7 +85,7 @@ class AuthorizationStudioApp {
             </div>
         `).join('');
 
-        return `<h3 class="explorer-header">${title}</h3>${itemsHtml}`;
+        return `<h3 class="explorer-header">${title}</h3><div class="explorer-section-body">${itemsHtml}</div>`;
     }
 
     /**
@@ -107,7 +107,7 @@ class AuthorizationStudioApp {
             // 같은 타입의 다른 선택은 해제
             this.elements.explorerListContainer.querySelectorAll(`.explorer-item[data-type="${type}"].selected`).forEach(el => el.classList.remove('selected'));
             item.classList.add('selected');
-            this.state[key] = { id, name, description, type };
+            this.state[key] = { id: Number(id), name, description, type };
         }
 
         // 주체는 사용자 또는 그룹 중 하나만 선택 가능
@@ -134,8 +134,6 @@ class AuthorizationStudioApp {
      */
     async updateCanvasAndInspector() {
         this.showLoading(this.elements.canvasContent);
-        this.elements.canvasPlaceholder.classList.add('hidden');
-        this.elements.canvasContent.classList.remove('hidden');
 
         const subject = this.state.selectedUser || this.state.selectedGroup;
         const permission = this.state.selectedPermission;
@@ -234,7 +232,9 @@ class AuthorizationStudioApp {
     }
 
     showLoading(element) {
-        element.innerHTML = '<div class="flex items-center justify-center p-8"><i class="fas fa-spinner fa-spin text-3xl text-app-primary"></i></div>';
+        this.elements.canvasPlaceholder.classList.add('hidden');
+        this.elements.canvasContent.classList.remove('hidden');
+        element.innerHTML = '<div class="flex items-center justify-center p-8 h-full"><i class="fas fa-spinner fa-spin text-3xl text-app-primary"></i></div>';
     }
 
     showError(element, message) {
@@ -246,14 +246,28 @@ class AuthorizationStudioApp {
  * 서버 API 호출을 담당하는 헬퍼 클래스입니다.
  */
 class StudioApi {
-    async fetchApi(url) {
+    async fetchApi(url, options = {}) {
         try {
-            const response = await fetch(url);
+            const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+            const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+            const fetchOptions = { ...options };
+            if (!fetchOptions.headers) {
+                fetchOptions.headers = {};
+            }
+            if (options.body) {
+                fetchOptions.headers['Content-Type'] = 'application/json';
+            }
+            if (csrfToken && csrfHeader) {
+                fetchOptions.headers[csrfHeader] = csrfToken;
+            }
+
+            const response = await fetch(url, fetchOptions);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: `서버 오류 (상태: ${response.status})`}));
                 throw new Error(errorData.message);
             }
-            return response.json();
+            return response.status === 204 ? null : response.json();
         } catch (error) {
             console.error(`API Error fetching ${url}:`, error);
             if(typeof showToast === 'function') showToast(error.message, 'error');
@@ -271,6 +285,20 @@ class StudioApi {
 
     getEffectivePermissions(subjectId, subjectType) {
         return this.fetchApi(`/admin/studio/api/effective-permissions?subjectId=${subjectId}&subjectType=${subjectType}`);
+    }
+
+    runSimulation(request) {
+        return this.fetchApi('/admin/studio/api/simulate', {
+            method: 'POST',
+            body: JSON.stringify(request)
+        });
+    }
+
+    initiateGrant(request) {
+        return this.fetchApi('/admin/studio/api/initiate-grant', {
+            method: 'POST',
+            body: JSON.stringify(request)
+        });
     }
 }
 

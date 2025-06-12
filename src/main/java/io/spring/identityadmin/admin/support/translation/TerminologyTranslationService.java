@@ -1,17 +1,11 @@
 package io.spring.identityadmin.admin.support.translation;
 
+import io.spring.identityadmin.domain.entity.policy.Policy;
+
 /**
  * 시스템 내부의 기술 용어를 UI에 표시하기 위한 비즈니스 용어로 변환하는 책임을 집니다.
  */
 public interface TerminologyTranslationService {
-    /**
-     * 'io.spring.identityadmin.api.UserController.getUsers' 와 같은 기술적 리소스 식별자를
-     * '사용자 목록 조회 API' 와 같은 사용자 친화적 이름으로 변환합니다.
-     * @param technicalIdentifier 기술적 리소스 식별자
-     * @return 변환된 사용자 친화적 이름
-     */
-    String translateResourceIdentifier(String technicalIdentifier);
-
     /**
      * 'PERM_USER_READ' 같은 내부 권한 이름을 '사용자 정보 읽기'와 같은 설명으로 변환합니다.
      * @param permissionName 내부 권한 이름

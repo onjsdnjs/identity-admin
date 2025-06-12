@@ -1,5 +1,7 @@
 package io.spring.identityadmin.security.xacml.pap.service;
 
+import io.spring.identityadmin.common.event.dto.PolicyChangedEvent;
+import io.spring.identityadmin.common.event.service.IntegrationEventBus;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.domain.entity.policy.PolicyRule;
@@ -27,8 +29,9 @@ public class DefaultPolicyService implements PolicyService {
     private final PolicyRepository policyRepository;
     private final PolicyRetrievalPoint policyRetrievalPoint;
     private final CustomDynamicAuthorizationManager authorizationManager;
-    private final PolicyEnrichmentService policyEnrichmentService; // [추가]
-    private final ModelMapper modelMapper; // [추가]
+    private final PolicyEnrichmentService policyEnrichmentService;
+    private final ModelMapper modelMapper;
+    private final IntegrationEventBus eventBus;
 
     @Override
     @Transactional(readOnly = true)
@@ -48,7 +51,7 @@ public class DefaultPolicyService implements PolicyService {
         Policy policy = convertDtoToEntity(policyDto);
         policyEnrichmentService.enrichPolicyWithFriendlyDescription(policy);
         Policy savedPolicy = policyRepository.save(policy);
-
+        eventBus.publish(new PolicyChangedEvent(savedPolicy.getId()));
         reloadAuthorizationSystem();
         log.info("Policy created and authorization system reloaded. Policy Name: {}", savedPolicy.getName());
         return savedPolicy;
@@ -60,7 +63,7 @@ public class DefaultPolicyService implements PolicyService {
         policyEnrichmentService.enrichPolicyWithFriendlyDescription(existingPolicy);
         updateEntityFromDto(existingPolicy, policyDto);
         Policy updatedPolicy = policyRepository.save(existingPolicy);
-
+        eventBus.publish(new PolicyChangedEvent(policyDto.getId()));
         reloadAuthorizationSystem();
         log.info("Policy updated and authorization system reloaded. Policy ID: {}", updatedPolicy.getId());
     }

@@ -4,6 +4,9 @@ import io.spring.identityadmin.domain.dto.*;
 import io.spring.identityadmin.domain.entity.*;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 
+import java.util.List;
+import java.util.Set;
+
 /**
  * <strong>[명칭 수정 및 역할 재정의]</strong><br>
  * 핵심 도메인 서비스 퍼사드 (Core Service Facade).<br>
