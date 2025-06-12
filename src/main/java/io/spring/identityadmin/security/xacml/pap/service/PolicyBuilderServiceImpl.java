@@ -2,6 +2,7 @@ package io.spring.identityadmin.security.xacml.pap.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.entity.FunctionCatalog;
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.PolicyTemplate;
 import io.spring.identityadmin.domain.entity.Users;
@@ -30,6 +31,8 @@ import org.springframework.util.CollectionUtils;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,94 +52,54 @@ public class PolicyBuilderServiceImpl implements PolicyBuilderService {
     private final ModelMapper modelMapper;
     private final ObjectMapper objectMapper;
     private final SpelExpressionParser expressionParser = new SpelExpressionParser();
+    private static final Pattern AUTHORITY_PATTERN = Pattern.compile("hasAuthority\\('([^']*)'\\)");
 
-    /**
-     * [최종 로직 구현] DB에 저장된 PolicyTemplate 목록을 동적으로 조회하고 DTO로 변환하여 반환합니다.
-     */
+
     @Override
     @Transactional(readOnly = true)
     public List<PolicyTemplateDto> getAvailableTemplates(PolicyContext context) {
         List<PolicyTemplate> templates = policyTemplateRepository.findAll();
-        // 향후 context의 department 등을 사용하여 필터링 가능:
-        // List<PolicyTemplate> templates = policyTemplateRepository.findByCategory(context.getUserDepartment());
-
-        return templates.stream().map(template -> {
-            try {
-                PolicyDto policyDraft = objectMapper.readValue(template.getPolicyDraftJson(), PolicyDto.class);
-                return new PolicyTemplateDto(
-                        template.getTemplateId(),
-                        template.getName(),
-                        template.getDescription(),
-                        policyDraft
-                );
-            } catch (IOException e) {
-                log.error("Failed to deserialize policy draft for template ID: {}", template.getTemplateId(), e);
-                return null; // 변환 실패 시 목록에서 제외
-            }
-        }).filter(Objects::nonNull).collect(Collectors.toList());
+        return templates.stream()
+                .map(this::convertTemplateEntityToDto)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
     }
 
-    /**
-     * [최종 로직 구현] VisualPolicyDto를 실제 Policy 엔티티로 변환하여 저장합니다.
-     */
     @Override
     @Transactional
-    public Policy buildPolicyFromVisualComponents(VisualPolicyDto visualPolicyDto) {
-        if (visualPolicyDto == null || visualPolicyDto.name() == null || visualPolicyDto.name().isBlank()) {
-            throw new IllegalArgumentException("Policy name is required.");
-        }
-
-        // 1. DTO로부터 기본 정책 정보 설정
+    public Policy buildPolicyFromVisualComponents(VisualPolicyDto dto) {
         Policy policy = Policy.builder()
-                .name(visualPolicyDto.name())
-                .description(visualPolicyDto.description())
-                .effect(visualPolicyDto.effect())
-                .priority(500) // 기본 우선순위
-                .build();
+                .name(dto.name()).description(dto.description()).effect(dto.effect()).priority(500).build();
 
-        // 2. 주체, 권한, 조건 SpEL 생성
         List<String> conditions = new ArrayList<>();
-        String subjectExpression = visualPolicyDto.subjects().stream()
-                .map(s -> "hasAuthority('" + s.type() + "_" + s.id() + "')")
+        String subjectExpr = dto.subjects().stream()
+                .map(s -> String.format("hasAuthority('%s_%d')", s.type(), s.id()))
                 .collect(Collectors.joining(" or "));
-        if (!subjectExpression.isEmpty()) conditions.add("(" + subjectExpression + ")");
+        if (!subjectExpr.isEmpty()) conditions.add("(" + subjectExpr + ")");
 
-        Set<Long> permissionIds = visualPolicyDto.permissions().stream()
-                .map(VisualPolicyDto.PermissionIdentifier::id).collect(Collectors.toSet());
-        List<Permission> permissions = permissionRepository.findAllById(permissionIds);
-
-        String permissionExpression = permissions.stream()
-                .map(Permission::getName)
-                .map(name -> "hasAuthority('" + name + "')")
+        List<Permission> perms = permissionRepository.findAllById(dto.permissions().stream()
+                .map(VisualPolicyDto.PermissionIdentifier::id).collect(Collectors.toSet()));
+        String permExpr = perms.stream().map(p -> String.format("hasAuthority('%s')", p.getName()))
                 .collect(Collectors.joining(" and "));
-        if (!permissionExpression.isEmpty()) conditions.add("(" + permissionExpression + ")");
+        if(!permExpr.isEmpty()) conditions.add("(" + permExpr + ")");
 
-        // 3. 규칙 및 조건 엔티티 생성
-        PolicyRule rule = PolicyRule.builder()
-                .policy(policy)
-                .description("Visually built policy rule")
-                .conditions(conditions.stream().map(expr -> PolicyCondition.builder().expression(expr).build()).collect(Collectors.toSet()))
-                .build();
-        rule.getConditions().forEach(c -> c.setRule(rule));
+        PolicyRule rule = PolicyRule.builder().policy(policy)
+                .description("Visually built rule").build();
+        rule.setConditions(conditions.stream().map(expr -> PolicyCondition.builder().expression(expr).rule(rule).build()).collect(Collectors.toSet()));
 
-        // 4. 대상 엔티티 생성
-        Set<PolicyTarget> targets = permissions.stream()
-                .map(p -> PolicyTarget.builder()
-                        .policy(policy)
-                        .targetType(p.getTargetType())
-                        .httpMethod(p.getActionType())
-                        .targetIdentifier("/**") // TODO: This should be more specific based on permission target
-                        .build())
+        Set<PolicyTarget> targets = perms.stream()
+                .flatMap(p -> p.getFunctions().stream())
+                .map(FunctionCatalog::getManagedResource)
+                .map(mr -> PolicyTarget.builder().policy(policy).targetType(mr.getResourceType().name())
+                        .httpMethod(mr.getHttpMethod() != null ? mr.getHttpMethod().name() : null)
+                        .targetIdentifier(mr.getResourceIdentifier()).build())
                 .collect(Collectors.toSet());
 
         policy.setRules(Set.of(rule));
         policy.setTargets(targets);
 
-        // 5. PolicyService를 통해 최종 저장
-        PolicyDto dto = modelMapper.map(policy, PolicyDto.class);
-        return policyService.createPolicy(dto);
+        return policyService.createPolicy(modelMapper.map(policy, io.spring.identityadmin.domain.dto.PolicyDto.class));
     }
-
 
     /**
      * [최종 로직 구현] 실제 DB 조회 및 SpEL 평가를 통해 정책 변경의 영향을 시뮬레이션합니다.
@@ -203,6 +166,16 @@ public class PolicyBuilderServiceImpl implements PolicyBuilderService {
         return conflicts;
     }
 
+    private PolicyTemplateDto convertTemplateEntityToDto(PolicyTemplate template) {
+        try {
+            PolicyDto draft = objectMapper.readValue(template.getPolicyDraftJson(), PolicyDto.class);
+            return new PolicyTemplateDto(template.getTemplateId(), template.getName(), template.getDescription(), draft);
+        } catch (IOException e) {
+            log.error("Failed to deserialize policy draft for template ID: {}", template.getTemplateId(), e);
+            return null;
+        }
+    }
+
     private Set<String> getTargetSignatures(Policy policy) {
         return policy.getTargets().stream()
                 .map(t -> t.getTargetType() + ":" + t.getTargetIdentifier())
@@ -211,18 +184,30 @@ public class PolicyBuilderServiceImpl implements PolicyBuilderService {
 
     private Set<String> getEffectivePermissions(Authentication authentication, Policy temporaryPolicy) {
         Set<String> permissions = authentication.getAuthorities().stream()
-                .map(Object::toString)
-                .collect(Collectors.toSet());
-
+                .map(Object::toString).collect(Collectors.toSet());
         if (temporaryPolicy != null && doesPolicyApply(temporaryPolicy, authentication)) {
-            Set<String> permissionsFromPolicy = getPermissionsFromPolicy(temporaryPolicy);
-            if (temporaryPolicy.getEffect() == Policy.Effect.ALLOW) {
-                permissions.addAll(permissionsFromPolicy);
-            } else {
-                permissions.removeAll(permissionsFromPolicy);
-            }
+            Set<String> permissionsFromPolicy = getPermissionsFromPolicyRule(temporaryPolicy);
+            if (temporaryPolicy.getEffect() == Policy.Effect.ALLOW) permissions.addAll(permissionsFromPolicy);
+            else permissions.removeAll(permissionsFromPolicy);
         }
         return permissions;
+    }
+
+    private Set<String> getPermissionsFromPolicyRule(Policy policy) {
+        Set<String> perms = new HashSet<>();
+        policy.getRules().stream()
+                .flatMap(r -> r.getConditions().stream())
+                .map(PolicyCondition::getExpression)
+                .forEach(expr -> {
+                    Matcher matcher = AUTHORITY_PATTERN.matcher(expr);
+                    while (matcher.find()) {
+                        String authority = matcher.group(1);
+                        if (authority.startsWith("PERM_")) {
+                            perms.add(authority);
+                        }
+                    }
+                });
+        return perms;
     }
 
     private boolean doesPolicyApply(Policy policy, Authentication authentication) {
@@ -243,23 +228,5 @@ public class PolicyBuilderServiceImpl implements PolicyBuilderService {
             log.error("Error evaluating SpEL for simulation: {}", e.getMessage());
             return false;
         }
-    }
-
-    private Set<String> getPermissionsFromPolicy(Policy policy) {
-        return policy.getRules().stream()
-                .flatMap(rule -> rule.getConditions().stream())
-                .map(PolicyCondition::getExpression)
-                .flatMap(expr -> {
-                    // "hasAuthority('PERMISSION_NAME')" 형태에서 PERMISSION_NAME 추출
-                    try {
-                        return expressionParser.parseExpression(expr).getAST().getChildren().stream();
-                    } catch (Exception e) {
-                        return Stream.empty();
-                    }
-                })
-                .filter(node -> node.toString().contains("hasAuthority"))
-                .flatMap(node -> node.getChildren().stream())
-                .map(child -> child.toString().replaceAll("'", ""))
-                .collect(Collectors.toSet());
     }
 }
