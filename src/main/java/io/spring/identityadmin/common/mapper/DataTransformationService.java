@@ -1,5 +1,7 @@
 package io.spring.identityadmin.common.mapper;
 
+import java.util.List;
+
 /**
  * <strong>[유지]</strong> 데이터 변환 서비스 (Data Transformation Service)<br>
  * 엔티티와 DTO 간의 변환을 전담합니다. 이 인터페이스는 명칭과 역할이 적절하므로 그대로 유지합니다.

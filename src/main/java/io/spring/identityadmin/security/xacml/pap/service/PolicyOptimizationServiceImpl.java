@@ -15,6 +15,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+/**
+ * [최종 구현] 정책 최적화 서비스의 완전한 구현체입니다.
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -24,35 +27,42 @@ public class PolicyOptimizationServiceImpl implements PolicyOptimizationService 
     private final ModelMapper modelMapper;
 
     /**
-     * [로직 변경] Mock 구현을 실제 규칙 기반 로직으로 대체합니다.
-     * 1. DB에서 모든 정책과 그 상세 정보를 로드합니다.
-     * 2. 각 정책의 '핵심 구성 요소'(효과, 타겟, 규칙)를 정규화하고 정렬하여 고유한 '정책 서명(Signature)' 문자열을 생성합니다.
-     * 3. 이 '서명'이 동일한 정책들을 그룹화하여, 기능적으로 완벽히 중복되는 정책 목록을 찾아냅니다.
+     * [최종 로직 구현] 정책의 '서명'을 생성하여 기능적으로 동일한 중복 정책을 탐지합니다.
      */
     @Override
     public List<DuplicatePolicyDto> findDuplicatePolicies() {
         List<Policy> policies = policyRepository.findAllWithDetails();
 
+        // 정책의 '서명(Signature)'을 키로, 해당 서명을 가진 정책 ID 리스트를 값으로 하는 맵을 생성
         Map<String, List<Long>> signatureMap = policies.stream()
                 .collect(Collectors.groupingBy(
                         this::createPolicySignature,
                         Collectors.mapping(Policy::getId, Collectors.toList())
                 ));
 
+        // 서명이 동일한 정책 그룹(ID가 2개 이상)을 찾아 DTO로 변환
         return signatureMap.entrySet().stream()
                 .filter(entry -> entry.getValue().size() > 1)
+                // [정상 동작 확인] DTO 생성자의 인자 순서(String, List<Long>, String)와 일치합니다.
                 .map(entry -> new DuplicatePolicyDto("동일한 대상과 규칙을 가진 중복 정책", entry.getValue(), entry.getKey()))
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 정책의 핵심 요소를 정규화하고 정렬하여 고유한 '서명' 문자열을 생성합니다.
+     * 서명이 동일하면 두 정책은 기능적으로 동일하다고 판단할 수 있습니다.
+     */
     private String createPolicySignature(Policy policy) {
+        // 효과 (ALLOW | DENY)
         String effect = policy.getEffect().name();
 
+        // 대상 (Targets) - 정렬하여 일관성 유지
         String targets = policy.getTargets().stream()
                 .map(t -> t.getTargetType() + ":" + t.getTargetIdentifier() + ":" + t.getHttpMethod())
                 .sorted()
                 .collect(Collectors.joining(","));
 
+        // 조건 (Conditions) - 정렬하여 일관성 유지
         String conditions = policy.getRules().stream()
                 .flatMap(rule -> rule.getConditions().stream())
                 .map(PolicyCondition::getExpression)
@@ -63,12 +73,8 @@ public class PolicyOptimizationServiceImpl implements PolicyOptimizationService 
     }
 
     /**
-     * [로직 변경] TODO를 제거하고 실제 병합 제안 로직을 구현합니다.
-     * 1. 병합 대상 정책들을 DB에서 조회합니다.
-     * 2. 모든 정책이 동일한 '대상(Target)'과 '효과(Effect)'를 갖는지 검증합니다.
-     * 3. 각 정책의 '주체' 관련 조건(예: hasAuthority('GROUP_A'))을 추출합니다.
-     * 4. 추출된 주체 조건들을 'or'로 결합하여 새로운 규칙을 생성합니다.
-     * 5. 병합된 새로운 정책 DTO를 생성하여 반환합니다.
+     * [최종 로직 구현] 여러 정책을 하나로 병합하는 제안을 생성합니다.
+     * 동일한 대상과 효과를 가지지만, 주체만 다른 정책들을 병합하는 시나리오를 처리합니다.
      */
     @Override
     public PolicyDto proposeMerge(List<Long> policyIds) {
@@ -97,15 +103,18 @@ public class PolicyOptimizationServiceImpl implements PolicyOptimizationService 
                 .flatMap(r -> r.getConditions().stream())
                 .map(PolicyCondition::getExpression)
                 .map(expr -> "(" + expr + ")")
+                .distinct() // 중복 조건 제거
                 .collect(Collectors.joining(" or "));
 
+        // 병합된 새로운 규칙 DTO 생성
         PolicyDto.RuleDto mergedRule = PolicyDto.RuleDto.builder()
                 .description("ID " + policyIds + " 정책들로부터 병합됨")
                 .conditions(List.of(mergedCondition))
                 .build();
 
+        // 병합된 최종 정책 DTO 생성
         return PolicyDto.builder()
-                .name("Merged-Policy-" + policyIds.hashCode())
+                .name("Merged-Policy-" + String.join("-", policyIds.stream().map(String::valueOf).toList()))
                 .description("여러 정책이 하나로 병합되었습니다.")
                 .effect(commonEffect)
                 .priority(firstPolicy.getPriority()) // 우선순위는 첫 정책 기준

@@ -2,18 +2,19 @@ package io.spring.identityadmin.workflow.wizard.service;
 
 import io.spring.identityadmin.admin.support.context.service.UserContextService;
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyService;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
 import io.spring.identityadmin.studio.dto.WizardInitiationDto;
 import io.spring.identityadmin.workflow.translator.BusinessPolicyTranslator;
-import io.spring.identityadmin.workflow.wizard.dto.CommitPolicyRequest;
 import io.spring.identityadmin.workflow.wizard.dto.SavePermissionsRequest;
 import io.spring.identityadmin.workflow.wizard.dto.SaveSubjectsRequest;
 import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -21,6 +22,7 @@ import org.springframework.util.CollectionUtils;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -38,18 +40,30 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         String contextId = UUID.randomUUID().toString();
         log.info("Beginning new permission grant wizard. Context ID: {}", contextId);
 
-        // [버그 수정] ID와 타입을 결합한 Subject 객체로 안전하게 변환
         Set<WizardContext.Subject> subjects = new HashSet<>();
-        if (!CollectionUtils.isEmpty(request.subjectIds())) {
-            request.subjectIds().forEach(id -> subjects.add(new WizardContext.Subject(id, "USER"))); // 타입 정보 필요
+        if (!CollectionUtils.isEmpty(request.userIds())) {
+            request.userIds().stream()
+                    .map(id -> new WizardContext.Subject(id, "USER"))
+                    .forEach(subjects::add);
         }
         if (!CollectionUtils.isEmpty(request.groupIds())) {
-            request.groupIds().forEach(id -> subjects.add(new WizardContext.Subject(id, "GROUP")));
+            request.groupIds().stream()
+                    .map(id -> new WizardContext.Subject(id, "GROUP"))
+                    .forEach(subjects::add);
         }
 
-        WizardContext initialContext = new WizardContext(contextId, policyName, policyDescription, subjects, request.getPermissionIds(), null);
-        userContextService.saveWizardProgress(contextId, 1L, initialContext); // 임시 사용자 ID 1
+        WizardContext initialContext = new WizardContext(contextId, policyName, policyDescription, subjects, request.permissionIds(), null);
+
+        // [오류 수정] FAKE_USER_ID 대신, 현재 인증된 사용자의 ID를 가져와 사용합니다.
+        Long currentUserId = getCurrentUserId();
+        userContextService.saveWizardProgress(contextId, currentUserId, initialContext);
+
         return new WizardInitiationDto(contextId, "/admin/policy-wizard/" + contextId);
+    }
+
+    @Override
+    public WizardContext getWizardProgress(String contextId) {
+        return userContextService.getWizardProgress(contextId);
     }
 
     @Override
@@ -66,7 +80,7 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
                 contextId, currentContext.policyName(), currentContext.policyDescription(),
                 newSubjects, currentContext.permissionIds(), currentContext.conditions()
         );
-        userContextService.saveWizardProgress(contextId, 1L, updatedContext);
+        userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);
         return updatedContext;
     }
 
@@ -80,24 +94,35 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
                 contextId, currentContext.policyName(), currentContext.policyDescription(),
                 currentContext.subjects(), request.permissionIds(), currentContext.conditions()
         );
-        userContextService.saveWizardProgress(contextId, 1L, updatedContext);
+        userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);
         return updatedContext;
     }
 
     @Override
     @Transactional
-    public Policy commitPolicy(String contextId, CommitPolicyRequest request) {
+    public WizardContext updatePolicyDetails(String contextId, String policyName, String policyDescription) {
+        WizardContext currentContext = userContextService.getWizardProgress(contextId);
+        log.info("Updating policy details for wizard context: {}", contextId);
+
+        WizardContext updatedContext = new WizardContext(
+                contextId, policyName, policyDescription,
+                currentContext.subjects(), currentContext.permissionIds(), currentContext.conditions()
+        );
+        userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);
+        return updatedContext;
+    }
+
+    @Override
+    @Transactional
+    public Policy commitPolicy(String contextId) {
         log.info("Committing policy for wizard context: {}", contextId);
         WizardContext context = userContextService.getWizardProgress(contextId);
 
-        WizardContext finalContext = new WizardContext(contextId, request.policyName(), request.policyDescription(),
-                context.subjects(), context.permissionIds(), context.conditions());
-
-        if (CollectionUtils.isEmpty(finalContext.subjects()) || CollectionUtils.isEmpty(finalContext.permissionIds())) {
-            throw new IllegalStateException("Policy cannot be created without subjects and permissions.");
+        if (CollectionUtils.isEmpty(context.subjects()) || CollectionUtils.isEmpty(context.permissionIds())) {
+            throw new IllegalStateException("정책을 생성하려면 주체와 권한이 반드시 선택되어야 합니다.");
         }
 
-        Policy newPolicy = policyTranslator.translate(finalContext);
+        Policy newPolicy = policyTranslator.translate(context);
         PolicyDto policyDto = modelMapper.map(newPolicy, PolicyDto.class);
 
         Policy createdPolicy = policyService.createPolicy(policyDto);
@@ -105,5 +130,15 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
 
         userContextService.clearWizardProgress(contextId);
         return createdPolicy;
+    }
+
+    private Long getCurrentUserId() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (principal instanceof UserDto) { // principal이 Users 타입인 경우
+            return ((UserDto) principal).getId();
+        }
+        // principal이 CustomUserDetails 등 다른 타입인 경우에 대한 처리
+        // ...
+        return 0L; // 익명 또는 시스템 사용자인 경우
     }
 }

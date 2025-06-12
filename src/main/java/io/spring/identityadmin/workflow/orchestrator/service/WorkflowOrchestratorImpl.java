@@ -40,11 +40,11 @@ public class WorkflowOrchestratorImpl implements WorkflowOrchestrator {
         // 여기서는 단일 요청으로 전체 프로세스를 완수하는 것을 보여줍니다.)
 
         // 2-1. 주체 정보 추가 (beginCreation 에서 이미 처리됨)
-        permissionWizardService.addSubjects(contextId, request.getInitialRequest().subjectIds(), request.getInitialRequest().subjectTypes());
+//        permissionWizardService.addSubjects(contextId, request.getInitialRequest().subjectIds(), request.getInitialRequest().subjectTypes());
         log.info("Subjects added to context {}", contextId);
 
         // 2-2. 권한 정보 추가 (beginCreation 에서 이미 처리됨)
-        permissionWizardService.addPermissions(contextId, request.getInitialRequest().permissionIds());
+//        permissionWizardService.addPermissions(contextId, request.getInitialRequest().permissionIds());
         log.info("Permissions added to context {}", contextId);
 
         // 2-3. (확장) 추가 조건 적용 단계

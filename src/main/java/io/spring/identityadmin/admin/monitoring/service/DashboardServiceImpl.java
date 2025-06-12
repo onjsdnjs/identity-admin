@@ -1,5 +1,6 @@
 package io.spring.identityadmin.admin.monitoring.service;
 
+import io.spring.identityadmin.admin.monitoring.dto.DashboardDto;
 import io.spring.identityadmin.admin.monitoring.dto.RiskIndicatorDto;
 import io.spring.identityadmin.admin.monitoring.dto.SecurityScoreDto;
 import io.spring.identityadmin.repository.GroupRepository;

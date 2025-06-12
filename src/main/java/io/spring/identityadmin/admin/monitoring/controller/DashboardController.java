@@ -1,7 +1,7 @@
 package io.spring.identityadmin.admin.monitoring.controller;
 
 import io.spring.identityadmin.admin.monitoring.service.DashboardService;
-import io.spring.identityadmin.admin.monitoring.service.DashboardDto;
+import io.spring.identityadmin.admin.monitoring.dto.DashboardDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;

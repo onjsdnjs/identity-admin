@@ -1,234 +1,181 @@
 /**
- * Authorization Studio
- * @description IAM 시스템의 모든 인가 관계를 탐색, 분석, 관리하는 중앙 허브의 클라이언트 사이드 애플리케이션입니다.
- * @version 1.0 (Phase 2 완료 기준)
+ * [최종 리팩토링] Authorization Studio 클라이언트 애플리케이션
+ * 역할을 분리하여 코드의 구조를 개선하고 유지보수성을 높입니다.
+ * - StudioState: 애플리케이션의 상태 관리
+ * - StudioUI: 모든 DOM 조작 및 렌더링 담당
+ * - StudioAPI: 서버와의 모든 통신 담당
+ * - StudioApp: 위 컴포넌트들을 조정하는 메인 컨트롤러
  */
-class AuthorizationStudioApp {
-    /**
-     * 애플리케이션을 초기화하고, 주요 DOM 요소를 캐싱하며, 초기 데이터 로드를 시작합니다.
-     */
+
+// 1. 상태 관리 클래스
+class StudioState {
     constructor() {
-        this.elements = {
-            explorerListContainer: document.getElementById('explorer-list-container'),
-            loader: document.getElementById('explorer-loader'),
-            canvasPanel: document.getElementById('canvas-panel'),
-            canvasPlaceholder: document.getElementById('canvas-placeholder'),
-            canvasContent: document.getElementById('canvas-content'),
-            inspectorPanel: document.getElementById('inspector-panel'),
-            inspectorPlaceholder: document.getElementById('inspector-placeholder'),
-            inspectorContent: document.getElementById('inspector-content'),
-            search: document.getElementById('explorer-search'),
+        this.selected = {
+            USER: null,
+            GROUP: null,
+            PERMISSION: null,
+            POLICY: null
         };
-
-        this.state = {
-            selectedUser: null,
-            selectedGroup: null,
-            selectedPermission: null,
-            selectedPolicy: null,
-        };
-
-        this.api = new StudioApi();
-        this.init();
     }
 
     /**
-     * 애플리케이션의 이벤트 리스너를 바인딩하고 초기 데이터를 로드합니다.
+     * 아이템 선택 상태를 업데이트(토글)합니다.
+     * @param {string} type - 아이템 타입 (USER, GROUP 등)
+     * @param {object} item - 선택된 아이템 정보 {id, name, description, type}
      */
-    async init() {
-        this.elements.loader.style.display = 'flex';
-        this.bindEventListeners();
-        try {
-            const explorerData = await this.api.getExplorerItems();
-            this.renderExplorer(explorerData);
-        } catch (error) {
-            this.showError(this.elements.explorerListContainer, '탐색기 목록 로딩 실패');
-            console.error('Failed to initialize studio:', error);
-        } finally {
-            this.elements.loader.style.display = 'none';
+    select(type, item) {
+        // 이미 선택된 아이템을 다시 클릭하면 선택 해제
+        if (this.selected[type] && this.selected[type].id === item.id) {
+            this.selected[type] = null;
+        } else {
+            this.selected[type] = item;
+        }
+
+        // 주체(Subject)는 사용자 또는 그룹 중 하나만 선택되도록 보장합니다.
+        if (type === 'USER' && this.selected.USER) {
+            this.selected.GROUP = null;
+        }
+        if (type === 'GROUP' && this.selected.GROUP) {
+            this.selected.USER = null;
         }
     }
 
-    /**
-     * UI 요소에 대한 모든 이벤트 리스너를 등록합니다.
-     */
-    bindEventListeners() {
-        this.elements.explorerListContainer.addEventListener('click', (e) => this.handleExplorerClick(e));
-        this.elements.search.addEventListener('input', (e) => this.filterExplorer(e.target.value.toLowerCase()));
+    getSubject() {
+        return this.selected.USER || this.selected.GROUP;
     }
 
-    /**
-     * API로부터 받은 데이터로 Explorer 패널을 렌더링합니다.
-     * @param {object} data - 주체, 권한, 정책 목록을 포함하는 데이터
-     */
+    getPermission() {
+        return this.selected.PERMISSION;
+    }
+
+    getSelectedItemsForAction() {
+        const subject = this.getSubject();
+        const permission = this.getPermission();
+        if (!subject || !permission) return null;
+
+        return {
+            subjectIds: subject.type === 'USER' ? [subject.id] : [],
+            groupIds: subject.type === 'GROUP' ? [subject.id] : [],
+            permissionIds: [permission.id]
+        };
+    }
+}
+
+// 2. UI 렌더링 및 조작 클래스
+class StudioUI {
+    constructor(elements) {
+        this.elements = elements;
+    }
+
     renderExplorer(data) {
         const usersHtml = this.createSectionHtml('사용자', data.users, 'USER');
         const groupsHtml = this.createSectionHtml('그룹', data.groups, 'GROUP');
         const permissionsHtml = this.createSectionHtml('권한', data.permissions, 'PERMISSION');
         const policiesHtml = this.createSectionHtml('정책', data.policies, 'POLICY');
-
         this.elements.explorerListContainer.innerHTML = usersHtml + groupsHtml + permissionsHtml + policiesHtml;
     }
 
-    /**
-     * Explorer의 각 섹션(주체, 권한 등)에 대한 HTML을 생성합니다.
-     * @param {string} title - 섹션 제목
-     * @param {Array} items - 표시할 아이템 배열
-     * @param {string} type - 아이템 타입 (USER, GROUP, PERMISSION, POLICY)
-     * @returns {string} 생성된 HTML 문자열
-     */
     createSectionHtml(title, items, type) {
         if (!items || items.length === 0) return '';
         const itemsHtml = items.map(item => `
-            <div class="explorer-item" data-id="${item.id}" data-type="${type}" data-name="${item.name}" data-description="${item.description || ''}">
-                <div class="item-name">${item.name}</div>
-                <div class="item-description" title="${item.description || ''}">${item.description || ''}</div>
-            </div>
-        `).join('');
-
-        return `<h3 class="explorer-header">${title}</h3><div class="explorer-section-body">${itemsHtml}</div>`;
+            <div class="explorer-item" data-id="<span class="math-inline">\{item\.id\}" data\-type\="</span>{type}" data-name="<span class="math-inline">\{item\.name\}" data\-description\="</span>{item.description || ''}">
+                <div class="item-name"><span class="math-inline">\{item\.name\}</div\>
+<div class="item-description" title="{item.description || ''}">${item.description || ''}</div>
+</div>
+).join(''); return<h3 class="explorer-header">title</h3><divclass="explorer−section−body">{itemsHtml}</div>`;
     }
 
-    /**
-     * Explorer 패널의 아이템 클릭 이벤트를 처리합니다.
-     * @param {Event} e - 클릭 이벤트 객체
-     */
-    handleExplorerClick(e) {
-        const item = e.target.closest('.explorer-item');
-        if (!item) return;
-
-        const { id, type, name, description } = item.dataset;
-        const key = `selected${type.charAt(0).toUpperCase() + type.slice(1).toLowerCase()}`;
-
-        // 아이템 선택/해제 토글 로직
-        if (item.classList.contains('selected')) {
-            item.classList.remove('selected');
-            this.state[key] = null;
-        } else {
-            // 같은 타입의 다른 선택은 해제
-            this.elements.explorerListContainer.querySelectorAll(`.explorer-item[data-type="${type}"].selected`).forEach(el => el.classList.remove('selected'));
-            item.classList.add('selected');
-            this.state[key] = { id: Number(id), name, description, type };
-        }
-
-        // 주체는 사용자 또는 그룹 중 하나만 선택 가능
-        if (type === 'USER' && this.state.selectedUser) this.clearSelection('Group');
-        if (type === 'GROUP' && this.state.selectedGroup) this.clearSelection('User');
-
-        this.updateCanvasAndInspector();
+    updateExplorerSelection(state) {
+        document.querySelectorAll('.explorer-item').forEach(el => {
+            const { id, type } = el.dataset;
+            const selectedItem = state.selected[type];
+            el.classList.toggle('selected', selectedItem && selectedItem.id == id);
+        });
     }
 
-    /**
-     * 특정 타입의 선택 상태를 해제합니다.
-     * @param {string} typeName - 해제할 타입 이름 (예: 'User', 'Group')
-     */
-    clearSelection(typeName) {
-        const key = `selected${typeName}`;
-        this.state[key] = null;
-        const type = typeName.toUpperCase();
-        const selectedEl = this.elements.explorerListContainer.querySelector(`.explorer-item[data-type="${type}"].selected`);
-        if (selectedEl) selectedEl.classList.remove('selected');
-    }
-
-    /**
-     * 현재 선택된 상태에 따라 Canvas와 Inspector 패널을 업데이트합니다.
-     */
-    async updateCanvasAndInspector() {
-        this.showLoading(this.elements.canvasContent);
-
-        const subject = this.state.selectedUser || this.state.selectedGroup;
-        const permission = this.state.selectedPermission;
-
-        try {
-            // 시나리오 1: 주체와 권한이 모두 선택된 경우 -> 접근 경로 분석
-            if (subject && permission) {
-                const data = await this.api.getAccessPath(subject.id, subject.type, permission.id);
-                this.renderAccessPath(subject, permission, data);
-            }
-            // 시나리오 2: 주체만 선택된 경우 -> 유효 권한 목록 표시
-            else if (subject) {
-                const data = await this.api.getEffectivePermissions(subject.id, subject.type);
-                this.renderEffectivePermissions(subject, data);
-            }
-            // 시나리오 3: 그 외의 경우 (권한만 선택 등) -> 플레이스홀더 표시
-            else {
-                this.resetCanvas();
-            }
-        } catch (error) {
-            this.showError(this.elements.canvasContent, '분석 데이터를 불러오는 데 실패했습니다.');
-            console.error('Failed to update canvas:', error);
-        }
-    }
-
-    /**
-     * 접근 경로 분석 결과를 Canvas에 렌더링합니다.
-     * @param {object} subject - 선택된 주체 정보
-     * @param {object} permission - 선택된 권한 정보
-     * @param {object} data - API로부터 받은 접근 경로 데이터
-     */
     renderAccessPath(subject, permission, data) {
         const pathHtml = data.nodes.map((node, index) => `
             <div class="path-node">
-                <div class="path-icon">${index + 1}</div>
-                <div class="path-details">
-                    <div class="path-type">${node.type}</div>
-                    <div class="path-name">${node.name}</div>
-                </div>
-            </div>
-            ${index < data.nodes.length - 1 ? '<div class="path-arrow"><i class="fas fa-arrow-down"></i></div>' : ''}
-        `).join('');
-
-        const resultColor = data.accessGranted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-        const resultIcon = data.accessGranted ? 'fa-check-circle' : 'fa-times-circle';
-
-        this.elements.canvasContent.innerHTML = `
-            <h2 class="text-xl font-bold mb-2 text-center">접근 경로 분석</h2>
-            <p class="text-sm text-center text-slate-500 mb-6">'${subject.name}' <i class="fas fa-long-arrow-alt-right mx-2"></i> '${permission.name}'</p>
-            <div class="path-container">${pathHtml}</div>
-            <div class="mt-6 p-4 rounded-lg text-center ${resultColor}">
-                <h3 class="font-semibold">최종 결론</h3>
-                <p class="text-lg font-bold"><i class="fas ${resultIcon} mr-2"></i>${data.finalReason}</p>
-            </div>
-         `;
+                <div class="path-icon"><span class="math-inline">\{index \+ 1\}</div\>
+<div class="path-details">
+<div class="path-type">{node.type}</div>
+<div class="path-name">${node.name}</div>
+</div>
+</div>
+${index < data.nodes.length - 1 ? '<div class="path-arrow"><i class="fas fa-arrow-down"></i></div>' : ''}
+).join(''); const resultColor = data.accessGranted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'; const resultIcon = data.accessGranted ? 'fa-check-circle' : 'fa-times-circle'; this.elements.canvasContent.innerHTML =
+<h2 class="text-xl font-bold mb-2 text-center">접근 경로 분석</h2>
+<p class="text-sm text-center text-slate-500 mb-6">'subject.name 
+′
+ <iclass="fasfa−long−arrow−alt−rightmx−2"></i> 
+′
+ {permission.name}'</p>
+<div class="path-container">${pathHtml}</div>
+<div class="mt-6 p-4 rounded-lg text-center ${resultColor}">
+<h3 class="font-semibold">최종 결론</h3>
+<p class="text-lg font-bold"><i class="fas resultIconmr−2"></i>{data.finalReason}</p>
+</div>`;
     }
 
-    /**
-     * 유효 권한 목록을 Canvas에 렌더링합니다.
-     * @param {object} subject - 선택된 주체 정보
-     * @param {Array} data - API로부터 받은 유효 권한 목록 데이터
-     */
     renderEffectivePermissions(subject, data) {
         const permsHtml = data.map(perm => `
             <div class="p-3 border rounded-md mb-2 bg-white hover:shadow-md transition-shadow">
-                <p class="font-semibold text-gray-800">${perm.permissionDescription}</p>
-                <p class="text-sm text-slate-600 mt-1">획득 경로: <span class="font-mono text-xs bg-slate-100 p-1 rounded">${perm.origin}</span></p>
-            </div>
-         `).join('');
+                <p class="font-semibold text-gray-800"><span class="math-inline">\{perm\.permissionDescription\}</p\>
+<p class="text-sm text-slate-600 mt-1">획득 경로: <span class="font-mono text-xs bg-slate-100 p-1 rounded">{perm.origin}</span></p>
+</div>).join(''); this.elements.canvasContent.innerHTML =
+<h2 class="text-xl font-bold mb-4">'subject.name 
+′
+ 의유효권한목록</h2><divclass="space−y−2">{permsHtml.length > 0 ? permsHtml : '<p class="text-slate-500 p-4 bg-slate-50 rounded-md text-center">부여된 권한이 없습니다.</p>'}</div>`;
+    }
 
-        this.elements.canvasContent.innerHTML = `
-            <h2 class="text-xl font-bold mb-4">'${subject.name}'의 유효 권한 목록</h2>
-            <div class="space-y-2">${permsHtml.length > 0 ? permsHtml : '<p class="text-slate-500 p-4 bg-slate-50 rounded-md text-center">부여된 권한이 없습니다.</p>'}</div>
+    renderInspector(state) {
+        const subject = state.getSubject();
+        const permission = state.getPermission();
+
+        this.elements.inspectorContent.innerHTML = '';
+
+        let detailsHtml = '<h3 class="font-bold text-lg mb-2">선택된 항목</h3><div class="space-y-2">';
+        let hasSelection = false;
+
+        Object.values(state.selected).forEach(item => {
+            if (item) {
+                detailsHtml += this.buildDetailHtml(item);
+                hasSelection = true;
+            }
+        });
+        detailsHtml += '</div>';
+
+        let actionsHtml = '<h3 class="font-bold text-lg mb-2 mt-4 border-t pt-4">관련 작업</h3>';
+        if (subject && permission) {
+            actionsHtml += `<button id="grant-btn" class="w-full btn-primary text-sm py-2">권한 부여 마법사 시작</button>`;
+        } else {
+            actionsHtml += '<p class="text-sm text-slate-500">주체와 권한을 함께 선택하여<br/>권한을 부여할 수 있습니다.</p>';
+        }
+
+        if (hasSelection) {
+            this.elements.inspectorContent.innerHTML = detailsHtml + actionsHtml;
+            this.elements.inspectorPlaceholder.classList.add('hidden');
+            this.elements.inspectorContent.classList.remove('hidden');
+        } else {
+            this.elements.inspectorContent.classList.add('hidden');
+            this.elements.inspectorPlaceholder.classList.remove('hidden');
+        }
+    }
+
+    buildDetailHtml(item) {
+        const icon = { USER: 'fa-user', GROUP: 'fa-users', PERMISSION: 'fa-key', POLICY: 'fa-file-alt' }[item.type] || 'fa-question-circle';
+        return `
+            <div class="p-3 bg-white rounded-md border text-sm">
+                <p class="text-xs font-semibold uppercase text-app-accent"><i class="fas <span class="math-inline">\{icon\} mr\-2"\></i\></span>{item.type}</p>
+                <p class="font-bold text-md text-gray-800">${item.name}</p>
+            </div>
         `;
     }
 
-    /**
-     * Canvas 패널을 초기 상태로 되돌립니다.
-     */
     resetCanvas() {
         this.elements.canvasContent.classList.add('hidden');
         this.elements.canvasContent.innerHTML = '';
         this.elements.canvasPlaceholder.classList.remove('hidden');
-    }
-
-    /**
-     * Explorer 목록을 검색어로 필터링합니다.
-     * @param {string} term - 검색어
-     */
-    filterExplorer(term) {
-        document.querySelectorAll('.explorer-item').forEach(item => {
-            const name = item.dataset.name.toLowerCase();
-            const description = item.dataset.description.toLowerCase();
-            item.style.display = (name.includes(term) || description.includes(term)) ? 'block' : 'none';
-        });
     }
 
     showLoading(element) {
@@ -242,26 +189,18 @@ class AuthorizationStudioApp {
     }
 }
 
-/**
- * 서버 API 호출을 담당하는 헬퍼 클래스입니다.
- */
-class StudioApi {
+// 3. API 통신 클래스
+class StudioAPI {
     async fetchApi(url, options = {}) {
         try {
             const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
             const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
-
             const fetchOptions = { ...options };
-            if (!fetchOptions.headers) {
-                fetchOptions.headers = {};
-            }
-            if (options.body) {
-                fetchOptions.headers['Content-Type'] = 'application/json';
-            }
-            if (csrfToken && csrfHeader) {
+            if (!fetchOptions.headers) fetchOptions.headers = {};
+            if (options.body) fetchOptions.headers['Content-Type'] = 'application/json';
+            if (csrfToken && csrfHeader && options.method && options.method !== 'GET') {
                 fetchOptions.headers[csrfHeader] = csrfToken;
             }
-
             const response = await fetch(url, fetchOptions);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: `서버 오류 (상태: ${response.status})`}));
@@ -270,37 +209,150 @@ class StudioApi {
             return response.status === 204 ? null : response.json();
         } catch (error) {
             console.error(`API Error fetching ${url}:`, error);
-            if(typeof showToast === 'function') showToast(error.message, 'error');
+            if(typeof showToast === 'function') showToast(error.message || 'API 통신 오류', 'error');
             throw error;
         }
     }
-
-    getExplorerItems() {
-        return this.fetchApi('/admin/studio/api/explorer-items');
-    }
-
-    getAccessPath(subjectId, subjectType, permissionId) {
-        return this.fetchApi(`/admin/studio/api/access-path?subjectId=${subjectId}&subjectType=${subjectType}&permissionId=${permissionId}`);
-    }
-
-    getEffectivePermissions(subjectId, subjectType) {
-        return this.fetchApi(`/admin/studio/api/effective-permissions?subjectId=${subjectId}&subjectType=${subjectType}`);
-    }
-
-    runSimulation(request) {
-        return this.fetchApi('/admin/studio/api/simulate', {
-            method: 'POST',
-            body: JSON.stringify(request)
-        });
-    }
-
+    getExplorerItems() { return this.fetchApi('/admin/studio/api/explorer-items'); }
+    getAccessPath(subjectId, subjectType, permissionId) { return this.fetchApi(`/admin/studio/api/access-path?subjectId=<span class="math-inline">\{subjectId\}&subjectType\=</span>{subjectType}&permissionId=${permissionId}`); }
+    getEffectivePermissions(subjectId, subjectType) { return this.fetchApi(`/admin/studio/api/effective-permissions?subjectId=<span class="math-inline">\{subjectId\}&subjectType\=</span>{subjectType}`); }
     initiateGrant(request) {
-        return this.fetchApi('/admin/studio/api/initiate-grant', {
+        return this.fetchApi('/admin/policy-wizard/start', {
             method: 'POST',
-            body: JSON.stringify(request)
+            body: new URLSearchParams(request) // POST를 form-urlencoded 방식으로 변경
         });
     }
 }
 
-// DOM 콘텐츠가 로드되면 애플리케이션을 시작합니다.
-document.addEventListener('DOMContentLoaded', () => new AuthorizationStudioApp());
+// 4. 메인 애플리케이션 클래스
+class StudioApp {
+    constructor() {
+        this.elements = {
+            explorerListContainer: document.getElementById('explorer-list-container'),
+            loader: document.getElementById('explorer-loader'),
+            canvasPanel: document.getElementById('canvas-panel'),
+            canvasPlaceholder: document.getElementById('canvas-placeholder'),
+            canvasContent: document.getElementById('canvas-content'),
+            inspectorPanel: document.getElementById('inspector-panel'),
+            inspectorPlaceholder: document.getElementById('inspector-placeholder'),
+            inspectorContent: document.getElementById('inspector-content'),
+            search: document.getElementById('explorer-search'),
+        };
+        this.state = new StudioState();
+        this.ui = new StudioUI(this.elements);
+        this.api = new StudioAPI();
+        this.init();
+    }
+
+    init() {
+        this.bindEventListeners();
+        this.loadInitialData();
+    }
+
+    async loadInitialData() {
+        this.ui.showLoading(this.ui.elements.explorerListContainer);
+        try {
+            const data = await this.api.getExplorerItems();
+            this.ui.renderExplorer(data);
+        } catch (error) {
+            this.ui.showError(this.ui.elements.explorerListContainer, '탐색기 목록 로딩 실패');
+        }
+    }
+
+    bindEventListeners() {
+        this.elements.explorerListContainer.addEventListener('click', e => this.handleExplorerClick(e));
+        this.elements.search.addEventListener('input', e => this.filterExplorer(e.target.value.toLowerCase()));
+        this.elements.inspectorPanel.addEventListener('click', e => {
+            if (e.target.id === 'grant-btn') this.handleGrantClick();
+        });
+    }
+
+    handleExplorerClick(e) {
+        const itemEl = e.target.closest('.explorer-item');
+        if (!itemEl) return;
+        const { id, type, name, description } = itemEl.dataset;
+        this.state.select(type, { id: Number(id), name, description, type });
+        this.ui.updateExplorerSelection(this.state);
+        this.updateCanvasAndInspector();
+    }
+
+    async updateCanvasAndInspector() {
+        this.ui.showLoading(this.ui.elements.canvasContent);
+        this.ui.renderInspector(this.state); // Inspector 먼저 렌더링
+
+        const subject = this.state.getSubject();
+        const permission = this.state.getPermission();
+        try {
+            if (subject && permission) {
+                const data = await this.api.getAccessPath(subject.id, subject.type, permission.id);
+                this.ui.renderAccessPath(subject, permission, data);
+            } else if (subject) {
+                const data = await this.api.getEffectivePermissions(subject.id, subject.type);
+                this.ui.renderEffectivePermissions(subject, data);
+            } else {
+                this.ui.resetCanvas();
+            }
+        } catch (error) {
+            this.ui.showError(this.ui.elements.canvasContent, '분석 데이터 로딩 실패');
+        }
+    }
+
+    async handleGrantClick() {
+        const grantData = this.state.getSelectedItemsForAction();
+        if(!grantData) {
+            showToast("권한을 부여할 주체와 권한을 모두 선택해주세요.", "error");
+            return;
+        }
+        // Studio에서는 마법사 시작만 담당. 실제 마법사 페이지로 POST 리다이렉트
+        // 이를 위해 임시 form을 생성하여 submit
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/policy-wizard/start';
+
+        const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
+
+        const data = {
+            ...grantData,
+            policyName: `Studio 빠른 권한 부여`,
+            policyDescription: `${this.state.getSubject().name}에게 ${this.state.getPermission().name} 권한을 부여합니다.`
+        };
+
+        for(const key in data) {
+            if(data.hasOwnProperty(key) && Array.isArray(data[key])) {
+                data[key].forEach(value => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = value;
+                    form.appendChild(input);
+                });
+            }
+        }
+
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = csrfHeader;
+        csrfInput.value = csrfToken;
+        form.appendChild(csrfInput);
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    filterExplorer(term) {
+        this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
+            const name = item.dataset.name.toLowerCase();
+            const description = item.dataset.description.toLowerCase();
+            item.style.display = (name.includes(term) || description.includes(term)) ? '' : 'none';
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // toast.js가 로드되어 있다고 가정
+    if(typeof showToast !== 'function') {
+        window.showToast = (message, type) => alert(`[${type.toUpperCase()}] ${message}`);
+    }
+    new StudioApp();
+});
