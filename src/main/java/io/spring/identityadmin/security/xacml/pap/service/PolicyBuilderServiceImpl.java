@@ -3,6 +3,7 @@ package io.spring.identityadmin.security.xacml.pap.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.Permission;
+import io.spring.identityadmin.domain.entity.PolicyTemplate;
 import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
@@ -10,6 +11,7 @@ import io.spring.identityadmin.domain.entity.policy.PolicyRule;
 import io.spring.identityadmin.domain.entity.policy.PolicyTarget;
 import io.spring.identityadmin.repository.PermissionRepository;
 import io.spring.identityadmin.repository.PolicyRepository;
+import io.spring.identityadmin.repository.PolicyTemplateRepository;
 import io.spring.identityadmin.repository.UserRepository;
 import io.spring.identityadmin.security.core.CustomUserDetails;
 import io.spring.identityadmin.security.xacml.pap.dto.*;
@@ -54,7 +56,7 @@ public class PolicyBuilderServiceImpl implements PolicyBuilderService {
     @Override
     @Transactional(readOnly = true)
     public List<PolicyTemplateDto> getAvailableTemplates(PolicyContext context) {
-        List<PolicyTemplate> templates = policyRepository.findAll();
+        List<PolicyTemplate> templates = policyTemplateRepository.findAll();
         // 향후 context의 department 등을 사용하여 필터링 가능:
         // List<PolicyTemplate> templates = policyTemplateRepository.findByCategory(context.getUserDepartment());
 
