@@ -31,43 +31,44 @@ public class MethodResourceScanner implements ResourceScanner {
             Object bean = applicationContext.getBean(beanName);
             Class<?> beanClass = AopUtils.getTargetClass(bean);
 
-            if (!beanClass.getPackageName().startsWith("io.spring.identityadmin")) {
-                continue;
-            }
+            if (!beanClass.getPackageName().startsWith("io.spring.identityadmin")) continue;
 
-            Method[] methods = beanClass.getDeclaredMethods();
-            for (Method method : methods) {
-                if (Modifier.isPublic(method.getModifiers())) {
-                    String params = Arrays.stream(method.getParameterTypes())
-                            .map(Class::getSimpleName)
-                            .collect(Collectors.joining(","));
-                    String identifier = String.format("%s.%s(%s)", beanClass.getName(), method.getName(), params);
+            for (Method method : beanClass.getDeclaredMethods()) {
+                if (!Modifier.isPublic(method.getModifiers())) continue;
 
-                    Operation operation = method.getAnnotation(Operation.class);
-                    String friendlyName;
-                    String description;
+                String params = Arrays.stream(method.getParameterTypes()).map(Class::getSimpleName).collect(Collectors.joining(","));
+                String identifier = String.format("%s.%s", beanClass.getName(), method.getName());
 
-                    if (operation != null && !operation.summary().isEmpty()) {
-                        friendlyName = operation.summary();
-                        description = operation.description();
-                    } else {
-                        friendlyName = "미정의 리소스: " + convertCamelCaseToTitleCase(method.getName());
-                        description = "개발자는 코드에 @Operation 어노테이션을 추가하여 이 메서드의 비즈니스 용도를 명시해야 합니다.";
-                    }
+                Operation operation = method.getAnnotation(Operation.class);
+                String friendlyName;
+                String description;
+                boolean isDefined;
 
-                    resources.add(ManagedResource.builder()
-                            .resourceIdentifier(identifier)
-                            .resourceType(ManagedResource.ResourceType.METHOD)
-                            .friendlyName(friendlyName)
-                            .description(description) // 상세 설명으로 전체 시그니처 제공
-                            .serviceOwner(beanClass.getSimpleName())
-                            .parameterTypes(params)
-                            .returnType(method.getReturnType().getSimpleName())
-                            .isManaged(true) // 기본은 관리 대상으로 설정
-                            .build());
+                // [최종 수정] @Operation 존재 여부로 isDefined 필드를 명확하게 설정
+                if (operation != null && !operation.summary().isEmpty()) {
+                    friendlyName = operation.summary();
+                    description = operation.description();
+                    isDefined = true;
+                } else {
+                    friendlyName = method.getName();
+                    description = "개발자는 코드에 @Operation 어노테이션을 추가하여 이 메서드의 비즈니스 용도를 명시해야 합니다.";
+                    isDefined = false;
                 }
+
+                resources.add(ManagedResource.builder()
+                        .resourceIdentifier(identifier)
+                        .resourceType(ManagedResource.ResourceType.METHOD)
+                        .friendlyName(friendlyName)
+                        .description(description)
+                        .serviceOwner(beanClass.getSimpleName())
+                        .parameterTypes(params)
+                        .returnType(method.getReturnType().getSimpleName())
+                        .isManaged(operation != null)
+                        .isDefined(isDefined)
+                        .build());
             }
         }
+        log.info("Successfully scanned and discovered {} METHOD resources.", resources.size());
         return resources;
     }
 

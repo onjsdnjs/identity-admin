@@ -37,13 +37,8 @@ public class MvcResourceScanner implements ResourceScanner {
             final HandlerMethod handlerMethod = entry.getValue();
 
             PathPatternsRequestCondition pathPatternsCondition = mappingInfo.getPathPatternsCondition();
-            if (pathPatternsCondition == null || pathPatternsCondition.getPatterns().isEmpty()) {
-                continue;
-            }
-
-            if (!handlerMethod.getBeanType().getPackageName().startsWith("io.spring.identityadmin")) {
-                continue;
-            }
+            if (pathPatternsCondition == null || pathPatternsCondition.getPatterns().isEmpty()) continue;
+            if (!handlerMethod.getBeanType().getPackageName().startsWith("io.spring.identityadmin")) continue;
 
             final String urlPattern = pathPatternsCondition.getPatterns().stream().findFirst().get().getPatternString();
             final String httpMethod = mappingInfo.getMethodsCondition().getMethods().stream()
@@ -52,25 +47,27 @@ public class MvcResourceScanner implements ResourceScanner {
             Operation operation = handlerMethod.getMethodAnnotation(Operation.class);
             String friendlyName;
             String description;
+            boolean isDefined;
 
-            // [핵심] @Operation 어노테이션에서 비즈니스 용어 추출
             if (operation != null && !operation.summary().isEmpty()) {
                 friendlyName = operation.summary();
                 description = operation.description();
+                isDefined = true;
             } else {
-                // 어노테이션이 없는 경우, 개발자에게만 보이는 관리용 이름 생성
-                friendlyName = "미정의 리소스: " + handlerMethod.getMethod().getName();
+                friendlyName = handlerMethod.getMethod().getName(); // 어노테이션 없으면 그냥 메서드 이름 사용
                 description = "개발자는 코드에 @Operation 어노테이션을 추가하여 이 리소스의 비즈니스 용도를 명시해야 합니다.";
+                isDefined = false;
             }
 
             resources.add(ManagedResource.builder()
                     .resourceIdentifier(urlPattern)
                     .httpMethod(ManagedResource.HttpMethod.valueOf(httpMethod.toUpperCase()))
                     .resourceType(ManagedResource.ResourceType.URL)
-                    .friendlyName(friendlyName) // 사용자 친화적 이름(초안)
-                    .description(description)     // 상세 설명
+                    .friendlyName(friendlyName)
+                    .description(description)
                     .serviceOwner(handlerMethod.getBeanType().getSimpleName())
-                    .isManaged(operation != null) // @Operation이 있는 경우에만 기본 관리 대상으로 설정
+                    .isManaged(operation != null)
+                    .isDefined(isDefined)
                     .build());
         }
 
