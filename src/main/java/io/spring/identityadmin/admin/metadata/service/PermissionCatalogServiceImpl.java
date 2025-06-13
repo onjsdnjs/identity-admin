@@ -52,7 +52,7 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
     @Override
     @Transactional(readOnly = true)
     public List<PermissionDto> getAvailablePermissions() {
-        return permissionRepository.findDefinedPermissions().stream()
+        return permissionRepository.findDefinedPermissionsWithDetails().stream()
                 .map(p -> modelMapper.map(p, PermissionDto.class))
                 .toList();
     }

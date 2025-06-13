@@ -252,7 +252,7 @@ class StudioApp {
             explorerListContainer: document.getElementById('explorer-list-container'),
             loader: document.getElementById('explorer-loader'),
             canvasPanel: document.getElementById('canvas-panel'),
-            canvasPlaceholder: document.getElementById('canvas-placeholder'),
+            canvasPlaceholder: document.getElementById('canvas-guide'),  // canvas-placeholder 대신 canvas-guide 사용
             canvasContent: document.getElementById('canvas-content'),
             inspectorPanel: document.getElementById('inspector-panel'),
             inspectorPlaceholder: document.getElementById('inspector-placeholder'),
@@ -285,15 +285,18 @@ class StudioApp {
         // [오류 수정] 검색(필터) 기능이 keyup 이벤트마다 실제로 동작하도록 구현
         this.elements.search.addEventListener('keyup', e => this.filterExplorer(e.target.value.toLowerCase()));
         this.elements.inspectorPanel.addEventListener('click', e => {
-            if (e.target.id === 'grant-btn') this.handleGrantClick();
+            if (e.target.closest('#grant-btn')) this.handleGrantClick();
         });
     }
 
     filterExplorer(term) {
         this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
-            const name = item.dataset.name.toLowerCase();
-            const description = item.dataset.description.toLowerCase();
-            // [오류 수정] 실제 display 속성을 변경하여 필터링 구현
+            const name = (item.dataset.name || '').toLowerCase();
+            const description = (item.dataset.description || '').toLowerCase();
+            if (!term) {
+                item.style.display = 'block';
+                return;
+            }
             item.style.display = (name.includes(term) || description.includes(term)) ? 'block' : 'none';
         });
     }
@@ -318,7 +321,7 @@ class StudioApp {
             return;
         }
         if (!permission) {
-            this.ui.showGuide(`<p class="text-lg font-bold">'<strong>${subject.name}</strong>' 선택됨.</p><p class="mt-2 text-slate-500">2. 이제 분석하고 싶은 '권한'을 선택하세요.</p>`);
+            this.ui.showGuide(`<p class="text-lg font-bold">'<strong>${subject.name}</strong>' 선택됨.</p><p class="mt-2 text-slate-500">2. 이제 분석하고 싶은 '권한'을 선택하여 접근 경로를 확인하세요.</p>`);
             return;
         }
 

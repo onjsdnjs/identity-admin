@@ -18,12 +18,12 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
     List<Permission> findAllByNameIn(Set<String> names);
 
     /**
-     * [신규 추가] isDefined = true 인, 즉 @Operation으로 정의된 리소스와 연결된
-     * 사용자 친화적인 권한들만 조회하는 쿼리입니다.
+     * [오류 수정 및 성능 개선] isDefined = true인 권한을 조회할 때, N+1 문제를 방지하기 위해
+     * Fetch Join을 사용하여 연관된 모든 엔티티를 한번의 쿼리로 가져옵니다.
      */
     @Query("SELECT DISTINCT p FROM Permission p " +
-            "JOIN FETCH p.functions f " +
-            "JOIN FETCH f.managedResource mr " +
+            "LEFT JOIN FETCH p.functions f " +
+            "LEFT JOIN FETCH f.managedResource mr " +
             "WHERE mr.isDefined = true")
-    List<Permission> findDefinedPermissions();
+    List<Permission> findDefinedPermissionsWithDetails();
 }

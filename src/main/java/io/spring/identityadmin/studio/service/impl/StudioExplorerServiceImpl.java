@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -47,9 +48,9 @@ public class StudioExplorerServiceImpl implements StudioExplorerService {
         List<ExplorerItemDto> permissions = permissionCatalogService.getAvailablePermissions().stream()
                 .map(perm -> new ExplorerItemDto(
                         perm.getId(),
-                        Optional.ofNullable(perm.getDescription()).orElse("설명 없음"),
+                        perm.getName(),  // name은 name 위치에
                         "PERMISSION",
-                        "내부 식별자: " + perm.getName()
+                        Optional.ofNullable(perm.getDescription()).orElse("설명 없음")
                 ))
                 .toList();
 
