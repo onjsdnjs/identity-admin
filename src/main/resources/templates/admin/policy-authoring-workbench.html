@@ -1,80 +1,86 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <head>
-    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='정책 저작 워크벤치')}"></th:block>
+    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='비즈니스 정책 생성')}"></th:block>
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <style>
-        .select2-container--default .select2-selection--multiple {
-            border-radius: 0.5rem; border: 1px solid #d1d5db; padding: 0.25rem;
+        .select2-container--default .select2-selection--multiple,
+        .select2-container--default .select2-selection--single {
+            background-color: #1e293b; border-radius: 0.5rem !important; border: 1px solid #334155 !important; padding: 0.5rem !important; height: auto !important;
         }
         .select2-container { width: 100% !important; }
+        .select2-selection__choice { background-color: #334155 !important; border-color: #475569 !important; color: #e2e8f0 !important; }
+        .select2-selection__choice__remove { color: #94a3b8 !important; }
+        .select2-container--default .select2-results__option--selected { background-color: #4f46e5 !important; }
+        .select2-dropdown { background-color: #1e293b; border-color: #334155; }
+        .select2-results__option { color: #e2e8f0; }
+        .select2-results__option--highlighted { background-color: #334155 !important; }
+        .select2-selection__placeholder, .select2-selection__rendered { color: #94a3b8 !important; }
     </style>
 </head>
-<body class="flex flex-col min-h-screen bg-app-light-gray font-sans text-app-dark-gray">
+<body class="flex flex-col min-h-screen font-sans bg-slate-900 text-slate-300">
 
 <div th:insert="~{fragments/header :: header}"></div>
-<div id="toast-container" class="fixed top-5 right-5 z-50"></div>
+<div id="toast-container" class="fixed top-5 right-5 z-50 w-full max-w-xs sm:max-w-sm"></div>
 
 <div class="flex flex-1">
     <aside th:insert="~{fragments/admin-menu :: menu}" class="hidden md:block"></aside>
 
     <main class="flex-1 p-6 md:p-10">
-        <div class="max-w-4xl mx-auto">
-            <h1 class="text-3xl font-bold text-app-primary">정책 저작 워크벤치</h1>
-            <p class="text-slate-600 mt-1">사용자 친화적인 방식으로 권한 정책을 생성하고 관리합니다.</p>
+        <div class="mx-auto dark-card p-6 sm:p-8 rounded-xl max-w-4xl">
+            <div class="text-center sm:text-left mb-8">
+                <h1 class="text-3xl font-bold text-gradient">비즈니스 정책 생성</h1>
+                <p class="text-dark-muted mt-1">사용자 친화적인 마법사를 통해 새로운 접근 정책을 생성합니다.</p>
+            </div>
 
-            <form id="policy-form" class="mt-8 bg-white p-8 rounded-xl shadow-lg space-y-8">
-                <div class="border-b pb-6">
-                    <h2 class="text-xl font-semibold text-app-secondary mb-4">1. 정책 기본 정보</h2>
+            <form id="policy-form" class="space-y-8" method="post" th:action="@{/admin/authoring/policy-workbench}">
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-slate-200 border-b border-slate-700 pb-2">1. 정책 기본 정보</h3>
+                    <div>
+                        <label for="policyName" class="block text-sm font-medium text-slate-400">정책 이름:</label>
+                        <input type="text" id="policyName" name="policyName" class="form-input-dark" required placeholder="예: 개발팀 문서 접근 정책">
+                    </div>
+                    <div>
+                        <label for="description" class="block text-sm font-medium text-slate-400">정책 설명:</label>
+                        <input type="text" id="description" name="description" class="form-input-dark" placeholder="정책에 대한 상세 설명 (선택 사항)">
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-slate-200 border-b border-slate-700 pb-2">2. 주체 (누가?)</h3>
+                    <div>
+                        <label for="subjectUserIds" class="block text-sm font-medium text-slate-400">사용자 선택:</label>
+                        <select id="subjectUserIds" name="subjectUserIds" multiple="multiple"></select>
+                    </div>
+                    <div>
+                        <label for="subjectGroupIds" class="block text-sm font-medium text-slate-400">그룹 선택:</label>
+                        <select id="subjectGroupIds" name="subjectGroupIds" multiple="multiple"></select>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-slate-200 border-b border-slate-700 pb-2">3. 접근 대상 (무엇을 어떻게?)</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label for="policyName" class="form-label">정책 이름:</label>
-                            <input type="text" id="policyName" name="policyName" class="form-input" required placeholder="예: 개발팀 문서 접근 정책">
+                            <label for="businessResourceId" class="block text-sm font-medium text-slate-400">자원:</label>
+                            <select id="businessResourceId" name="businessResourceId" class="mt-1"></select>
                         </div>
                         <div>
-                            <label for="description" class="form-label">정책 설명:</label>
-                            <input type="text" id="description" name="description" class="form-input" placeholder="정책에 대한 상세 설명">
+                            <label for="businessActionId" class="block text-sm font-medium text-slate-400">행위:</label>
+                            <select id="businessActionId" name="businessActionId" class="mt-1"></select>
                         </div>
                     </div>
                 </div>
 
-                <div class="border-b pb-6">
-                    <h2 class="text-xl font-semibold text-app-secondary mb-4">2. 주체 (누가 접근하는가?)</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label for="subjectUserIds" class="form-label">사용자 선택:</label>
-                            <select id="subjectUserIds" name="subjectUserIds" multiple="multiple"></select>
-                        </div>
-                        <div>
-                            <label for="subjectGroupIds" class="form-label">그룹 선택:</label>
-                            <select id="subjectGroupIds" name="subjectGroupIds" multiple="multiple"></select>
-                        </div>
-                    </div>
+                <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-slate-200 border-b border-slate-700 pb-2">4. 추가 조건 (어떤 상황에서?)</h3>
+                    <div id="condition-container" class="space-y-4"></div>
+                    <button type="button" id="add-condition-btn" class="mt-2 text-sm font-medium text-indigo-400 hover:text-indigo-300 hover:underline">+ 조건 추가</button>
                 </div>
 
-                <div class="border-b pb-6">
-                    <h2 class="text-xl font-semibold text-app-secondary mb-4">3. 접근 대상 (무엇을 어떻게?)</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label for="businessResourceIds" class="form-label">자원 선택:</label>
-                            <select id="businessResourceIds" name="businessResourceIds" multiple="multiple"></select>
-                        </div>
-                        <div>
-                            <label for="businessActionIds" class="form-label">행위 선택:</label>
-                            <select id="businessActionIds" name="businessActionIds" multiple="multiple"></select>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <h2 class="text-xl font-semibold text-app-secondary mb-4">4. 추가 조건 (어떤 상황에서?)</h2>
-                    <div id="condition-container" class="space-y-4">
-                    </div>
-                    <button type="button" id="add-condition-btn" class="mt-4 text-sm font-medium text-app-accent hover:underline">+ 조건 추가</button>
-                </div>
-
-                <div class="pt-6 border-t">
-                    <button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-app-accent hover:bg-app-accent-hover">
+                <div class="pt-8 border-t border-slate-700">
+                    <button type="submit" class="w-full px-6 py-3 rounded-xl font-semibold transition-all duration-300 text-white"
+                            style="background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);">
                         정책 생성하기
                     </button>
                 </div>
@@ -84,19 +90,23 @@
 </div>
 
 <div th:insert="~{fragments/footer :: footer}" class="mt-auto"></div>
-
+<style>
+    .form-input-dark {
+        @apply mt-1 block w-full px-4 py-2.5 rounded-lg shadow-sm sm:text-sm;
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        color: #e2e8f0;
+    }
+    .form-input-dark::placeholder {
+        color: #64748b;
+    }
+    .dark-card { background-color: #0f172a; }
+    .text-gradient { background: -webkit-linear-gradient(135deg, #a5b4fc, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .text-dark-muted { color: #94a3b8; }
+</style>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-<script th:src="@{/js/policy-authoring-workbench.js}"></script>
-<script th:inline="javascript">
-    /*<![CDATA[*/
-    // 컨트롤러에서 전달된 초기 선택값을 JS로 넘겨줌
-    const initialSelection = {
-        userId: /*[[${initialUserId}]]*/ null,
-        groupId: /*[[${initialGroupId}]]*/ null,
-        resourceId: /*[[${initialResourceId}]]*/ null
-    };
-    /*]]>*/
-</script>
+<script th:src="@{/js/toast.js}"></script>
+<script th:src="@{/js/studio.js}"></script>
 </body>
 </html>
