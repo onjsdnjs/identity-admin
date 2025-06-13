@@ -1,5 +1,6 @@
 package io.spring.identityadmin.studio.service;
 
+import io.spring.identityadmin.admin.support.visualization.dto.GraphDataDto; // 신규 import
 import io.spring.identityadmin.studio.dto.*;
 
 import java.util.List;
@@ -11,15 +12,24 @@ import java.util.List;
 public interface StudioVisualizerService {
 
     /**
-     * "왜 이 사용자가 이 리소스에 접근할 수 있는가/없는가?"에 대한 답을 제공합니다.
-     * 특정 주체와 리소스 간의 접근 경로를 추적하여 시각적인 그래프 데이터로 반환합니다.
+     * [기존 유지] "왜 이 사용자가 이 리소스에 접근할 수 있는가/없는가?"에 대한 답을 제공합니다.
+     * 특정 주체와 리소스 간의 접근 경로를 추적하여 시각적인 텍스트 데이터로 반환합니다.
      * @param subjectId 분석할 주체(사용자/그룹)의 ID
      * @return 접근 경로의 각 단계를 담은 DTO
      */
     AccessPathDto analyzeAccessPath(Long subjectId, String subjectType, Long permissionId);
 
     /**
-     * 특정 주체가 보유한 모든 유효 권한 목록을 반환합니다.
+     * [신규 추가] 특정 주체와 권한 간의 접근 경로를 분석하여, UI에서 그래프로 렌더링할 수 있는 데이터 구조로 반환합니다.
+     * @param subjectId 분석할 주체(사용자/그룹)의 ID
+     * @param subjectType 주체의 타입 ("USER" 또는 "GROUP")
+     * @param permissionId 분석할 권한의 ID
+     * @return UI 그래프 라이브러리가 사용할 수 있는 노드 및 엣지 데이터 (GraphDataDto)
+     */
+    GraphDataDto analyzeAccessPathAsGraph(Long subjectId, String subjectType, Long permissionId);
+
+    /**
+     * [기존 유지] 특정 주체가 보유한 모든 유효 권한 목록을 반환합니다.
      * 각 권한이 어떤 역할, 그룹, 정책으로부터 부여되었는지 근거를 함께 제공합니다.
      * @param subjectId 분석할 주체(사용자/그룹)의 ID
      * @return 유효 권한 및 그 근거를 담은 DTO 목록

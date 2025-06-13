@@ -1,5 +1,6 @@
 package io.spring.identityadmin.studio.controller;
 
+import io.spring.identityadmin.admin.support.visualization.dto.GraphDataDto;
 import io.spring.identityadmin.studio.dto.ExplorerItemDto;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
 import io.spring.identityadmin.studio.dto.SimulationRequestDto;
@@ -38,6 +39,11 @@ public class AuthorizationStudioController {
     @GetMapping("/api/access-path")
     public ResponseEntity<?> analyzeAccessPath(@RequestParam Long subjectId, @RequestParam String subjectType, @RequestParam Long permissionId) {
         return ResponseEntity.ok(visualizerService.analyzeAccessPath(subjectId, subjectType, permissionId));
+    }
+
+    @GetMapping("/api/access-path-graph")
+    public ResponseEntity<GraphDataDto> analyzeAccessPathAsGraph(@RequestParam Long subjectId, @RequestParam String subjectType, @RequestParam Long permissionId) {
+        return ResponseEntity.ok(visualizerService.analyzeAccessPathAsGraph(subjectId, subjectType, permissionId));
     }
 
     @GetMapping("/api/effective-permissions")
