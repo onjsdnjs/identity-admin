@@ -24,6 +24,8 @@ public interface BusinessPolicyService {
      */
     Policy updatePolicyFromBusinessRule(Long policyId, BusinessPolicyDto dto);
 
+    BusinessPolicyDto getBusinessRuleForPolicy(Long policyId);
+
     /**
      * [시그니처 개선] 기존 기술 정책(Policy)을 분석하여 정책 저작 워크벤치 UI에 표시할 수 있는
      * 사용자 친화적인 BusinessPolicyDto로 '역번역'합니다.

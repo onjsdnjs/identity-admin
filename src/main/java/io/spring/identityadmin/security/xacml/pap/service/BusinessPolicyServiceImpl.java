@@ -66,6 +66,11 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
         throw new UnsupportedOperationException("Translating technical policy back to business rule is not yet implemented.");
     }
 
+    @Override
+    public BusinessPolicyDto getBusinessRuleForPolicy(Long policyId) {
+        throw new UnsupportedOperationException("Translating technical policy back to business rule is not yet implemented.");
+    }
+
     /**
      * BusinessPolicyDto를 Policy 엔티티로 번역하고 적용하는 핵심 로직
      */
