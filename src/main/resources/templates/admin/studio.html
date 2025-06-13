@@ -16,21 +16,16 @@
     <main id="studio-main" class="flex-1 grid grid-cols-12 gap-4 p-4 min-h-0">
 
         <div id="explorer-panel" class="col-span-12 md:col-span-3 bg-white rounded-xl shadow-lg flex flex-col">
-            <div class="p-3 border-b sticky top-0 bg-white">
+            <div class="p-3 border-b sticky top-0 bg-white z-10">
                 <input type="search" id="explorer-search" placeholder="검색..." class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-app-accent">
             </div>
             <div id="explorer-list-container" class="flex-1 p-2 overflow-y-auto">
-                <div id="explorer-loader" class="p-4 text-center">
-                    <i class="fas fa-spinner fa-spin text-2xl text-app-primary"></i>
-                </div>
+                <div id="explorer-loader" class="flex items-center justify-center p-8"><i class="fas fa-spinner fa-spin text-3xl text-app-primary"></i></div>
             </div>
         </div>
 
         <div id="canvas-panel" class="col-span-12 md:col-span-6 bg-white rounded-xl shadow-lg flex flex-col p-6 overflow-y-auto">
             <div id="canvas-guide" class="flex flex-col items-center justify-center h-full text-slate-500 text-center">
-                <i class="fas fa-mouse-pointer text-6xl text-slate-300"></i>
-                <p class="mt-4 text-lg font-bold">1. 왼쪽 탐색기에서 분석할 '주체'를 선택하세요.</p>
-                <p class="text-sm text-slate-400">사용자 또는 그룹을 클릭할 수 있습니다.</p>
             </div>
             <div id="canvas-content" class="hidden"></div>
         </div>
@@ -40,14 +35,7 @@
                 <i class="fas fa-info-circle text-5xl text-slate-300"></i>
                 <p class="mt-4 text-sm">항목을 선택하면<br/>상세 정보와 관련 작업이 표시됩니다.</p>
             </div>
-            <div id="inspector-content" class="hidden space-y-4">
-                <div id="inspector-details">
-                </div>
-                <div id="inspector-actions" class="border-t pt-4">
-                </div>
-                <div id="simulation-result-container" class="hidden mt-4">
-                </div>
-            </div>
+            <div id="inspector-content" class="hidden"></div>
         </div>
 
     </main>

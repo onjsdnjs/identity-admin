@@ -53,12 +53,11 @@ class StudioState {
         const permission = this.getPermission();
         if (!subject || !permission) return null;
 
-        const request = {
+        return {
             userIds: subject.type === 'USER' ? [subject.id] : [],
             groupIds: subject.type === 'GROUP' ? [subject.id] : [],
             permissionIds: [permission.id]
         };
-        return request;
     }
 }
 
@@ -69,22 +68,35 @@ class StudioUI {
     }
 
     renderExplorer(data) {
-        const usersHtml = this.createSectionHtml('사용자', data.users, 'USER');
-        const groupsHtml = this.createSectionHtml('그룹', data.groups, 'GROUP');
-        const permissionsHtml = this.createSectionHtml('권한', data.permissions, 'PERMISSION');
-        const policiesHtml = this.createSectionHtml('정책', data.policies, 'POLICY');
+        const usersHtml = this.createAccordionSection('사용자', [{ items: data.users, type: 'USER', icon: 'fa-user' }]);
+        const groupsHtml = this.createAccordionSection('그룹', [{ items: data.groups, type: 'GROUP', icon: 'fa-users' }]);
+        const permissionsHtml = this.createAccordionSection('권한', [{ items: data.permissions, type: 'PERMISSION', icon: 'fa-key' }]);
+        const policiesHtml = this.createAccordionSection('정책', [{ items: data.policies, type: 'POLICY', icon: 'fa-file-alt' }]);
         this.elements.explorerListContainer.innerHTML = usersHtml + groupsHtml + permissionsHtml + policiesHtml;
+        this.bindAccordionEvents();
     }
 
-    createSectionHtml(title, items, type) {
-        if (!items || items.length === 0) return '';
-        const itemsHtml = items.map(item => `
+    createAccordionSection(title, subSections) {
+        let contentHtml = '';
+        subSections.forEach(sub => {
+            if (sub.items && sub.items.length > 0) {
+                contentHtml += sub.items.map(item => this.createItemHtml(item, sub.type, sub.icon)).join('');
+            }
+        });
+        if (contentHtml === '') contentHtml = '<div class="p-2 text-xs text-slate-400">항목이 없습니다.</div>';
+
+        return `<div class="accordion"><div class="accordion-header"><span class="font-bold">${title}</span><i class="fas fa-chevron-down accordion-icon"></i></div><div class="accordion-content">${contentHtml}</div></div>`;
+    }
+
+    createItemHtml(item, type, icon) {
+        return `
             <div class="explorer-item" data-id="${item.id}" data-type="${type}" data-name="${item.name}" data-description="${item.description || ''}">
-                <div class="item-name">${item.name}</div>
-                <div class="item-description" title="${item.description || ''}">${item.description || ''}</div>
-            </div>
-        `).join('');
-        return `<h3 class="explorer-header">${title}</h3><div class="explorer-section-body">${itemsHtml}</div>`;
+                <div class="item-icon"><i class="fas ${icon}"></i></div>
+                <div class="item-text">
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-description" title="${item.description || ''}">${item.description || ''}</div>
+                </div>
+            </div>`;
     }
 
     updateExplorerSelection(state) {
@@ -98,10 +110,10 @@ class StudioUI {
     renderAccessPath(subject, permission, data) {
         const pathHtml = data.nodes.map((node, index) => `
             <div class="path-node">
-                <div class="path-icon">${index + 1}</div>
+                <div class="path-icon">${node.type.substring(0, 1)}</div>
                 <div class="path-details">
-                    <div class="path-type">${node.type}</div>
-                    <div class="path-name">${node.name}</div>
+                    <p class="path-type">${node.type}</p>
+                    <p class="path-name">${node.name}</p>
                 </div>
             </div>
             ${index < data.nodes.length - 1 ? '<div class="path-arrow"><i class="fas fa-arrow-down"></i></div>' : ''}
@@ -132,12 +144,10 @@ class StudioUI {
     renderInspector(state) {
         const subject = state.getSubject();
         const permission = state.getPermission();
-
         this.elements.inspectorContent.innerHTML = '';
 
         let detailsHtml = '<h3 class="font-bold text-lg mb-2">선택된 항목</h3><div class="space-y-2">';
         let hasSelection = false;
-
         Object.values(state.selected).forEach(item => {
             if (item) {
                 detailsHtml += this.buildDetailHtml(item);
@@ -146,12 +156,12 @@ class StudioUI {
         });
         detailsHtml += '</div>';
 
-        let actionsHtml = '<h3 class="font-bold text-lg mb-2 mt-4 border-t pt-4">관련 작업</h3>';
+        let actionsHtml = '<h3 class="font-bold text-lg mb-2 mt-4 border-t pt-4">실행 가능한 작업</h3>';
         if (subject && permission) {
-            const title = `'<span class="math-inline">\{subject\.name\}'에게 '</span>{permission.name}' 권한을 부여하는 정책을 생성합니다.`;
-            actionsHtml += `<button id="grant-btn" class="w-full btn-primary text-sm py-2" title="${title}">권한 부여 마법사 시작</button>`;
+            const title = `'${subject.name}'에게 '${permission.name}' 권한을 부여하는 정책을 생성합니다.`;
+            actionsHtml += `<button id="grant-btn" class="w-full btn-primary text-sm py-2" title="${title}">권한 부여하기</button>`;
         } else {
-            actionsHtml += '<p class="text-sm text-slate-500">주체와 권한을 함께 선택하여<br/>권한을 부여할 수 있습니다.</p>';
+            actionsHtml += '<p class="text-sm text-slate-500">주체와 권한을 함께 선택하면<br/>관련 작업을 실행할 수 있습니다.</p>';
         }
 
         if (hasSelection) {
@@ -170,35 +180,60 @@ class StudioUI {
             <div class="p-3 bg-white rounded-md border text-sm">
                 <p class="text-xs font-semibold uppercase text-app-accent"><i class="fas ${icon} mr-2"></i>${item.type}</p>
                 <p class="font-bold text-md text-gray-800">${item.name}</p>
-            </div>
-        `;
+            </div>`;
     }
 
     resetCanvas() {
         this.elements.canvasContent.classList.add('hidden');
         this.elements.canvasContent.innerHTML = '';
-        this.elements.canvasPlaceholder.classList.remove('hidden');
+        this.elements.canvasGuide.classList.remove('hidden');
     }
 
     showLoading(element) {
-        this.elements.canvasPlaceholder.classList.add('hidden');
-        this.elements.canvasContent.classList.remove('hidden');
         element.innerHTML = '<div class="flex items-center justify-center p-8 h-full"><i class="fas fa-spinner fa-spin text-3xl text-app-primary"></i></div>';
     }
 
     showError(element, message) {
-        element.innerHTML = `<div class="p-4 text-center text-red-500">${message}</div>`;
+        element.innerHTML = `<div class="p-8 text-center text-red-600 rounded-lg bg-red-50 border border-red-200">
+                                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                                <p class="font-semibold">${message}</p>
+                             </div>`;
     }
 
     showGuide(htmlMessage) {
+        this.elements.canvasContent.innerHTML = '';
         this.elements.canvasContent.classList.add('hidden');
-        const guideEl = document.getElementById('canvas-guide');
-        guideEl.innerHTML = htmlMessage;
-        guideEl.classList.remove('hidden');
+        this.elements.canvasGuide.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-slate-500 text-center">${htmlMessage}</div>`;
+        this.elements.canvasGuide.classList.remove('hidden');
     }
+
     hideGuide() {
-        document.getElementById('canvas-guide').classList.add('hidden');
+        this.elements.canvasGuide.classList.add('hidden');
         this.elements.canvasContent.classList.remove('hidden');
+    }
+
+    bindAccordionEvents() {
+        this.elements.explorerListContainer.querySelectorAll('.accordion-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const content = header.nextElementSibling;
+                const isOpen = header.classList.toggle('open');
+                header.querySelector('.accordion-icon').classList.toggle('rotate-180', isOpen);
+                if (isOpen) {
+                    content.style.maxHeight = content.scrollHeight + "px";
+                } else {
+                    content.style.maxHeight = "0px";
+                }
+            });
+        });
+    }
+
+    filterExplorer(term) {
+        this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
+            const name = (item.dataset.name || '').toLowerCase();
+            const description = (item.dataset.description || '').toLowerCase();
+            const isVisible = name.includes(term) || description.includes(term);
+            item.style.display = isVisible ? 'flex' : 'none';
+        });
     }
 }
 
@@ -209,7 +244,9 @@ class StudioAPI {
             const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
             const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
             const fetchOptions = { ...options };
-            if (!fetchOptions.headers) fetchOptions.headers = {};
+            if (!fetchOptions.headers) {
+                fetchOptions.headers = {};
+            }
             if (options.body && !(options.body instanceof URLSearchParams)) {
                 fetchOptions.headers['Content-Type'] = 'application/json';
             }
@@ -217,32 +254,24 @@ class StudioAPI {
                 fetchOptions.headers[csrfHeader] = csrfToken;
             }
             const response = await fetch(url, fetchOptions);
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ message: `서버 오류 (상태: ${response.status})`}));
-                throw new Error(errorData.message);
-            }
-            if(response.redirected) {
+            if (response.redirected) {
                 window.location.href = response.url;
                 return null;
+            }
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ message: `서버 오류 (상태: ${response.status})` }));
+                throw new Error(errorData.message);
             }
             return response.status === 204 ? null : response.json();
         } catch (error) {
             console.error(`API Error fetching ${url}:`, error);
-            if(typeof showToast === 'function') showToast(error.message || 'API 통신 오류', 'error');
+            if (typeof showToast === 'function') showToast(error.message || 'API 통신 오류', 'error');
             throw error;
         }
     }
     getExplorerItems() { return this.fetchApi('/admin/studio/api/explorer-items'); }
     getAccessPath(subjectId, subjectType, permissionId) { return this.fetchApi(`/admin/studio/api/access-path?subjectId=${subjectId}&subjectType=${subjectType}&permissionId=${permissionId}`); }
     getEffectivePermissions(subjectId, subjectType) { return this.fetchApi(`/admin/studio/api/effective-permissions?subjectId=${subjectId}&subjectType=${subjectType}`); }
-
-    // 이 메서드는 직접 호출되지 않고, form submit으로 대체됩니다.
-    // initiateGrant(request) {
-    //     return this.fetchApi('/admin/policy-wizard/start', {
-    //         method: 'POST',
-    //         body: JSON.stringify(request)
-    //     });
-    // }
 }
 
 // 4. 메인 애플리케이션 클래스
@@ -251,18 +280,17 @@ class StudioApp {
         this.elements = {
             explorerListContainer: document.getElementById('explorer-list-container'),
             loader: document.getElementById('explorer-loader'),
+            search: document.getElementById('explorer-search'),
             canvasPanel: document.getElementById('canvas-panel'),
-            canvasPlaceholder: document.getElementById('canvas-guide'),  // canvas-placeholder 대신 canvas-guide 사용
+            canvasGuide: document.getElementById('canvas-guide'),
             canvasContent: document.getElementById('canvas-content'),
             inspectorPanel: document.getElementById('inspector-panel'),
             inspectorPlaceholder: document.getElementById('inspector-placeholder'),
             inspectorContent: document.getElementById('inspector-content'),
-            search: document.getElementById('explorer-search'),
         };
         this.state = new StudioState();
         this.ui = new StudioUI(this.elements);
         this.api = new StudioAPI();
-        this.init();
     }
 
     init() {
@@ -272,6 +300,7 @@ class StudioApp {
 
     async loadInitialData() {
         this.ui.showLoading(this.ui.elements.explorerListContainer);
+        this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg font-bold">1. 왼쪽 탐색기에서 분석할 \'주체\'를 선택하세요.</p>');
         try {
             const data = await this.api.getExplorerItems();
             this.ui.renderExplorer(data);
@@ -282,22 +311,9 @@ class StudioApp {
 
     bindEventListeners() {
         this.elements.explorerListContainer.addEventListener('click', e => this.handleExplorerClick(e));
-        // [오류 수정] 검색(필터) 기능이 keyup 이벤트마다 실제로 동작하도록 구현
-        this.elements.search.addEventListener('keyup', e => this.filterExplorer(e.target.value.toLowerCase()));
+        this.elements.search.addEventListener('keyup', e => this.ui.filterExplorer(e.target.value.toLowerCase()));
         this.elements.inspectorPanel.addEventListener('click', e => {
             if (e.target.closest('#grant-btn')) this.handleGrantClick();
-        });
-    }
-
-    filterExplorer(term) {
-        this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
-            const name = (item.dataset.name || '').toLowerCase();
-            const description = (item.dataset.description || '').toLowerCase();
-            if (!term) {
-                item.style.display = 'block';
-                return;
-            }
-            item.style.display = (name.includes(term) || description.includes(term)) ? 'block' : 'none';
         });
     }
 
@@ -311,17 +327,16 @@ class StudioApp {
     }
 
     async updateCanvasAndInspector() {
-        this.ui.renderInspector(this.state); // Inspector는 항상 현재 선택 상태를 반영
+        this.ui.renderInspector(this.state);
         const subject = this.state.getSubject();
         const permission = this.state.getPermission();
 
-        // [UI/UX 개선] 상태에 따른 가이드 텍스트 업데이트
         if (!subject) {
-            this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg font-bold">1. 왼쪽에서 분석할 \'주체\'를 선택하세요.</p>');
+            this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg font-bold">1. 왼쪽 탐색기에서 분석할 \'주체\'를 선택하세요.</p><p class="text-sm text-slate-400">사용자 또는 그룹을 클릭할 수 있습니다.</p>');
             return;
         }
         if (!permission) {
-            this.ui.showGuide(`<p class="text-lg font-bold">'<strong>${subject.name}</strong>' 선택됨.</p><p class="mt-2 text-slate-500">2. 이제 분석하고 싶은 '권한'을 선택하여 접근 경로를 확인하세요.</p>`);
+            this.ui.showGuide(`<div class="text-center"><i class="fas fa-check-circle text-4xl text-green-500"></i><p class="mt-4 text-lg font-bold">'<strong>${subject.name}</strong>' 선택됨.</p><p class="mt-2 text-slate-500">2. 이제 분석하고 싶은 '권한'을 선택하여 접근 경로를 확인하세요.</p></div>`);
             return;
         }
 
@@ -343,8 +358,6 @@ class StudioApp {
             return;
         }
 
-        // Studio에서는 마법사 시작만 담당.
-        // 마법사 페이지로 POST 리다이렉트하기 위해 임시 form을 생성하여 submit합니다.
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = '/admin/policy-wizard/start';
@@ -352,46 +365,33 @@ class StudioApp {
         const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
         const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
 
-        const dataForForm = {
-            ...grantData,
-            policyName: `Studio 빠른 권한 부여`,
-            policyDescription: `${this.state.getSubject().name}에게 ${this.state.getPermission().name} 권한을 부여합니다.`
-        };
+        const dataForForm = { ...grantData };
 
-        for(const key in dataForForm) {
-            const value = dataForForm[key];
+        Object.entries(dataForForm).forEach(([key, value]) => {
             if (Array.isArray(value)) {
-                value.forEach(v => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = key;
-                    input.value = v;
-                    form.appendChild(input);
-                });
+                value.forEach(v => this.createHiddenInput(form, key, v));
             } else {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = key;
-                input.value = value;
-                form.appendChild(input);
+                this.createHiddenInput(form, key, value);
             }
-        }
+        });
 
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = csrfHeader;
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
-
+        this.createHiddenInput(form, csrfHeader, csrfToken);
         document.body.appendChild(form);
         form.submit();
+    }
+
+    createHiddenInput(form, name, value) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        form.appendChild(input);
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // toast.js가 로드되어 있다고 가정
     if(typeof showToast !== 'function') {
         window.showToast = (message, type) => alert(`[${type.toUpperCase()}] ${message}`);
     }
-    new StudioApp();
+    new StudioApp().init();
 });
