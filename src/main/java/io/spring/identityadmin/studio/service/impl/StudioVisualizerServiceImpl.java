@@ -1,5 +1,6 @@
 package io.spring.identityadmin.studio.service.impl;
 
+import io.spring.identityadmin.admin.support.visualization.dto.GraphDataDto;
 import io.spring.identityadmin.domain.entity.*;
 import io.spring.identityadmin.repository.GroupRepository;
 import io.spring.identityadmin.repository.PermissionRepository;
@@ -12,13 +13,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
-/**
- * [최종 구현] 모든 Mock 및 Placeholder를 제거하고, 실제 DB 연동 및 비즈니스 로직을 포함한 완전한 구현체입니다.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -29,9 +28,115 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
     private final GroupRepository groupRepository;
     private final PermissionRepository permissionRepository;
 
-    /**
-     * [오류 수정 및 로직 개선] 사용자와 그룹 모두에 대한 경로 분석을 지원하고, 예외 처리를 강화합니다.
-     */
+    @Override
+    public GraphDataDto analyzeAccessPathAsGraph(Long subjectId, String subjectType, Long permissionId) {
+        Permission targetPermission = permissionRepository.findById(permissionId)
+                .orElseThrow(() -> new IllegalArgumentException("Permission not found with ID: " + permissionId));
+
+        if ("USER".equalsIgnoreCase(subjectType)) {
+            return analyzeUserAccessPathAsGraph(subjectId, targetPermission);
+        } else if ("GROUP".equalsIgnoreCase(subjectType)) {
+            return analyzeGroupAccessPathAsGraph(subjectId, targetPermission);
+        } else {
+            log.warn("Graph analysis for type '{}' is not supported.", subjectType);
+            return new GraphDataDto(Collections.emptyList(), Collections.emptyList());
+        }
+    }
+
+    private GraphDataDto analyzeUserAccessPathAsGraph(Long userId, Permission targetPermission) {
+        Users user = userRepository.findByIdWithGroupsRolesAndPermissions(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userId));
+
+        List<GraphDataDto.Node> nodes = new ArrayList<>();
+        List<GraphDataDto.Edge> edges = new ArrayList<>();
+        boolean accessGranted = false;
+
+        String userNodeId = "user_" + user.getId();
+        nodes.add(new GraphDataDto.Node(userNodeId, user.getName(), "USER", Map.of("email", user.getUsername())));
+        String permNodeId = "perm_" + targetPermission.getId();
+
+        // [핵심 수정] 권한 라벨이 null이 되지 않도록 처리
+        String permLabel = StringUtils.hasText(targetPermission.getDescription()) ? targetPermission.getDescription() : targetPermission.getName();
+
+        for (UserGroup userGroup : user.getUserGroups()) {
+            Group group = userGroup.getGroup();
+            String groupNodeId = "group_" + group.getId();
+            nodes.add(new GraphDataDto.Node(groupNodeId, group.getName(), "GROUP", Map.of("description", group.getDescription())));
+            edges.add(new GraphDataDto.Edge(userNodeId, groupNodeId, "소속"));
+
+            for (GroupRole groupRole : group.getGroupRoles()) {
+                Role role = groupRole.getRole();
+                String roleNodeId = "role_" + role.getId();
+                nodes.add(new GraphDataDto.Node(roleNodeId, role.getRoleName(), "ROLE", Map.of("description", role.getRoleDesc())));
+                edges.add(new GraphDataDto.Edge(groupNodeId, roleNodeId, "역할 보유"));
+
+                if (role.getRolePermissions().stream().anyMatch(rp -> rp.getPermission().equals(targetPermission))) {
+                    accessGranted = true;
+                    edges.add(new GraphDataDto.Edge(roleNodeId, permNodeId, "권한 포함 (허용)"));
+                }
+            }
+        }
+
+        nodes.add(new GraphDataDto.Node(permNodeId, permLabel, "PERMISSION", Map.of("name", targetPermission.getName(), "granted", accessGranted)));
+
+        if (!accessGranted) {
+            user.getUserGroups().stream()
+                    .flatMap(ug -> ug.getGroup().getGroupRoles().stream())
+                    .map(gr -> "role_" + gr.getRole().getId())
+                    .forEach(roleNodeId -> edges.add(new GraphDataDto.Edge(roleNodeId, permNodeId, "권한 없음 (거부)")));
+        }
+
+        return new GraphDataDto(
+                new ArrayList<>(new LinkedHashSet<>(nodes)),
+                new ArrayList<>(new LinkedHashSet<>(edges))
+        );
+    }
+
+    private GraphDataDto analyzeGroupAccessPathAsGraph(Long groupId, Permission targetPermission) {
+        Group group = groupRepository.findByIdWithRoles(groupId)
+                .orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + groupId));
+
+        List<GraphDataDto.Node> nodes = new ArrayList<>();
+        List<GraphDataDto.Edge> edges = new ArrayList<>();
+        boolean accessGranted = false;
+
+        String groupNodeId = "group_" + group.getId();
+        nodes.add(new GraphDataDto.Node(groupNodeId, group.getName(), "GROUP", Map.of("description", group.getDescription())));
+        String permNodeId = "perm_" + targetPermission.getId();
+
+        // [핵심 수정] 권한 라벨이 null이 되지 않도록 처리
+        String permLabel = StringUtils.hasText(targetPermission.getDescription()) ? targetPermission.getDescription() : targetPermission.getName();
+
+        for (GroupRole groupRole : group.getGroupRoles()) {
+            Role role = groupRole.getRole();
+            String roleNodeId = "role_" + role.getId();
+            nodes.add(new GraphDataDto.Node(roleNodeId, role.getRoleName(), "ROLE", Map.of("description", role.getRoleDesc())));
+            edges.add(new GraphDataDto.Edge(groupNodeId, roleNodeId, "역할 보유"));
+
+            if (role.getRolePermissions().stream().anyMatch(rp -> rp.getPermission().equals(targetPermission))) {
+                accessGranted = true;
+                edges.add(new GraphDataDto.Edge(roleNodeId, permNodeId, "권한 포함 (허용)"));
+            }
+        }
+
+        nodes.add(new GraphDataDto.Node(permNodeId, permLabel, "PERMISSION", Map.of("name", targetPermission.getName(), "granted", accessGranted)));
+
+        if (!accessGranted) {
+            group.getGroupRoles().stream()
+                    .map(gr -> "role_" + gr.getRole().getId())
+                    .forEach(roleNodeId -> edges.add(new GraphDataDto.Edge(roleNodeId, permNodeId, "권한 없음 (거부)")));
+        }
+
+        return new GraphDataDto(
+                new ArrayList<>(new LinkedHashSet<>(nodes)),
+                new ArrayList<>(new LinkedHashSet<>(edges))
+        );
+    }
+
+    // =================================================================
+    //                    기존 메서드 (하위 호환성을 위해 유지)
+    // =================================================================
+
     @Override
     public AccessPathDto analyzeAccessPath(Long subjectId, String subjectType, Long permissionId) {
         Permission targetPermission = permissionRepository.findById(permissionId)
@@ -54,14 +159,12 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
         List<AccessPathNode> path = new ArrayList<>();
         path.add(new AccessPathNode("사용자", user.getName(), user.getUsername()));
 
-        // 사용자가 속한 모든 그룹을 순회하며 경로 탐색
         for (UserGroup userGroup : user.getUserGroups()) {
             Group group = userGroup.getGroup();
             for (GroupRole groupRole : group.getGroupRoles()) {
                 Role role = groupRole.getRole();
                 for (RolePermission rolePermission : role.getRolePermissions()) {
                     if (rolePermission.getPermission().equals(targetPermission)) {
-                        // 성공 경로 발견!
                         log.debug("Access path found for user {} to permission {} via role {}", user.getUsername(), targetPermission.getName(), role.getRoleName());
                         path.add(new AccessPathNode("그룹", group.getName(), group.getDescription()));
                         path.add(new AccessPathNode("역할", role.getRoleName(), role.getRoleDesc()));
@@ -72,7 +175,6 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
             }
         }
 
-        // 모든 경로를 탐색했으나 권한을 찾지 못한 경우
         log.debug("No access path found for user {} to permission {}", user.getUsername(), targetPermission.getName());
         path.add(new AccessPathNode("권한", targetPermission.getDescription(), targetPermission.getName()));
         return new AccessPathDto(path, false, "접근 거부: 해당 권한을 부여하는 경로를 찾을 수 없습니다.");
@@ -99,13 +201,6 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
         return new AccessPathDto(path, false, "접근 거부: 해당 권한을 부여하는 경로를 찾을 수 없습니다.");
     }
 
-
-    /**
-     * [오류 수정 및 로직 개선] findAllByNameIn 오류를 해결하고, 실제 동작하는 로직으로 완성합니다.
-     * 1. 주체(사용자/그룹)의 모든 역할을 순회하며 (권한 이름 -> 획득 경로) 맵을 생성합니다.
-     * 2. 맵의 키(권한 이름 Set)를 사용하여 DB에서 Permission 엔티티를 한번에 조회합니다.
-     * 3. 조회된 Permission 엔티티와 맵의 획득 경로 정보를 조합하여 최종 DTO 리스트를 생성합니다.
-     */
     @Override
     public List<EffectivePermissionDto> getEffectivePermissionsForSubject(Long subjectId, String subjectType) {
         Map<String, String> permissionOrigins = new HashMap<>();
@@ -140,8 +235,6 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
             return Collections.emptyList();
         }
 
-        // permissionRepository에 findAllByNameIn이 없으므로, keySet을 사용하여 조회
-        // name은 unique하므로, 이 방식이 더 효율적일 수 있음
         return permissionRepository.findAllByNameIn(permissionOrigins.keySet()).stream()
                 .map(p -> new EffectivePermissionDto(p.getName(), p.getDescription(), permissionOrigins.get(p.getName())))
                 .sorted(Comparator.comparing(EffectivePermissionDto::permissionDescription))

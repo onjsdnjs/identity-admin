@@ -65,6 +65,7 @@ class StudioState {
 class StudioUI {
     constructor(elements) {
         this.elements = elements;
+        mermaid.initialize({ startOnLoad: false, theme: 'dark' }); // Mermaid 초기화
     }
 
     renderExplorer(data) {
@@ -172,6 +173,114 @@ class StudioUI {
             this.elements.inspectorContent.classList.add('hidden');
             this.elements.inspectorPlaceholder.classList.remove('hidden');
         }
+    }
+
+    async renderAccessGraph(subject, permission, data) {
+        if (!data || !data.nodes || data.nodes.length === 0) {
+            this.showError(this.elements.canvasContent, "그래프 데이터를 생성할 수 없습니다.");
+            return;
+        }
+
+        // Mermaid 초기화 확인
+        if (typeof mermaid === 'undefined') {
+            this.showError(this.elements.canvasContent, "Mermaid 라이브러리가 로드되지 않았습니다.");
+            return;
+        }
+
+        this.elements.canvasContent.innerHTML = `
+        <div id="mermaid-graph-wrapper">
+            <div class="mermaid" id="mermaid-graph-container"></div>
+        </div>`;
+
+        const container = document.getElementById('mermaid-graph-container');
+        if (!container) {
+            this.showError(this.elements.canvasContent, "Mermaid 컨테이너를 생성할 수 없습니다.");
+            return;
+        }
+
+        // Mermaid 문법 생성
+        let mermaidSyntax = 'graph TD\n';
+
+        // 스타일 정의
+        mermaidSyntax += '    classDef userNode fill:#3b82f6,stroke:#2563eb,color:#fff,stroke-width:2px\n';
+        mermaidSyntax += '    classDef groupNode fill:#10b981,stroke:#059669,color:#fff,stroke-width:2px\n';
+        mermaidSyntax += '    classDef roleNode fill:#8b5cf6,stroke:#7c3aed,color:#fff,stroke-width:2px\n';
+        mermaidSyntax += '    classDef permGrantedNode fill:#22c55e,stroke:#16a34a,color:#fff,stroke-width:3px\n';
+        mermaidSyntax += '    classDef permDeniedNode fill:#ef4444,stroke:#dc2626,color:#fff,stroke-width:3px\n';
+
+        // 노드 ID 매핑 (특수문자 처리)
+        const nodeIdMap = new Map();
+
+        // 노드 생성
+        data.nodes.forEach((node, index) => {
+            const safeId = `node_${index}`;
+            nodeIdMap.set(node.id, safeId);
+
+            // 레이블 안전하게 처리
+            const label = this.sanitizeMermaidLabel(node.label || 'N/A');
+            const nodeText = `${node.type}|${label}`;
+
+            // 노드 정의
+            mermaidSyntax += `    ${safeId}["${nodeText}"]\n`;
+
+            // 스타일 적용
+            switch(node.type) {
+                case 'USER':
+                    mermaidSyntax += `    class ${safeId} userNode\n`;
+                    break;
+                case 'GROUP':
+                    mermaidSyntax += `    class ${safeId} groupNode\n`;
+                    break;
+                case 'ROLE':
+                    mermaidSyntax += `    class ${safeId} roleNode\n`;
+                    break;
+                case 'PERMISSION':
+                    if (node.properties?.granted) {
+                        mermaidSyntax += `    class ${safeId} permGrantedNode\n`;
+                    } else {
+                        mermaidSyntax += `    class ${safeId} permDeniedNode\n`;
+                    }
+                    break;
+            }
+        });
+
+        // 엣지 생성
+        data.edges.forEach(edge => {
+            const fromId = nodeIdMap.get(edge.from);
+            const toId = nodeIdMap.get(edge.to);
+            const edgeLabel = this.sanitizeMermaidLabel(edge.label || '');
+
+            if (edgeLabel.includes('거부')) {
+                mermaidSyntax += `    ${fromId} -.-> |"${edgeLabel}"| ${toId}\n`;
+            } else {
+                mermaidSyntax += `    ${fromId} --> |"${edgeLabel}"| ${toId}\n`;
+            }
+        });
+
+        // Mermaid 렌더링
+        container.textContent = mermaidSyntax;
+        container.removeAttribute('data-processed');
+
+        try {
+            await mermaid.init(undefined, container);
+            // 또는 mermaid 버전에 따라
+            // mermaid.contentLoaded();
+        } catch (error) {
+            console.error('Mermaid 렌더링 오류:', error);
+            this.showError(this.elements.canvasContent, "그래프 렌더링 중 오류가 발생했습니다.");
+        }
+
+        this.elements.canvasContent.classList.remove('hidden');
+        this.elements.canvasGuide.classList.add('hidden');
+    }
+
+    sanitizeMermaidLabel(text) {
+        return text
+            .replace(/["`]/g, "'")     // 따옴표 처리
+            .replace(/\n/g, ' ')       // 줄바꿈 제거
+            .replace(/[<>{}]/g, '')    // 특수문자 제거
+            .replace(/\|/g, '\\|')     // 파이프 이스케이프
+            .trim();
     }
 
     buildDetailHtml(item) {
@@ -349,7 +458,11 @@ class StudioAPI {
     }
     getExplorerItems() { return this.fetchApi('/admin/studio/api/explorer-items'); }
     getAccessPath(subjectId, subjectType, permissionId) { return this.fetchApi(`/admin/studio/api/access-path?subjectId=${subjectId}&subjectType=${subjectType}&permissionId=${permissionId}`); }
+    getAccessPathAsGraph(subjectId, subjectType, permissionId) {
+        return this.fetchApi(`/admin/studio/api/access-path-graph?subjectId=${subjectId}&subjectType=${subjectType}&permissionId=${permissionId}`);
+    }
     getEffectivePermissions(subjectId, subjectType) { return this.fetchApi(`/admin/studio/api/effective-permissions?subjectId=${subjectId}&subjectType=${subjectType}`); }
+
 }
 
 // 4. 메인 애플리케이션 클래스
@@ -422,8 +535,10 @@ class StudioApp {
         this.ui.showLoading(this.ui.elements.canvasContent);
 
         try {
-            const data = await this.api.getAccessPath(subject.id, subject.type, permission.id);
-            this.ui.renderAccessPath(subject, permission, data);
+            // [핵심 변경] 그래프 API 호출
+            const data = await this.api.getAccessPathAsGraph(subject.id, subject.type, permission.id);
+            // [핵심 변경] 그래프 렌더링 메서드 호출
+            await this.ui.renderAccessGraph(subject, permission, data);
         } catch (error) {
             this.ui.showError(this.ui.elements.canvasContent, '분석 데이터 로딩 실패');
         }

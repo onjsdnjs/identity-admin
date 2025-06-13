@@ -386,3 +386,21 @@
 .border-red-200 {
     border-color: rgba(239, 68, 68, 0.3) !important;
 }
+
+#canvas-content .mermaid {
+    width: 100%;
+    height: 100%;
+}
+
+.node-type {
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    opacity: 0.8;
+    margin-bottom: 4px;
+}
+
+.node-label {
+    font-size: 14px;
+    font-weight: 500;
+}
