@@ -12,7 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,19 +27,39 @@ public class StudioExplorerServiceImpl implements StudioExplorerService {
     @Override
     public Map<String, List<ExplorerItemDto>> getExplorerItems() {
         List<ExplorerItemDto> users = userRepository.findAll().stream()
-                .map(user -> new ExplorerItemDto(user.getId(), user.getName(), "USER", user.getUsername()))
+                .map(user -> new ExplorerItemDto(
+                        user.getId(),
+                        Optional.ofNullable(user.getName()).orElse("이름 없음"),
+                        "USER",
+                        user.getUsername()
+                ))
                 .toList();
 
         List<ExplorerItemDto> groups = groupRepository.findAll().stream()
-                .map(group -> new ExplorerItemDto(group.getId(), group.getName(), "GROUP", group.getDescription()))
+                .map(group -> new ExplorerItemDto(
+                        group.getId(),
+                        Optional.ofNullable(group.getName()).orElse("이름 없음"),
+                        "GROUP",
+                        Optional.ofNullable(group.getDescription()).orElse("설명 없음")
+                ))
                 .toList();
 
         List<ExplorerItemDto> permissions = permissionCatalogService.getAvailablePermissions().stream()
-                .map(perm -> new ExplorerItemDto(perm.getId(), perm.getDescription(), "PERMISSION", "내부 식별자: " + perm.getName()))
+                .map(perm -> new ExplorerItemDto(
+                        perm.getId(),
+                        Optional.ofNullable(perm.getDescription()).orElse("설명 없음"),
+                        "PERMISSION",
+                        "내부 식별자: " + perm.getName()
+                ))
                 .toList();
 
         List<ExplorerItemDto> policies = policyRepository.findAllWithDetails().stream()
-                .map(policy -> new ExplorerItemDto(policy.getId(), policy.getName(), "POLICY", policy.getFriendlyDescription()))
+                .map(policy -> new ExplorerItemDto(
+                        policy.getId(),
+                        Optional.ofNullable(policy.getName()).orElse("이름 없음"),
+                        "POLICY",
+                        Optional.ofNullable(policy.getFriendlyDescription()).orElse("자동 생성된 요약 정보가 없습니다.")
+                ))
                 .toList();
 
         return Map.of(

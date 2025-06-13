@@ -7,6 +7,7 @@ import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.dto.UserListDto;
 import io.spring.identityadmin.domain.entity.Group;
 import io.spring.identityadmin.domain.entity.Role;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Controller;
@@ -27,6 +28,7 @@ public class UserManagementController {
 	private final GroupService groupService;
 
 	@GetMapping
+	@Operation(summary = "사용자 목록 조회", description = "사용자들의 목록을 조회 할 수 있습니다.")
 	public String getUsers(Model model) {
 		List<UserListDto> users = userManagementService.getUsers();
 		model.addAttribute("users", users);
@@ -34,6 +36,7 @@ public class UserManagementController {
 	}
 
 	@PostMapping
+	@Operation(summary = "사용자 정보 수정", description = "사용자의 정보를 수정 할 수 있습니다.")
 	public String modifyUser(@ModelAttribute("user") UserDto userDto, RedirectAttributes ra) {
 		userManagementService.modifyUser(userDto);
 		ra.addFlashAttribute("message", "사용자 '" + userDto.getUsername() + "' 정보가 성공적으로 수정되었습니다!");
@@ -42,6 +45,7 @@ public class UserManagementController {
 	}
 
 	@GetMapping("/{id}")
+	@Operation(summary = "사용자 정보 조회", description = "사용자의 정보를 조회 할 수 있습니다.")
 	public String getUser(@PathVariable Long id, Model model) {
 		UserDto userDto = userManagementService.getUser(id);
 		List<Role> roleList = roleService.getRolesWithoutExpression();
@@ -61,6 +65,7 @@ public class UserManagementController {
 	}
 
 	@GetMapping("/delete/{id}")
+	@Operation(summary = "사용자 정보 삭제", description = "사용자의 정보을 삭제 할 수 있습니다.")
 	public String removeUser(@PathVariable Long id, RedirectAttributes ra) {
 		userManagementService.deleteUser(id);
 		ra.addFlashAttribute("message", "사용자 (ID: " + id + ")가 성공적으로 삭제되었습니다!");
