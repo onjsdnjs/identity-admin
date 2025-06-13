@@ -35,7 +35,7 @@ public class MySecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .anyRequest().access(customDynamicAuthorizationManager));
-        http.formLogin(Customizer.withDefaults());
+        http.formLogin(form -> form.loginPage("/login"));
         http.authenticationProvider(customAuthenticationProvider);
         http.csrf(AbstractHttpConfigurer::disable);
         return http.build();
