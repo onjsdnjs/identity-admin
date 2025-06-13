@@ -48,7 +48,7 @@ public class StudioExplorerServiceImpl implements StudioExplorerService {
         List<ExplorerItemDto> permissions = permissionCatalogService.getAvailablePermissions().stream()
                 .map(perm -> new ExplorerItemDto(
                         perm.getId(),
-                        perm.getName(),  // name은 name 위치에
+                        perm.getFriendlyName(),
                         "PERMISSION",
                         Optional.ofNullable(perm.getDescription()).orElse("설명 없음")
                 ))

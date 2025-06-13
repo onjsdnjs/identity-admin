@@ -44,18 +44,18 @@ public class PermissionMatrixServiceImpl implements PermissionMatrixService {
                 .toList();
 
         List<String> subjectNames = subjects.stream().map(Group::getName).collect(Collectors.toList());
-        List<String> permissionDescriptions = permissions.stream().map(PermissionDto::getDescription).collect(Collectors.toList());
+        List<String> permissionDescriptions = permissions.stream().map(PermissionDto::getFriendlyName).collect(Collectors.toList());
 
         Map<String, Map<String, String>> matrixData = new HashMap<>();
         for (Group group : subjects) {
             Map<String, String> rowData = new HashMap<>();
             Set<String> groupPermissions = group.getGroupRoles().stream()
                     .flatMap(gr -> gr.getRole().getRolePermissions().stream())
-                    .map(rp -> rp.getPermission().getDescription())
+                    .map(rp -> rp.getPermission().getFriendlyName())
                     .collect(Collectors.toSet());
 
             for (PermissionDto perm : permissions) {
-                rowData.put(perm.getDescription(), groupPermissions.contains(perm.getDescription()) ? "GRANT" : "NONE");
+                rowData.put(perm.getFriendlyName(), groupPermissions.contains(perm.getFriendlyName()) ? "GRANT" : "NONE");
             }
             matrixData.put(group.getName(), rowData);
         }
