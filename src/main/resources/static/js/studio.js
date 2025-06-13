@@ -65,7 +65,15 @@ class StudioState {
 class StudioUI {
     constructor(elements) {
         this.elements = elements;
-        mermaid.initialize({ startOnLoad: false, theme: 'dark' }); // Mermaid 초기화
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: false,  // HTML 비활성화
+                curve: 'basis'
+            }
+        });
     }
 
     renderExplorer(data) {
