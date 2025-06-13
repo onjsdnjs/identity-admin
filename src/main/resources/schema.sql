@@ -56,6 +56,7 @@ CREATE TABLE ROLE (
 CREATE TABLE PERMISSION (
                             permission_id BIGSERIAL PRIMARY KEY,
                             permission_name VARCHAR(255) UNIQUE NOT NULL,
+                            friendly_name VARCHAR(255),
                             description VARCHAR(255),
                             target_type VARCHAR(255),
                             action_type VARCHAR(255),

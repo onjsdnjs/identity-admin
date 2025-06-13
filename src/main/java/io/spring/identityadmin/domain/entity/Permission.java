@@ -23,6 +23,9 @@ public class Permission implements Serializable {
     @Column(name = "permission_name", unique = true, nullable = false)
     private String name;
 
+    @Column(name = "friendly_name")
+    private String friendlyName;
+
     @Column(name = "description", length = 1024)
     private String description;
 

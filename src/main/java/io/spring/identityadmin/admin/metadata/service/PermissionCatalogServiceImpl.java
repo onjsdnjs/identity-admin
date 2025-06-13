@@ -58,7 +58,8 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
                     });
 
             // 3. Permission 정보 업데이트
-            permission.setDescription(resource.getFriendlyName());
+            permission.setFriendlyName(resource.getFriendlyName());
+            permission.setDescription(resource.getDescription());
             permission.setTargetType(resource.getResourceType().name());
             permission.setActionType(resource.getHttpMethod() != null ? resource.getHttpMethod().name() : "ACCESS");
 
