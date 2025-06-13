@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 public class WizardSession {
 
     @Id
-    @Column(name = "id", length = 36)
+    @Column(name = "session_id", length = 36)
     private String id;
 
     @Lob
