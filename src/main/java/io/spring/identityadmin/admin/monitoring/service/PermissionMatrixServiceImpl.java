@@ -24,22 +24,21 @@ import java.util.stream.Collectors;
 public class PermissionMatrixServiceImpl implements PermissionMatrixService {
 
     private final GroupRepository groupRepository;
-    private final PermissionRepository permissionRepository;
     private final PermissionCatalogService permissionCatalogService;
 
     @Override
     @Transactional(readOnly = true)
     public PermissionMatrixDto getPermissionMatrix() {
-        // 필터가 없는 경우, 모든 주체와 권한을 대상으로 조회
         return getPermissionMatrix(new MatrixFilter(null, null, null));
     }
 
     @Override
     @Transactional(readOnly = true)
     public PermissionMatrixDto getPermissionMatrix(MatrixFilter filter) {
-        List<Group> subjects = groupRepository.findAllWithRolesAndPermissions();
+        List<Group> subjects = (filter != null && !CollectionUtils.isEmpty(filter.subjectIds()))
+                ? groupRepository.findAllById(filter.subjectIds())
+                : groupRepository.findAllWithRolesAndPermissions();
 
-        // [최종 수정] 대시보드 요약용으로 모든 권한 대신, 주요 권한 5개만 선택
         List<PermissionDto> permissions = permissionCatalogService.getAvailablePermissions().stream()
                 .limit(5)
                 .toList();

@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -27,8 +28,7 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
 
         // isManaged가 true 이고, 의미있는 이름(@Operation summary)을 가진 리소스만 필터링
         List<ManagedResource> resourcesToSync = discoveredResources.stream()
-                .filter(ManagedResource::isManaged)
-                .filter(r -> r.getFriendlyName() != null && !r.getFriendlyName().startsWith("미정의 리소스"))
+                .filter(ManagedResource::isDefined)
                 .toList();
 
         for (ManagedResource resource : resourcesToSync) {
@@ -52,7 +52,7 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
     @Override
     @Transactional(readOnly = true)
     public List<PermissionDto> getAvailablePermissions() {
-        return permissionRepository.findAll().stream()
+        return permissionRepository.findDefinedPermissions().stream()
                 .map(p -> modelMapper.map(p, PermissionDto.class))
                 .toList();
     }
