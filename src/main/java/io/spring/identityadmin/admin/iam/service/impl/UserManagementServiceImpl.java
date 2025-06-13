@@ -1,9 +1,7 @@
 package io.spring.identityadmin.admin.iam.service.impl;
 
 import io.spring.identityadmin.admin.iam.service.UserManagementService;
-import io.spring.identityadmin.domain.entity.Group;
-import io.spring.identityadmin.domain.entity.UserGroup;
-import io.spring.identityadmin.domain.entity.Users;
+import io.spring.identityadmin.domain.entity.*;
 import io.spring.identityadmin.repository.GroupRepository;
 import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.dto.UserListDto;
@@ -22,6 +20,7 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service("userManagementService")
@@ -36,7 +35,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Transactional
     @Override
     @CacheEvict(value = "usersWithAuthorities", key = "#userDto.username", allEntries = true)
-    @PreAuthorize("#dynamicRule.getValue(#root)")
+//    @PreAuthorize("#dynamicRule.getValue(#root)")
     public void modifyUser(@ModelAttribute UserDto userDto){
         Users users = userRepository.findById(userDto.getId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userDto.getId()));
@@ -63,11 +62,12 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     @Transactional(readOnly = true)
 //    @PreAuthorize("#dynamicRule.getValue(#root)")
-    @PreAuthorize("hasPermission(#id, 'Document', 'WRITE')")
+//    @PreAuthorize("hasPermission(#id, 'Document', 'WRITE')")
     public UserDto getUser(Long id) {
         Users users = userRepository.findByIdWithGroupsRolesAndPermissions(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));
-        /*List<String> roles = users.getUserGroups().stream()
+        UserDto userDto = modelMapper.map(users, UserDto.class);
+        List<String> roles = users.getUserGroups().stream()
                 .map(UserGroup::getGroup)
                 .filter(java.util.Objects::nonNull)
                 .flatMap(group -> group.getGroupRoles().stream())
@@ -100,13 +100,13 @@ public class UserManagementServiceImpl implements UserManagementService {
             userDto.setSelectedGroupIds(List.of());
         }
 
-        log.debug("Fetched user {} with roles: {} and permissions: {}", users.getUsername(), roles, permissions);*/
-        return modelMapper.map(users, UserDto.class);
+        log.debug("Fetched user {} with roles: {} and permissions: {}", users.getUsername(), roles, permissions);
+        return userDto;
     }
 
 
     @Transactional(readOnly = true)
-    @PreAuthorize("#dynamicRule.getValue(#root)")
+//    @PreAuthorize("#dynamicRule.getValue(#root)")
     public List<UserListDto> getUsers() {
         return userRepository.findAllWithDetails().stream()
                 .map(user -> {
@@ -120,7 +120,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @Transactional
     @CacheEvict(value = "usersWithAuthorities", key = "#id")
-    @PreAuthorize("#dynamicRule.getValue(#root)")
+//    @PreAuthorize("#dynamicRule.getValue(#root)")
     public void deleteUser(Long id) {
         userRepository.deleteById(id);
         log.info("User ID {} deleted.", id);

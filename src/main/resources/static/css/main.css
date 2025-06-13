@@ -3,40 +3,42 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 루트 변수 정의 - 다크모드 지원 */
+/* 루트 변수 정의 - 다크 테마 기본 */
 :root {
     --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --gradient-secondary: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     --gradient-accent: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-    --gradient-dark: linear-gradient(135deg, #1a1c20 0%, #2d3436 100%);
-    --glass-bg: rgba(255, 255, 255, 0.1);
-    --glass-border: rgba(255, 255, 255, 0.2);
+    --gradient-dark: linear-gradient(135deg, #0a0f1c 0%, #0f172a 100%);
+    --glass-bg: rgba(15, 23, 42, 0.6);
+    --glass-border: rgba(71, 85, 105, 0.3);
     --shadow-glow: 0 0 40px rgba(102, 126, 234, 0.5);
-    --shadow-card: 0 20px 40px -12px rgba(0, 0, 0, 0.25);
+    --shadow-card: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
 }
 
-/* 다크모드 변수 */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --glass-bg: rgba(0, 0, 0, 0.3);
-        --glass-border: rgba(255, 255, 255, 0.1);
-    }
-}
-
-/* 기본 body 스타일 - 모던 그라디언트 배경 */
+/* 기본 body 스타일 - 다크 테마 그라디언트 배경 */
 body {
-    @apply bg-app-light-gray text-app-dark-gray font-sans antialiased;
-    background: linear-gradient(120deg, #f6f7ff 0%, #f5f7ff 25%, #eff2ff 50%, #f3f5ff 100%);
+    @apply font-sans antialiased;
+    background: linear-gradient(135deg, #050810 0%, #0a0f1c 25%, #0f172a 50%, #0a0f1c 75%, #050810 100%);
+    background-attachment: fixed;
     min-height: 100vh;
     position: relative;
+    color: #e2e8f0;
 }
 
-/* 다크모드 body */
-@media (prefers-color-scheme: dark) {
-    body {
-        @apply bg-gray-900 text-gray-100;
-        background: linear-gradient(120deg, #0f1419 0%, #1a1f2e 25%, #16213e 50%, #0f1419 100%);
-    }
+/* 배경에 노이즈 텍스처 효과 추가 */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image:
+            radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+            radial-gradient(circle at 40% 20%, rgba(34, 211, 238, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: -1;
 }
 
 /* 애니메이션 정의 */
@@ -109,8 +111,8 @@ body {
 }
 
 .btn-secondary {
-    @apply text-app-dark-gray;
-    background: linear-gradient(135deg, #e0e0e0 0%, #f5f5f5 100%);
+    @apply text-gray-200;
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
     backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border);
 }
@@ -121,30 +123,33 @@ body {
     box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
 }
 
-/* 폼 입력 - 글래스모피즘과 애니메이션 */
+/* 폼 입력 - 다크 테마 글래스모피즘 */
 .form-input {
     @apply block w-full px-4 py-3 border rounded-xl
-    shadow-sm placeholder-gray-400
+    shadow-sm placeholder-gray-500
     focus:outline-none focus:ring-2 focus:ring-app-input-focus-border
     sm:text-sm transition-all duration-300;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(30, 41, 59, 0.6);
     backdrop-filter: blur(10px);
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: rgba(71, 85, 105, 0.5);
+    color: #e2e8f0;
 }
 
 .form-input:focus {
-    background: rgba(255, 255, 255, 1);
+    background: rgba(30, 41, 59, 0.8);
     transform: translateY(-2px);
     box-shadow: 0 10px 25px -5px rgba(102, 126, 234, 0.3);
     animation: pulse-border 2s infinite;
+    border-color: rgba(99, 102, 241, 0.5);
 }
 
 .form-label {
-    @apply block text-sm font-semibold text-gray-700 mb-2;
+    @apply block text-sm font-semibold mb-2;
+    color: #cbd5e1;
     letter-spacing: 0.5px;
 }
 
-/* 카드 컴포넌트 - 글래스모피즘 */
+/* 카드 컴포넌트 - 다크 글래스모피즘 */
 .card {
     @apply rounded-2xl p-6;
     background: var(--glass-bg);
@@ -157,28 +162,32 @@ body {
 .card:hover {
     transform: translateY(-5px);
     box-shadow: var(--shadow-glow), var(--shadow-card);
+    border-color: rgba(99, 102, 241, 0.3);
 }
 
-/* Toast 메시지 - 모던 스타일 */
+/* Toast 메시지 - 다크 테마 스타일 */
 .toast-success {
-    background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%);
     backdrop-filter: blur(10px);
     border-left: 4px solid #10b981;
     animation: slideInFromTop 0.4s ease-out;
+    color: white;
 }
 
 .toast-error {
-    background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.9) 0%, rgba(220, 38, 38, 0.9) 100%);
     backdrop-filter: blur(10px);
     border-left: 4px solid #ef4444;
     animation: slideInFromTop 0.4s ease-out;
+    color: white;
 }
 
 .toast-info {
-    background: linear-gradient(135deg, #2196f3 0%, #21cbf3 100%);
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.9) 0%, rgba(30, 136, 229, 0.9) 100%);
     backdrop-filter: blur(10px);
     border-left: 4px solid #3b82f6;
     animation: slideInFromTop 0.4s ease-out;
+    color: white;
 }
 
 /* MFA 단계 - 부드러운 전환 */
@@ -199,32 +208,42 @@ body {
     width: 100%;
 }
 
-/* 테이블 - 모던 스타일 */
+/* 테이블 - 다크 모던 스타일 */
 table {
     @apply rounded-xl overflow-hidden;
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(30, 41, 59, 0.6);
     backdrop-filter: blur(10px);
 }
 
 thead {
-    background: var(--gradient-primary);
+    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+}
+
+thead th {
+    @apply text-gray-200;
 }
 
 tbody tr {
     @apply transition-all duration-200;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+    color: #e2e8f0;
 }
 
 tbody tr:hover {
-    background: linear-gradient(90deg, rgba(102, 126, 234, 0.1) 0%, rgba(102, 126, 234, 0.05) 100%);
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%);
     transform: scale(1.01);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* 링크 - 현대적 효과 */
 a {
     @apply transition-all duration-300;
     position: relative;
+    color: #93c5fd;
+}
+
+a:hover {
+    color: #dbeafe;
 }
 
 a::after {
@@ -242,23 +261,23 @@ a:hover::after {
     width: 100%;
 }
 
-/* 사이드바 - 글래스모피즘 */
+/* 사이드바 - 다크 글래스모피즘 */
 aside nav {
-    background: linear-gradient(180deg, rgba(69, 90, 100, 0.95) 0%, rgba(55, 71, 79, 0.95) 100%);
+    background: linear-gradient(180deg, rgba(10, 15, 28, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
     backdrop-filter: blur(20px);
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid rgba(71, 85, 105, 0.3);
 }
 
 /* 헤더 - 그라디언트와 그림자 */
 header {
     background: var(--gradient-dark);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(10px);
 }
 
 /* 애니메이션 로딩 효과 */
 .loading-skeleton {
-    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
     background-size: 200% 100%;
     animation: loading 1.5s infinite;
 }
@@ -275,36 +294,36 @@ header {
 }
 
 ::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.1);
+    background: #0a0f1c;
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: var(--gradient-primary);
+    background: linear-gradient(180deg, #6366f1, #4f46e5);
     border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: var(--gradient-secondary);
+    background: linear-gradient(180deg, #818cf8, #6366f1);
 }
 
 /* 워크벤치 특별 스타일 */
 .explorer-item {
     @apply p-3 rounded-lg cursor-pointer transition-all duration-300;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(30, 41, 59, 0.5);
     border: 1px solid transparent;
 }
 
 .explorer-item:hover {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(102, 126, 234, 0.05) 100%);
-    border-color: rgba(102, 126, 234, 0.3);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(99, 102, 241, 0.1) 100%);
+    border-color: rgba(99, 102, 241, 0.3);
     transform: translateX(5px);
 }
 
 .explorer-item.selected {
     background: var(--gradient-primary);
     color: white;
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
 }
 
 /* 액션 버튼 - 플로팅 효과 */
@@ -331,32 +350,285 @@ header {
     }
 
     body {
-        background: linear-gradient(180deg, #f6f7ff 0%, #eff2ff 100%);
+        background: linear-gradient(180deg, #050810 0%, #0f172a 100%);
     }
 }
 
-/* 다크모드 추가 스타일 */
-@media (prefers-color-scheme: dark) {
-    .form-input {
-        background: rgba(0, 0, 0, 0.5);
-        border-color: rgba(255, 255, 255, 0.1);
-        color: white;
-    }
+/* 페이지별 특별 스타일 - 필요시 사용 */
+.page-dashboard {
+    background: transparent !important;
+}
 
-    .form-input:focus {
-        background: rgba(0, 0, 0, 0.7);
-    }
+.page-studio {
+    background: transparent !important;
+}
 
-    .card {
-        background: rgba(0, 0, 0, 0.5);
-        border-color: rgba(255, 255, 255, 0.1);
-    }
+/* 관리자 페이지 레이아웃 */
+.admin-main-content {
+    @apply flex-1 p-6 lg:p-8 overflow-y-auto;
+    max-width: none !important;
+}
 
-    table {
-        background: rgba(0, 0, 0, 0.5);
-    }
+.admin-content-wrapper {
+    @apply w-full;
+    /* 사이드바 있을 때 여백 고려하여 전체 너비 사용 */
+}
 
-    tbody tr:hover {
-        background: linear-gradient(90deg, rgba(102, 126, 234, 0.2) 0%, rgba(102, 126, 234, 0.1) 100%);
+@media (max-width: 768px) {
+    .admin-main-content {
+        @apply p-4;
     }
+}
+
+/* 다크 테마 카드 */
+.dark-card {
+    @apply rounded-xl p-6;
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(71, 85, 105, 0.3) !important;
+    box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark-card-header {
+    @apply mb-6 pb-4;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.3) !important;
+}
+
+/* 다크 테마 테이블 */
+.dark-table {
+    @apply w-full text-sm;
+    min-width: 100% !important;
+    background: rgba(30, 41, 59, 0.6) !important;
+    backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(71, 85, 105, 0.3) !important;
+    border-radius: 0.75rem !important;
+    overflow: hidden !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+}
+
+.dark-table thead {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(51, 65, 85, 0.9) 100%) !important;
+}
+
+.dark-table thead th {
+    @apply px-6 py-4 text-left text-xs font-bold uppercase tracking-wider whitespace-nowrap;
+    color: #e2e8f0 !important;
+    border-bottom: 2px solid rgba(99, 102, 241, 0.3) !important;
+}
+
+.dark-table tbody {
+    background: rgba(15, 23, 42, 0.5) !important;
+}
+
+.dark-table tbody tr {
+    @apply transition-all duration-200;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.2) !important;
+}
+
+.dark-table tbody tr:hover {
+    background: rgba(99, 102, 241, 0.1) !important;
+}
+
+.dark-table tbody td {
+    @apply px-6 py-4 whitespace-nowrap;
+    color: #e2e8f0 !important;
+}
+
+/* 다크 테마 폼 요소 */
+.dark-input {
+    @apply block w-full px-4 py-3 rounded-xl transition-all duration-300;
+    background: rgba(30, 41, 59, 0.6) !important;
+    border: 2px solid rgba(71, 85, 105, 0.5) !important;
+    color: #e2e8f0 !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+.dark-input:focus {
+    background: rgba(30, 41, 59, 0.8) !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+    outline: none !important;
+}
+
+.dark-input::placeholder {
+    color: #64748b !important;
+}
+
+.dark-input:read-only {
+    background: rgba(30, 41, 59, 0.3) !important;
+    color: #94a3b8 !important;
+}
+
+.dark-label {
+    @apply block text-sm font-semibold mb-2;
+    color: #cbd5e1 !important;
+    letter-spacing: 0.5px !important;
+}
+
+.dark-select {
+    @apply dark-input;
+    cursor: pointer !important;
+}
+
+.dark-checkbox {
+    @apply mr-2 h-4 w-4 rounded;
+    background: rgba(30, 41, 59, 0.6) !important;
+    border: 2px solid rgba(71, 85, 105, 0.5) !important;
+}
+
+.dark-checkbox:checked {
+    background: #6366f1 !important;
+    border-color: #6366f1 !important;
+}
+
+/* 다크 테마 버튼 */
+.dark-btn-primary {
+    @apply px-6 py-3 rounded-xl font-semibold transition-all duration-300;
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4) !important;
+}
+
+.dark-btn-primary:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6) !important;
+}
+
+.dark-btn-secondary {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-300;
+    background: rgba(30, 41, 59, 0.6) !important;
+    color: #e2e8f0 !important;
+    border: 1px solid rgba(71, 85, 105, 0.5) !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+.dark-btn-secondary:hover {
+    background: rgba(30, 41, 59, 0.8) !important;
+    border-color: #6366f1 !important;
+    transform: translateY(-1px) !important;
+}
+
+/* 액션 링크 */
+.dark-action-link {
+    @apply px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 inline-block;
+    background: rgba(99, 102, 241, 0.2) !important;
+    color: #818cf8 !important;
+    border: 1px solid rgba(99, 102, 241, 0.3) !important;
+}
+
+.dark-action-link:hover {
+    background: rgba(99, 102, 241, 0.3) !important;
+    color: #a5b4fc !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3) !important;
+}
+
+.dark-action-link.danger {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+    border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.dark-action-link.danger:hover {
+    background: rgba(239, 68, 68, 0.3) !important;
+    color: #fca5a5 !important;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3) !important;
+}
+
+/* 상태 뱃지 */
+.dark-badge {
+    @apply px-3 py-1 rounded-full text-xs font-semibold;
+}
+
+.dark-badge.success {
+    background: rgba(34, 197, 94, 0.2) !important;
+    color: #4ade80 !important;
+    border: 1px solid rgba(34, 197, 94, 0.3) !important;
+}
+
+.dark-badge.danger {
+    background: rgba(239, 68, 68, 0.2) !important;
+    color: #f87171 !important;
+    border: 1px solid rgba(239, 68, 68, 0.3) !important;
+}
+
+.dark-badge.info {
+    background: rgba(59, 130, 246, 0.2) !important;
+    color: #60a5fa !important;
+    border: 1px solid rgba(59, 130, 246, 0.3) !important;
+}
+
+/* 섹션 구분선 */
+.dark-divider {
+    @apply my-6;
+    border-top: 1px solid rgba(71, 85, 105, 0.3) !important;
+}
+
+/* 스크롤 영역 */
+.dark-scroll {
+    @apply overflow-y-auto;
+    scrollbar-width: thin;
+    scrollbar-color: #475569 #1e293b;
+}
+
+.dark-scroll::-webkit-scrollbar {
+    width: 8px;
+}
+
+.dark-scroll::-webkit-scrollbar-track {
+    background: #1e293b;
+    border-radius: 4px;
+}
+
+.dark-scroll::-webkit-scrollbar-thumb {
+    background: #475569;
+    border-radius: 4px;
+}
+
+.dark-scroll::-webkit-scrollbar-thumb:hover {
+    background: #64748b;
+}
+
+/* 체크박스 그룹 */
+.dark-checkbox-group {
+    @apply p-4 rounded-lg;
+    background: rgba(30, 41, 59, 0.4) !important;
+    border: 1px solid rgba(71, 85, 105, 0.3) !important;
+}
+
+.dark-checkbox-item {
+    @apply p-2 rounded-md transition-all duration-200;
+}
+
+.dark-checkbox-item:hover {
+    background: rgba(99, 102, 241, 0.1) !important;
+}
+
+/* 텍스트 색상 유틸리티 */
+.text-dark-primary {
+    color: #e2e8f0 !important;
+}
+
+.text-dark-secondary {
+    color: #cbd5e1 !important;
+}
+
+.text-dark-muted {
+    color: #94a3b8 !important;
+}
+
+/* 유틸리티 클래스 */
+.text-gradient {
+    @apply bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent;
+}
+
+.bg-dark-glass {
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(20px);
+}
+
+.border-glass {
+    border: 1px solid rgba(71, 85, 105, 0.3);
 }

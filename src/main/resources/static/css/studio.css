@@ -112,19 +112,19 @@
     background: linear-gradient(90deg, transparent, #f59e0b, transparent) !important;
 }
 
-/* 아이콘 숨기기 */
+/* 아이콘 숨기기 (원본처럼) */
 .accordion-header .accordion-icon {
     display: none !important;
 }
 
-/* 콘텐츠 항상 표시 */
+/* 콘텐츠 항상 표시 (원본처럼) */
 .accordion-content {
     max-height: none !important;
     background: transparent !important;
     overflow: visible !important;
 }
 
-/* Explorer 아이템을 카드 스타일로 */
+/* Explorer 아이템 검색 시 숨김 처리 강화 */
 .explorer-item {
     position: relative !important;
     display: flex !important;
@@ -139,6 +139,14 @@
     cursor: pointer !important;
     transition: all 300ms !important;
     overflow: hidden !important;
+}
+
+.explorer-item[style*="display: none"] {
+    display: none !important;
+}
+
+.explorer-item:not([style*="display: none"]) {
+    display: flex !important;
 }
 
 .explorer-item:hover {

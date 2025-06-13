@@ -36,7 +36,7 @@ public class RuleBasedRecommendationServiceImpl implements PermissionRecommendat
 
         Users targetUser = userRepository.findByIdWithGroupsRolesAndPermissions(subjectContext.subjectId())
                 .orElseThrow(() -> new IllegalArgumentException("Target user not found"));
-        Set<String> targetUserPermissions = targetUser.getPermissionNames().stream().collect(Collectors.toSet());
+        Set<String> targetUserPermissions = new HashSet<>(targetUser.getPermissionNames());
 
         List<Users> otherUsersInSameGroup = userRepository.findAll().stream()
                 .filter(u -> !u.getId().equals(targetUser.getId()) && u.getUserGroups().stream()

@@ -228,12 +228,90 @@ class StudioUI {
     }
 
     filterExplorer(term) {
-        this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
-            const name = (item.dataset.name || '').toLowerCase();
-            const description = (item.dataset.description || '').toLowerCase();
-            const isVisible = name.includes(term) || description.includes(term);
-            item.style.display = isVisible ? 'flex' : 'none';
+        const searchTerm = term.trim().toLowerCase();
+
+        // 모든 아코디언 섹션을 순회
+        this.elements.explorerListContainer.querySelectorAll('.accordion').forEach(accordion => {
+            const header = accordion.querySelector('.accordion-header');
+            const content = accordion.querySelector('.accordion-content');
+            const items = content.querySelectorAll('.explorer-item');
+            let visibleCount = 0;
+
+            // 각 아이템의 표시 여부 결정
+            items.forEach(item => {
+                const name = (item.dataset.name || '').toLowerCase();
+                const description = (item.dataset.description || '').toLowerCase();
+
+                // 검색어가 없으면 모두 표시
+                if (!searchTerm) {
+                    item.style.setProperty('display', 'flex', 'important');
+                    visibleCount++;
+                } else {
+                    // 검색어가 있으면 매칭되는 것만 표시
+                    const matches = name.includes(searchTerm) || description.includes(searchTerm);
+                    if (matches) {
+                        item.style.setProperty('display', 'flex', 'important');
+                        visibleCount++;
+                    } else {
+                        item.style.setProperty('display', 'none', 'important');
+                    }
+                }
+            });
+
+            // 검색어가 있고 매칭되는 아이템이 있으면 아코디언 열기
+            if (searchTerm && visibleCount > 0) {
+                accordion.style.display = 'block';
+                if (!header.classList.contains('open')) {
+                    header.classList.add('open');
+                    const icon = header.querySelector('.accordion-icon');
+                    if (icon) icon.classList.add('rotate-180');
+                }
+                // DOM 업데이트 후 높이 재계산
+                requestAnimationFrame(() => {
+                    content.style.maxHeight = content.scrollHeight + "px";
+                });
+            }
+            // 검색어가 있고 매칭되는 아이템이 없으면 섹션 숨기기
+            else if (searchTerm && visibleCount === 0) {
+                accordion.style.display = 'none';
+                content.style.maxHeight = '0px';
+            }
+            // 검색어가 없으면 모든 섹션 표시하고 아코디언 닫기
+            else if (!searchTerm) {
+                accordion.style.display = 'block';
+                if (header.classList.contains('open')) {
+                    header.classList.remove('open');
+                    const icon = header.querySelector('.accordion-icon');
+                    if (icon) icon.classList.remove('rotate-180');
+                    content.style.maxHeight = '0px';
+                }
+            }
         });
+
+        // 검색 결과가 하나도 없을 때 메시지 표시
+        const allAccordions = this.elements.explorerListContainer.querySelectorAll('.accordion');
+        let totalVisibleItems = 0;
+        allAccordions.forEach(acc => {
+            if (acc.style.display !== 'none') {
+                const visibleItems = acc.querySelectorAll('.explorer-item[style*="display: flex"]');
+                totalVisibleItems += visibleItems.length;
+            }
+        });
+
+        // 기존 "검색 결과 없음" 메시지 제거
+        const noResultMsg = this.elements.explorerListContainer.querySelector('.no-search-results');
+        if (noResultMsg) noResultMsg.remove();
+
+        // 검색어가 있고 결과가 없을 때
+        if (searchTerm && totalVisibleItems === 0) {
+            const noResultsHtml = `
+                <div class="no-search-results p-8 text-center text-slate-400">
+                    <i class="fas fa-search text-4xl mb-4"></i>
+                    <p class="text-lg font-semibold">검색 결과가 없습니다</p>
+                    <p class="text-sm mt-2">'${searchTerm}'와(과) 일치하는 항목을 찾을 수 없습니다.</p>
+                </div>`;
+            this.elements.explorerListContainer.insertAdjacentHTML('beforeend', noResultsHtml);
+        }
     }
 }
 
