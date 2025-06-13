@@ -23,9 +23,10 @@
                     <thead class="text-xs text-white uppercase bg-app-secondary">
                     <tr>
                         <th scope="col" class="py-3.5 px-6 font-semibold">ID</th>
-                        <th scope="col" class="py-3.5 px-6 font-semibold">정책명</th>
-                        <th scope="col" class="py-3.5 px-6 font-semibold">적용 대상 (Targets)</th>
-                        <th scope="col" class="py-3.5 px-6 font-semibold">효과</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">정책명 (Name)</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">설명</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">적용대상</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">효과 (Effect)</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">우선순위</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">관리</th>
                     </tr>
@@ -38,7 +39,6 @@
                             <p class="text-slate-500" th:text="${policy.description}">관리자 전체 접근 권한</p>
                         </td>
                         <td class="py-4 px-6 text-sm text-slate-600 font-mono" th:text="${policy.description}"></td>
-                        <td class="py-4 px-6">
                         <td class="py-4 px-6">
                             <div th:each="target : ${policy.targets}" class="mb-1">
                                 <span th:text="${target.targetType}" class="font-bold text-xs bg-slate-100 p-1 rounded">URL</span>
