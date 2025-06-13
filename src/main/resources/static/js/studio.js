@@ -150,7 +150,7 @@ class StudioUI {
             <div class="space-y-2">${permsHtml.length > 0 ? permsHtml : '<p class="text-slate-500 p-4 bg-slate-50 rounded-md text-center">부여된 권한이 없습니다.</p>'}</div>`;
     }
 
-    renderInspector(state) {
+    renderInspector(state, analysisData) {
         const subject = state.getSubject();
         const permission = state.getPermission();
         this.elements.inspectorContent.innerHTML = '';
@@ -166,9 +166,23 @@ class StudioUI {
         detailsHtml += '</div>';
 
         let actionsHtml = '<h3 class="font-bold text-lg mb-2 mt-4 border-t pt-4">실행 가능한 작업</h3>';
+
         if (subject && permission) {
-            const title = `'${subject.name}'에게 '${permission.name}' 권한을 부여하는 정책을 생성합니다.`;
-            actionsHtml += `<button id="grant-btn" class="w-full btn-primary text-sm py-2" title="${title}">권한 부여하기</button>`;
+            // [수정] analysisData를 확인하여 접근 허용 여부를 판단합니다.
+            let isAccessGranted = false;
+            if (analysisData && analysisData.nodes) {
+                const permNode = analysisData.nodes.find(n => n.type === 'PERMISSION');
+                if (permNode && permNode.properties) {
+                    isAccessGranted = permNode.properties.granted;
+                }
+            }
+
+            if (isAccessGranted) {
+                actionsHtml += `<div class="p-3 text-center bg-green-100 text-green-800 rounded-lg text-sm font-semibold"><i class="fas fa-check-circle mr-2"></i>이미 권한을 보유하고 있습니다.</div>`;
+            } else {
+                const title = `'${subject.name}'에게 '${permission.name}' 권한을 부여하는 정책을 생성합니다.`;
+                actionsHtml += `<button id="grant-btn" class="w-full btn-primary text-sm py-2" title="${title}">권한 부여하기</button>`;
+            }
         } else {
             actionsHtml += '<p class="text-sm text-slate-500">주체와 권한을 함께 선택하면<br/>관련 작업을 실행할 수 있습니다.</p>';
         }
@@ -526,16 +540,18 @@ class StudioApp {
     }
 
     async updateCanvasAndInspector() {
-        this.ui.renderInspector(this.state);
+        // renderInspector를 try 블록 안으로 이동시키고, API 결과(data)를 전달합니다.
         const subject = this.state.getSubject();
         const permission = this.state.getPermission();
 
         if (!subject) {
             this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg font-bold">1. 왼쪽 탐색기에서 분석할 \'주체\'를 선택하세요.</p><p class="text-sm text-slate-400">사용자 또는 그룹을 클릭할 수 있습니다.</p>');
+            this.ui.renderInspector(this.state, null); // 선택이 없을 때도 Inspector는 업데이트
             return;
         }
         if (!permission) {
             this.ui.showGuide(`<div class="text-center"><i class="fas fa-check-circle text-4xl text-green-500"></i><p class="mt-4 text-lg font-bold">'<strong>${subject.name}</strong>' 선택됨.</p><p class="mt-2 text-slate-500">2. 이제 분석하고 싶은 '권한'을 선택하여 접근 경로를 확인하세요.</p></div>`);
+            this.ui.renderInspector(this.state, null); // 선택이 없을 때도 Inspector는 업데이트
             return;
         }
 
@@ -543,12 +559,14 @@ class StudioApp {
         this.ui.showLoading(this.ui.elements.canvasContent);
 
         try {
-            // [핵심 변경] 그래프 API 호출
             const data = await this.api.getAccessPathAsGraph(subject.id, subject.type, permission.id);
-            // [핵심 변경] 그래프 렌더링 메서드 호출
             await this.ui.renderAccessGraph(subject, permission, data);
+            // API 호출 성공 후, 그 결과를 renderInspector에 전달
+            this.ui.renderInspector(this.state, data);
         } catch (error) {
             this.ui.showError(this.ui.elements.canvasContent, '분석 데이터 로딩 실패');
+            // 에러 발생 시에도 Inspector는 현재 선택 상태만으로 업데이트
+            this.ui.renderInspector(this.state, null);
         }
     }
 
