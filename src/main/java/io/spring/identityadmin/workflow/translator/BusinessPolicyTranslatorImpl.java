@@ -1,5 +1,7 @@
 package io.spring.identityadmin.workflow.translator;
 
+import io.spring.identityadmin.domain.entity.FunctionCatalog;
+import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.domain.entity.policy.PolicyRule;
@@ -29,42 +31,53 @@ public class BusinessPolicyTranslatorImpl implements BusinessPolicyTranslator {
                 .priority(500) // 중간 우선순위
                 .build();
 
-        // 1. 주체(Who) SpEL 조건 생성
-        String subjectExpression = context.subjectIds().stream()
-                .map(id -> "hasAuthority('USER_" + id + "')") // 예시: 주체 타입을 구분해야 함
+        List<String> conditions = new ArrayList<>();
+
+        // [오류 수정] 존재하지 않는 subjectIds() 대신, 올바른 subjects() 메서드를 사용하여 SpEL 조건을 생성합니다.
+        String subjectExpression = context.subjects().stream()
+                .map(subject -> String.format("hasAuthority('%s_%d')", subject.type(), subject.id()))
                 .collect(Collectors.joining(" or "));
 
-        // 2. 권한(What) SpEL 조건 생성
-        String permissionExpression = context.permissionIds().stream()
-                .map(id -> permissionRepository.findById(id).orElseThrow().getName())
-                .map(name -> "hasAuthority('" + name + "')")
+        if (!subjectExpression.isEmpty()) {
+            conditions.add("(" + subjectExpression + ")");
+        }
+
+        // 권한(What) SpEL 조건 생성
+        List<Permission> permissions = permissionRepository.findAllById(context.permissionIds());
+        String permissionExpression = permissions.stream()
+                .map(Permission::getName)
+                .map(name -> String.format("hasAuthority('%s')", name))
                 .collect(Collectors.joining(" and "));
 
-        List<String> conditions = new ArrayList<>();
-        if (!subjectExpression.isEmpty()) conditions.add("(" + subjectExpression + ")");
-        if (!permissionExpression.isEmpty()) conditions.add("(" + permissionExpression + ")");
+        if (!permissionExpression.isEmpty()) {
+            conditions.add("(" + permissionExpression + ")");
+        }
 
+        // 규칙(Rule) 엔티티 생성
         PolicyRule rule = PolicyRule.builder()
                 .policy(policy)
-                .description("Wizard-generated rule")
-                .conditions(conditions.stream()
-                        .map(expr -> PolicyCondition.builder().expression(expr).build())
-                        .collect(Collectors.toSet()))
+                .description("Wizard-generated rule for: " + context.policyDescription())
                 .build();
 
-        // Rule의 Condition 들에 Rule 참조 설정
-        rule.getConditions().forEach(c -> c.setRule(rule));
+        Set<PolicyCondition> policyConditions = conditions.stream()
+                .map(expr -> PolicyCondition.builder().expression(expr).rule(rule).build())
+                .collect(Collectors.toSet());
+        rule.setConditions(policyConditions);
 
-        // 3. 대상(Target) 설정 - 모든 권한의 Target Type을 가져와 설정해야 함
-        // 여기서는 예시로 모든 URL을 대상으로 설정
-        PolicyTarget target = PolicyTarget.builder()
-                .policy(policy)
-                .targetType("URL")
-                .targetIdentifier("/**")
-                .build();
+        // 대상(Target) 엔티티 생성
+        Set<PolicyTarget> targets = permissions.stream()
+                .flatMap(p -> p.getFunctions().stream())
+                .map(FunctionCatalog::getManagedResource)
+                .map(mr -> PolicyTarget.builder()
+                        .policy(policy)
+                        .targetType(mr.getResourceType().name())
+                        .httpMethod(mr.getHttpMethod() != null ? mr.getHttpMethod().name() : null)
+                        .targetIdentifier(mr.getResourceIdentifier())
+                        .build())
+                .collect(Collectors.toSet());
 
         policy.setRules(Set.of(rule));
-        policy.setTargets(Set.of(target));
+        policy.setTargets(targets);
 
         return policy;
     }

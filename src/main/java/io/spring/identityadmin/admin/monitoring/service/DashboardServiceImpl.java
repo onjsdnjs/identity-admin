@@ -33,7 +33,7 @@ public class DashboardServiceImpl implements DashboardService {
         return new DashboardDto(
                 userRepository.count(),
                 ThreadLocalRandom.current().nextLong(10, 51), // 활성 세션은 임시 랜덤값
-                userRepository.countByEnabled(false),
+                userRepository.countByMfaEnabled(false),
                 userRepository.findAdminsWithMfaDisabled().size(),
                 userContextService.getRecentActivities(currentAdminUsername),
                 analyzeRiskIndicators(),
