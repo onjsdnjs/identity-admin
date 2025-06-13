@@ -62,7 +62,7 @@ public class PolicyWizardController {
         log.debug("Loading wizard page for contextId: {}", contextId);
         WizardContext context = wizardService.getWizardProgress(contextId);
         model.addAttribute("wizardContext", context);
-        model.addAttribute("allUsers", userManagementService.getUsers());
+        model.addAttribute("allUsers", userManagementService.getUsers()); // 이거 대박이다
         model.addAttribute("allGroups", groupService.getAllGroups());
         model.addAttribute("allPermissions", permissionCatalogService.getAvailablePermissions());
         model.addAttribute("activePage", "policy-wizard"); // 사이드바 활성화를 위함

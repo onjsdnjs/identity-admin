@@ -3,7 +3,9 @@ package io.spring.identityadmin.workflow.wizard.service;
 import io.spring.identityadmin.admin.support.context.service.UserContextService;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.dto.UserDto;
+import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.domain.entity.policy.Policy;
+import io.spring.identityadmin.security.core.CustomUserDetails;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyService;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
 import io.spring.identityadmin.studio.dto.WizardInitiationDto;
@@ -14,6 +16,7 @@ import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -132,11 +135,22 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
     }
 
     private Long getCurrentUserId() {
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof UserDto) { // principal이 Users 타입인 경우
-            return ((UserDto) principal).getId();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            log.warn("No authenticated user found. Returning 0 as fallback.");
+            return 0L;
         }
-        log.warn("Could not determine current user ID. Returning 0 as fallback.");
-        return 0L; // 익명 또는 시스템 사용자인 경우
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof CustomUserDetails userDetails) {
+            Users user = userDetails.getUsers();
+            return user.getId();
+
+        } else if (principal instanceof Users user) { // principal이 Users 타입인 경우
+            return user.getId();
+        } else {
+            log.warn("Principal is not an instance of CustomUserDetails. Principal type: {}. Returning 0 as fallback.", principal.getClass().getName());
+            return 0L;
+        }
     }
 }
