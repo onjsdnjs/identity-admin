@@ -1,6 +1,18 @@
 /* 전체 Explorer 패널을 다크 테마로 - 강제 적용 */
 #explorer-panel {
-    background-color: #0f172a !important; /* bg-slate-900 */
+    background-color: #0f172a !important;
+    color: white !important;
+}
+
+/* Canvas 패널 다크 테마 */
+#canvas-panel {
+    background-color: #0f172a !important;
+    color: white !important;
+}
+
+/* Inspector 패널 다크 테마 */
+#inspector-panel {
+    background-color: #0f172a !important;
     color: white !important;
 }
 
@@ -8,7 +20,7 @@
 #explorer-panel > div:first-child {
     padding: 1rem !important;
     background: transparent !important;
-    border-bottom-color: #475569 !important; /* border-slate-600 */
+    border-bottom-color: #475569 !important;
 }
 
 /* 검색창 다크 스타일 강제 적용 */
@@ -16,8 +28,8 @@
     width: 100% !important;
     padding: 1rem 1.5rem !important;
     font-size: 1rem !important;
-    background-color: #1e293b !important; /* bg-slate-800 */
-    border: 2px solid #334155 !important; /* border-slate-700 */
+    background-color: #1e293b !important;
+    border: 2px solid #334155 !important;
     border-radius: 1rem !important;
     color: white !important;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
@@ -25,18 +37,18 @@
 }
 
 #explorer-search::placeholder {
-    color: #94a3b8 !important; /* placeholder-slate-400 */
+    color: #94a3b8 !important;
 }
 
 #explorer-search:focus {
-    border-color: #6366f1 !important; /* border-indigo-500 */
+    border-color: #6366f1 !important;
     background-color: #1a202e !important;
     outline: none !important;
 }
 
 /* 리스트 컨테이너 배경 */
 #explorer-list-container {
-    background-color: #0f172a !important; /* bg-slate-900 */
+    background-color: #0f172a !important;
     padding: 1rem 0.5rem !important;
 }
 
@@ -120,7 +132,7 @@
     gap: 1rem !important;
     margin: 0 0.75rem 0.5rem !important;
     padding: 1rem !important;
-    background-color: rgba(30, 41, 59, 0.5) !important; /* bg-slate-800/50 */
+    background-color: rgba(30, 41, 59, 0.5) !important;
     backdrop-filter: blur(4px) !important;
     border-radius: 0.75rem !important;
     border: 1px solid rgba(71, 85, 105, 0.5) !important;
@@ -227,21 +239,29 @@
     color: #c7d2fe !important;
 }
 
-/* 커스텀 스크롤바 */
-#explorer-list-container::-webkit-scrollbar {
+/* 커스텀 스크롤바 - 모든 패널에 적용 */
+#explorer-list-container::-webkit-scrollbar,
+#canvas-panel::-webkit-scrollbar,
+#inspector-panel::-webkit-scrollbar {
     width: 8px !important;
 }
 
-#explorer-list-container::-webkit-scrollbar-track {
+#explorer-list-container::-webkit-scrollbar-track,
+#canvas-panel::-webkit-scrollbar-track,
+#inspector-panel::-webkit-scrollbar-track {
     background: #1e293b !important;
 }
 
-#explorer-list-container::-webkit-scrollbar-thumb {
+#explorer-list-container::-webkit-scrollbar-thumb,
+#canvas-panel::-webkit-scrollbar-thumb,
+#inspector-panel::-webkit-scrollbar-thumb {
     background: #475569 !important;
     border-radius: 9999px !important;
 }
 
-#explorer-list-container::-webkit-scrollbar-thumb:hover {
+#explorer-list-container::-webkit-scrollbar-thumb:hover,
+#canvas-panel::-webkit-scrollbar-thumb:hover,
+#inspector-panel::-webkit-scrollbar-thumb:hover {
     background: #64748b !important;
 }
 
@@ -274,4 +294,87 @@
     font-weight: 300 !important;
     letter-spacing: 0.1em !important;
     text-transform: uppercase !important;
+}
+
+/* Canvas 가이드 스타일 */
+#canvas-guide {
+    color: #94a3b8 !important;
+}
+
+#canvas-guide i {
+    color: #475569 !important;
+}
+
+/* Canvas 콘텐츠 스타일 */
+#canvas-content h2 {
+    color: #e2e8f0 !important;
+}
+
+/* Path 컨테이너 스타일 개선 */
+.path-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1rem !important;
+}
+
+.path-node {
+    background: rgba(30, 41, 59, 0.8) !important;
+    border: 2px solid #334155 !important;
+    color: #e2e8f0 !important;
+    width: 100% !important;
+    max-width: 32rem !important;
+}
+
+.path-icon {
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    color: white !important;
+}
+
+.path-arrow {
+    color: #475569 !important;
+    font-size: 1.5rem !important;
+}
+
+/* Inspector 스타일 */
+#inspector-placeholder {
+    color: #94a3b8 !important;
+}
+
+#inspector-placeholder i {
+    color: #475569 !important;
+}
+
+#inspector-content h3 {
+    color: #e2e8f0 !important;
+}
+
+#inspector-content .border-t {
+    border-color: #334155 !important;
+}
+
+/* 권한 부여 버튼 */
+.btn-primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4) !important;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6) !important;
+}
+
+/* 에러 메시지 스타일 */
+.text-red-600 {
+    color: #f87171 !important;
+}
+
+.bg-red-50 {
+    background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.border-red-200 {
+    border-color: rgba(239, 68, 68, 0.3) !important;
 }

@@ -1,0 +1,220 @@
+/* 네비게이션 전체 컨테이너 */
+.admin-sidebar {
+    background-color: #0f172a !important;
+    border-right: 1px solid #334155 !important;
+    width: 16rem !important;
+    min-height: 100% !important;
+    padding: 1.25rem !important;
+    color: white !important;
+}
+
+/* 메인 타이틀 스타일 */
+.main-title {
+    font-size: 0.75rem !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.2em !important;
+    margin-bottom: 1rem !important;
+    padding: 0 0.75rem !important;
+    color: #64748b !important;
+    text-align: center !important;
+    position: relative !important;
+    display: block !important;
+}
+
+/* 타이틀 배경과 구분선 */
+.main-title span {
+    background: #0f172a !important;
+    padding: 0 1rem !important;
+    position: relative !important;
+    z-index: 1 !important;
+}
+
+.main-title::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 1px !important;
+    background: linear-gradient(90deg, transparent, #475569, transparent) !important;
+    z-index: 0 !important;
+}
+
+/* 섹션 헤더 */
+.section-title {
+    font-size: 0.75rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    margin-top: 1.5rem !important;
+    margin-bottom: 0.75rem !important;
+    padding: 0 0.75rem !important;
+    color: #64748b !important;
+}
+
+/* 나머지 스타일은 그대로 유지 */
+/* 메인 메뉴 링크 */
+.menu-link {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    padding: 0.875rem 1rem !important;
+    border-radius: 0.75rem !important;
+    color: #cbd5e1 !important;
+    font-weight: 500 !important;
+    transition: all 0.3s ease !important;
+    cursor: pointer !important;
+    position: relative !important;
+    overflow: hidden !important;
+    background: rgba(30, 41, 59, 0.3) !important;
+    border: 1px solid transparent !important;
+    text-decoration: none !important;
+}
+
+/* 아이콘 래퍼 */
+.menu-icon-wrapper {
+    width: 2.5rem !important;
+    height: 2.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 0.625rem !important;
+    background: linear-gradient(135deg, #475569, #334155) !important;
+    transition: all 0.3s ease !important;
+}
+
+.menu-icon-wrapper svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+}
+
+/* 서브 메뉴 링크 */
+.menu-link-sub {
+    font-size: 0.875rem !important;
+    padding: 0.625rem 1rem 0.625rem 2.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    color: #94a3b8 !important;
+    transition: all 0.3s ease !important;
+    cursor: pointer !important;
+    position: relative !important;
+    overflow: hidden !important;
+    border-radius: 0.5rem !important;
+    text-decoration: none !important;
+}
+
+/* 불릿 포인트 */
+.menu-bullet {
+    width: 0.375rem !important;
+    height: 0.375rem !important;
+    background: #475569 !important;
+    border-radius: 50% !important;
+    position: absolute !important;
+    left: 1rem !important;
+    transition: all 0.3s ease !important;
+}
+
+/* 글로우 효과 */
+.menu-glow {
+    position: absolute !important;
+    top: 0 !important;
+    left: -100% !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.3), transparent) !important;
+    transition: left 0.6s ease !important;
+    pointer-events: none !important;
+}
+
+/* 호버 효과 */
+.menu-link:hover,
+.menu-link-sub:hover {
+    color: white !important;
+    background: rgba(99, 102, 241, 0.2) !important;
+    border-color: rgba(99, 102, 241, 0.3) !important;
+    transform: translateX(4px) !important;
+}
+
+.menu-link:hover .menu-icon-wrapper {
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.5) !important;
+}
+
+.menu-link:hover .menu-glow,
+.menu-link-sub:hover .menu-glow {
+    left: 100% !important;
+}
+
+.menu-link-sub:hover .menu-bullet {
+    background: #6366f1 !important;
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.8) !important;
+}
+
+/* 액티브 상태 */
+.menu-link.active {
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    color: white !important;
+    font-weight: 600 !important;
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.5) !important;
+    border-color: #6366f1 !important;
+}
+
+.menu-link.active .menu-icon-wrapper {
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* 리스트 스타일 제거 */
+.admin-sidebar ul {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.admin-sidebar ul li {
+    margin-bottom: 0.25rem !important;
+}
+
+/* 스크롤바 커스터마이징 */
+.admin-sidebar::-webkit-scrollbar {
+    width: 6px !important;
+}
+
+.admin-sidebar::-webkit-scrollbar-track {
+    background: #1e293b !important;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb {
+    background: #475569 !important;
+    border-radius: 3px !important;
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover {
+    background: #64748b !important;
+}
+
+/* Tailwind 클래스 덮어쓰기 */
+.bg-app-secondary {
+    background-color: #0f172a !important;
+}
+
+/* 반응형 조정 */
+@media (max-width: 768px) {
+    .admin-sidebar {
+        width: 14rem !important;
+    }
+
+    .menu-icon-wrapper {
+        width: 2rem !important;
+        height: 2rem !important;
+    }
+
+    .menu-link {
+        padding: 0.75rem !important;
+    }
+
+    .menu-link-sub {
+        font-size: 0.8125rem !important;
+    }
+}
