@@ -4,8 +4,8 @@ import io.spring.identityadmin.admin.support.context.dto.RecentActivityDto;
 import java.util.List;
 
 /**
- * [최종 구현] 대시보드에 필요한 모든 데이터를 담는 최종 DTO.
- * ui-ux.html 디자인에 맞춰 모든 필드를 포함합니다.
+ * [최종 확정] 대시보드 View에 최적화된 데이터를 담는 DTO.
+ * 권한 매트릭스를 포함한 모든 필드를 명확하게 정의합니다.
  */
 public record DashboardDto(
         long totalUserCount,

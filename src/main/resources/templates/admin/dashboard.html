@@ -57,10 +57,19 @@
             <div class="overflow-x-auto">
                 <table class="min-w-full">
                     <thead>
-                    <tr class="bg-gray-50"><th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">그룹/역할</th><th th:each="perm : ${dashboardData.permissionMatrix.permissions}" th:text="${perm}" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"></th></tr>
+                    <tr class="bg-gray-50">
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">그룹/역할</th>
+                        <th th:each="header : ${dashboardData.permissionMatrixHeaders}" th:text="${header}" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+                    </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
-                    <tr th:each="subject : ${dashboardData.permissionMatrix.subjects}"><td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" th:text="${subject}"></td><td th:each="perm : ${dashboardData.permissionMatrix.permissions}" class="px-6 py-4 text-center"><span th:if="${dashboardData.permissionMatrix.matrixData[subject][perm] == 'GRANT'}" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓</span><span th:if="${dashboardData.permissionMatrix.matrixData[subject][perm] == 'NONE'}" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">-</span></td></tr>
+                    <tr th:each="row : ${dashboardData.permissionMatrixRows}">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900" th:text="${row.subjectName}"></td>
+                        <td th:each="header : ${dashboardData.permissionMatrixHeaders}" class="px-6 py-4 text-center">
+                            <span th:if="${row.permissions.get(header) == 'GRANT'}" class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium bg-green-100 text-green-800">✓</span>
+                            <span th:if="${row.permissions.get(header) == 'NONE'}" class="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">-</span>
+                        </td>
+                    </tr>
                     </tbody>
                 </table>
             </div>

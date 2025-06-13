@@ -23,7 +23,7 @@ public class Permission implements Serializable {
     @Column(name = "permission_name", unique = true, nullable = false)
     private String name;
 
-    @Column(name = "description")
+    @Column(name = "description", length = 1024)
     private String description;
 
     @Column(name = "target_type")

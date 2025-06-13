@@ -19,11 +19,14 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class PermissionMatrixServiceImpl implements PermissionMatrixService {
+
     private final GroupRepository groupRepository;
     private final PermissionCatalogService permissionCatalogService;
+
     @Override
     @Transactional(readOnly = true)
     public PermissionMatrixDto getPermissionMatrix(MatrixFilter filter) {
+
         List<Group> subjects = groupRepository.findAllWithRolesAndPermissions();
         List<PermissionDto> permissions = permissionCatalogService.getAvailablePermissions();
         List<String> subjectNames = subjects.stream().map(Group::getName).toList();

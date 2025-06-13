@@ -1,14 +1,15 @@
 package io.spring.identityadmin.admin.monitoring.service;
 
-import io.spring.identityadmin.admin.monitoring.dto.*;
-
-import java.util.List;
+import io.spring.identityadmin.admin.monitoring.dto.DashboardDto;
 
 /**
- * [역할 확장] 관리자용 통합 대시보드에 필요한 모든 고도화된 데이터를 제공합니다.
+ * [최종 리팩토링] 관리자용 통합 대시보드에 필요한 모든 데이터를 조회하여
+ * 단일 DTO로 반환하는 책임을 가집니다.
  */
 public interface DashboardService {
-    List<RiskIndicatorDto> analyzeRiskIndicators();
-    // Stream<ActivityEventDto> getActivityStream(ActivityFilter filter); // 실시간 기능은 별도 서비스로
+    /**
+     * 대시보드에 필요한 모든 데이터를 조회하여 단일 DTO로 반환합니다.
+     * @return DashboardDto
+     */
     DashboardDto getDashboardData();
 }
