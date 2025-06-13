@@ -65,8 +65,17 @@ INSERT INTO POLICY_TARGET(id, policy_id, target_type, target_identifier, http_me
 INSERT INTO POLICY_RULE(id, policy_id, description) VALUES
     (1, 1, 'Admin Role Check');
 
-INSERT INTO POLICY_CONDITION(id, rule_id, expression) VALUES
+INSERT INTO POLICY_CONDITION(id, rule_id, condition_expression) VALUES
     (1, 1, 'hasRole(''ADMIN'')');
+
+-- 기능 그룹 (FUNCTION_GROUP)
+INSERT INTO FUNCTION_GROUP (id, name) VALUES
+                                          (1, '사용자 관리'),
+                                          (2, '그룹 및 역할 관리'),
+                                          (3, '정책 관리'),
+                                          (4, '시스템 설정'),
+                                          (5, '일반')
+ON CONFLICT (id) DO NOTHING;
 
 -- ID 시퀀스 수동 업데이트 (필요시)
 SELECT setval('users_id_seq', (SELECT MAX(id) FROM USERS));
