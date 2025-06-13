@@ -1,4 +1,4 @@
-package io.spring.identityadmin.admin.facade.service;
+package io.spring.identityadmin.admin.facade;
 
 import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.entity.Group;
