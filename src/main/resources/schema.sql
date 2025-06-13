@@ -181,7 +181,8 @@ CREATE TABLE POLICY_TEMPLATE (
                                  name VARCHAR(255) NOT NULL,
                                  description VARCHAR(1024),
                                  category VARCHAR(255),
-                                 policy_draft_json TEXT NOT NULL
+    -- [오류 수정 및 개선] TEXT 대신 JSONB 타입을 사용하여 성능 및 기능 최적화
+                                 policy_draft_json JSONB NOT NULL
 );
 
 -- 마법사 세션 테이블
