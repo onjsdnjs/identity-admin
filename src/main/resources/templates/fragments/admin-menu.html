@@ -27,6 +27,14 @@
         </div>
 
         <div>
+            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mt-4 mb-2 px-3">정책 관리</h3>
+            <ul class="space-y-1">
+                <li><a th:href="@{/admin/authoring/policy-workbench}" class="menu-link-sub">비즈니스 정책 생성</a></li>
+                <li><a th:href="@{/admin/policies}" class="menu-link-sub">기술 정책 관리</a></li>
+            </ul>
+        </div>
+
+        <div>
             <h3 class="section-title">ID 및 접근 관리</h3>
             <ul class="space-y-1">
                 <li><a th:href="@{/admin/users}" class="menu-link-sub"><span class="menu-bullet"></span>사용자 관리<span class="menu-glow"></span></a></li>

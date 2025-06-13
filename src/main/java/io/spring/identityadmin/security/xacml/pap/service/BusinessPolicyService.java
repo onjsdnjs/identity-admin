@@ -25,10 +25,11 @@ public interface BusinessPolicyService {
     Policy updatePolicyFromBusinessRule(Long policyId, BusinessPolicyDto dto);
 
     /**
-     * 기존의 기술적 Policy를 비즈니스 규칙 DTO로 변환하여 반환한다. (수정 화면을 채우기 위함)
+     * [시그니처 개선] 기존 기술 정책(Policy)을 분석하여 정책 저작 워크벤치 UI에 표시할 수 있는
+     * 사용자 친화적인 BusinessPolicyDto로 '역번역'합니다.
      * @param policyId 조회할 정책의 ID
      * @return 변환된 BusinessPolicyDto
      */
-    BusinessPolicyDto getBusinessRuleForPolicy(Long policyId);
+    BusinessPolicyDto translatePolicyToBusinessRule(Long policyId);
 
 }
