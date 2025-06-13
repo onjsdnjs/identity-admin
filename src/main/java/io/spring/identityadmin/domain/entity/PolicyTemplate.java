@@ -27,7 +27,6 @@ public class PolicyTemplate {
     @Column
     private String category; // "HR", "Finance", "Development"
 
-    @Lob
-    @Column(nullable = false, name = "policy_draft_json")
-    private String policyDraftJson; // PolicyDto를 JSON으로 직렬화하여 저장
+    @Column(nullable = false, name = "policy_draft_json", columnDefinition = "jsonb")
+    private String policyDraftJson;
 }
