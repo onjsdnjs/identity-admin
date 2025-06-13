@@ -4,10 +4,6 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * [오류 수정] Jackson 라이브러리가 직렬화할 수 있도록,
- * public getter가 자동으로 생성되는 record 타입으로 변경합니다.
- */
 public record WizardContext(
         String contextId,
         String policyName,

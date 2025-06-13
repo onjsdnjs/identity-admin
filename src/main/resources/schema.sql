@@ -189,7 +189,7 @@ CREATE TABLE POLICY_TEMPLATE (
 
 -- 마법사 세션 테이블
 CREATE TABLE WIZARD_SESSION (
-                                id VARCHAR(36) PRIMARY KEY,
+                                session_id VARCHAR(36) PRIMARY KEY, -- [오류 수정] 컬럼명을 session_id로 변경
                                 context_data TEXT NOT NULL,
                                 owner_user_id BIGINT NOT NULL,
                                 created_at TIMESTAMP NOT NULL,
