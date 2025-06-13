@@ -31,20 +31,16 @@ public class ManagedResource {
     private String description;
 
     private String serviceOwner;
-
     private String parameterTypes;
-
     private String returnType;
 
     @Column(nullable = false)
     @Builder.Default
     private boolean isManaged = true;
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean isDefined = false;
 
-    public enum ResourceType {
-        URL, METHOD
-    }
-
-    public enum HttpMethod {
-        GET, POST, PUT, DELETE
-    }
+    public enum ResourceType { URL, METHOD }
+    public enum HttpMethod { GET, POST, PUT, DELETE, ANY }
 }

@@ -148,7 +148,8 @@ class StudioUI {
 
         let actionsHtml = '<h3 class="font-bold text-lg mb-2 mt-4 border-t pt-4">관련 작업</h3>';
         if (subject && permission) {
-            actionsHtml += `<button id="grant-btn" class="w-full btn-primary text-sm py-2">권한 부여 마법사 시작</button>`;
+            const title = `'<span class="math-inline">\{subject\.name\}'에게 '</span>{permission.name}' 권한을 부여하는 정책을 생성합니다.`;
+            actionsHtml += `<button id="grant-btn" class="w-full btn-primary text-sm py-2" title="${title}">권한 부여 마법사 시작</button>`;
         } else {
             actionsHtml += '<p class="text-sm text-slate-500">주체와 권한을 함께 선택하여<br/>권한을 부여할 수 있습니다.</p>';
         }
@@ -187,6 +188,17 @@ class StudioUI {
 
     showError(element, message) {
         element.innerHTML = `<div class="p-4 text-center text-red-500">${message}</div>`;
+    }
+
+    showGuide(htmlMessage) {
+        this.elements.canvasContent.classList.add('hidden');
+        const guideEl = document.getElementById('canvas-guide');
+        guideEl.innerHTML = htmlMessage;
+        guideEl.classList.remove('hidden');
+    }
+    hideGuide() {
+        document.getElementById('canvas-guide').classList.add('hidden');
+        this.elements.canvasContent.classList.remove('hidden');
     }
 }
 
@@ -270,9 +282,19 @@ class StudioApp {
 
     bindEventListeners() {
         this.elements.explorerListContainer.addEventListener('click', e => this.handleExplorerClick(e));
-        this.elements.search.addEventListener('input', e => this.filterExplorer(e.target.value.toLowerCase()));
+        // [오류 수정] 검색(필터) 기능이 keyup 이벤트마다 실제로 동작하도록 구현
+        this.elements.search.addEventListener('keyup', e => this.filterExplorer(e.target.value.toLowerCase()));
         this.elements.inspectorPanel.addEventListener('click', e => {
             if (e.target.id === 'grant-btn') this.handleGrantClick();
+        });
+    }
+
+    filterExplorer(term) {
+        this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
+            const name = item.dataset.name.toLowerCase();
+            const description = item.dataset.description.toLowerCase();
+            // [오류 수정] 실제 display 속성을 변경하여 필터링 구현
+            item.style.display = (name.includes(term) || description.includes(term)) ? 'block' : 'none';
         });
     }
 
@@ -286,21 +308,26 @@ class StudioApp {
     }
 
     async updateCanvasAndInspector() {
-        this.ui.showLoading(this.elements.canvasContent);
-        this.ui.renderInspector(this.state); // Inspector 먼저 렌더링
-
+        this.ui.renderInspector(this.state); // Inspector는 항상 현재 선택 상태를 반영
         const subject = this.state.getSubject();
         const permission = this.state.getPermission();
+
+        // [UI/UX 개선] 상태에 따른 가이드 텍스트 업데이트
+        if (!subject) {
+            this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg font-bold">1. 왼쪽에서 분석할 \'주체\'를 선택하세요.</p>');
+            return;
+        }
+        if (!permission) {
+            this.ui.showGuide(`<p class="text-lg font-bold">'<strong>${subject.name}</strong>' 선택됨.</p><p class="mt-2 text-slate-500">2. 이제 분석하고 싶은 '권한'을 선택하세요.</p>`);
+            return;
+        }
+
+        this.ui.hideGuide();
+        this.ui.showLoading(this.ui.elements.canvasContent);
+
         try {
-            if (subject && permission) {
-                const data = await this.api.getAccessPath(subject.id, subject.type, permission.id);
-                this.ui.renderAccessPath(subject, permission, data);
-            } else if (subject) {
-                const data = await this.api.getEffectivePermissions(subject.id, subject.type);
-                this.ui.renderEffectivePermissions(subject, data);
-            } else {
-                this.ui.resetCanvas();
-            }
+            const data = await this.api.getAccessPath(subject.id, subject.type, permission.id);
+            this.ui.renderAccessPath(subject, permission, data);
         } catch (error) {
             this.ui.showError(this.ui.elements.canvasContent, '분석 데이터 로딩 실패');
         }
@@ -355,14 +382,6 @@ class StudioApp {
 
         document.body.appendChild(form);
         form.submit();
-    }
-
-    filterExplorer(term) {
-        this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
-            const name = item.dataset.name.toLowerCase();
-            const description = item.dataset.description.toLowerCase();
-            item.style.display = (name.includes(term) || description.includes(term)) ? '' : 'block';
-        });
     }
 }
 

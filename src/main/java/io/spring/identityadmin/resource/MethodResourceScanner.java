@@ -1,6 +1,7 @@
 package io.spring.identityadmin.resource;
 
 import io.spring.identityadmin.domain.entity.ManagedResource;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.support.AopUtils;
@@ -41,17 +42,27 @@ public class MethodResourceScanner implements ResourceScanner {
                             .map(Class::getSimpleName)
                             .collect(Collectors.joining(","));
                     String identifier = String.format("%s.%s(%s)", beanClass.getName(), method.getName(), params);
-                    String friendlyName = convertCamelCaseToTitleCase(method.getName());
-                    String returnType = method.getReturnType().getSimpleName();
+
+                    Operation operation = method.getAnnotation(Operation.class);
+                    String friendlyName;
+                    String description;
+
+                    if (operation != null && !operation.summary().isEmpty()) {
+                        friendlyName = operation.summary();
+                        description = operation.description();
+                    } else {
+                        friendlyName = "미정의 리소스: " + convertCamelCaseToTitleCase(method.getName());
+                        description = "개발자는 코드에 @Operation 어노테이션을 추가하여 이 메서드의 비즈니스 용도를 명시해야 합니다.";
+                    }
 
                     resources.add(ManagedResource.builder()
                             .resourceIdentifier(identifier)
                             .resourceType(ManagedResource.ResourceType.METHOD)
                             .friendlyName(friendlyName)
-                            .description(method.toString()) // 상세 설명으로 전체 시그니처 제공
+                            .description(description) // 상세 설명으로 전체 시그니처 제공
                             .serviceOwner(beanClass.getSimpleName())
                             .parameterTypes(params)
-                            .returnType(returnType)
+                            .returnType(method.getReturnType().getSimpleName())
                             .isManaged(true) // 기본은 관리 대상으로 설정
                             .build());
                 }

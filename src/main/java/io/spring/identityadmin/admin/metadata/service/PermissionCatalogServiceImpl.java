@@ -23,11 +23,16 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
     @Override
     @Transactional
     public void synchronize(List<ManagedResource> discoveredResources) {
-        log.info("Starting permission catalog synchronization with {} discovered resources.", discoveredResources.size());
-        for (ManagedResource resource : discoveredResources) {
-            // 기술 식별자를 기반으로 기존 권한이 있는지 확인
-            String permissionName = "PERM_" + resource.getResourceType() + "_" + resource.getId();
+        log.info("Starting permission catalog synchronization...");
 
+        // isManaged가 true 이고, 의미있는 이름(@Operation summary)을 가진 리소스만 필터링
+        List<ManagedResource> resourcesToSync = discoveredResources.stream()
+                .filter(ManagedResource::isManaged)
+                .filter(r -> r.getFriendlyName() != null && !r.getFriendlyName().startsWith("미정의 리소스"))
+                .toList();
+
+        for (ManagedResource resource : resourcesToSync) {
+            String permissionName = "PERM_" + resource.getResourceType() + "_" + resource.getId();
             Permission permission = permissionRepository.findByName(permissionName)
                     .orElseGet(() -> {
                         log.info("New permission will be created for resource: {}", resource.getFriendlyName());
@@ -35,13 +40,13 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
                     });
 
             // 개발자가 코드에 명시한 이름과 설명으로 업데이트
-            permission.setDescription(resource.getFriendlyName() + " (" + resource.getDescription() + ")");
+            permission.setDescription(resource.getFriendlyName()); // 이것이 사용자 친화적 이름
             permission.setTargetType(resource.getResourceType().name());
             permission.setActionType(resource.getHttpMethod() != null ? resource.getHttpMethod().name() : "ACCESS");
 
             permissionRepository.save(permission);
         }
-        log.info("Permission catalog synchronization completed.");
+        log.info("Permission catalog synchronized with {} resources.", resourcesToSync.size());
     }
 
     @Override

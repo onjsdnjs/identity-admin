@@ -37,21 +37,15 @@ public class PermissionMatrixServiceImpl implements PermissionMatrixService {
     @Override
     @Transactional(readOnly = true)
     public PermissionMatrixDto getPermissionMatrix(MatrixFilter filter) {
-        // [최종 구현] 필터 객체를 실제로 사용하는 로직을 구현합니다.
+        List<Group> subjects = groupRepository.findAllWithRolesAndPermissions();
 
-        // 1. 주체(그룹) 조회: 필터에 groupIds가 있으면 해당 그룹만, 없으면 전체 그룹 조회
-        List<Group> subjects = (filter != null && !CollectionUtils.isEmpty(filter.subjectIds()))
-                ? groupRepository.findAllById(filter.subjectIds())
-                : groupRepository.findAllWithRolesAndPermissions();
+        // [최종 수정] 대시보드 요약용으로 모든 권한 대신, 주요 권한 5개만 선택
+        List<PermissionDto> permissions = permissionCatalogService.getAvailablePermissions().stream()
+                .limit(5)
+                .toList();
 
-        // 2. 권한(리소스) 조회: 필터에 permissionIds가 있으면 해당 권한만, 없으면 전체 권한 조회
-        List<Permission> permissions = (filter != null && !CollectionUtils.isEmpty(filter.permissionIds()))
-                ? permissionRepository.findAllById(filter.permissionIds())
-                : permissionRepository.findAll();
-
-        // 이하 로직은 이전과 동일...
         List<String> subjectNames = subjects.stream().map(Group::getName).collect(Collectors.toList());
-        List<String> permissionDescriptions = permissions.stream().map(Permission::getDescription).collect(Collectors.toList());
+        List<String> permissionDescriptions = permissions.stream().map(PermissionDto::getDescription).collect(Collectors.toList());
 
         Map<String, Map<String, String>> matrixData = new HashMap<>();
         for (Group group : subjects) {
@@ -61,7 +55,7 @@ public class PermissionMatrixServiceImpl implements PermissionMatrixService {
                     .map(rp -> rp.getPermission().getDescription())
                     .collect(Collectors.toSet());
 
-            for (Permission perm : permissions) {
+            for (PermissionDto perm : permissions) {
                 rowData.put(perm.getDescription(), groupPermissions.contains(perm.getDescription()) ? "GRANT" : "NONE");
             }
             matrixData.put(group.getName(), rowData);

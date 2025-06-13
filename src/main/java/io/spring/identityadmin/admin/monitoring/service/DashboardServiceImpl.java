@@ -40,7 +40,7 @@ public class DashboardServiceImpl implements DashboardService {
                 userContextService.getRecentActivities(currentUsername),
                 analyzeRiskIndicators(),
                 securityScoreCalculator.calculate(),
-                permissionMatrixService.getPermissionMatrix(new MatrixFilter(null, null, null))
+                permissionMatrixService.getPermissionMatrix(null)
         );
     }
 

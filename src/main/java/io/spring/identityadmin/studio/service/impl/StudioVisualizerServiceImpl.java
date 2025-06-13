@@ -54,12 +54,15 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
         List<AccessPathNode> path = new ArrayList<>();
         path.add(new AccessPathNode("사용자", user.getName(), user.getUsername()));
 
+        // 사용자가 속한 모든 그룹을 순회하며 경로 탐색
         for (UserGroup userGroup : user.getUserGroups()) {
             Group group = userGroup.getGroup();
             for (GroupRole groupRole : group.getGroupRoles()) {
                 Role role = groupRole.getRole();
                 for (RolePermission rolePermission : role.getRolePermissions()) {
                     if (rolePermission.getPermission().equals(targetPermission)) {
+                        // 성공 경로 발견!
+                        log.debug("Access path found for user {} to permission {} via role {}", user.getUsername(), targetPermission.getName(), role.getRoleName());
                         path.add(new AccessPathNode("그룹", group.getName(), group.getDescription()));
                         path.add(new AccessPathNode("역할", role.getRoleName(), role.getRoleDesc()));
                         path.add(new AccessPathNode("권한", targetPermission.getDescription(), targetPermission.getName()));
@@ -69,6 +72,8 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
             }
         }
 
+        // 모든 경로를 탐색했으나 권한을 찾지 못한 경우
+        log.debug("No access path found for user {} to permission {}", user.getUsername(), targetPermission.getName());
         path.add(new AccessPathNode("권한", targetPermission.getDescription(), targetPermission.getName()));
         return new AccessPathDto(path, false, "접근 거부: 해당 권한을 부여하는 경로를 찾을 수 없습니다.");
     }
@@ -86,13 +91,14 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
                 if (rolePermission.getPermission().equals(targetPermission)) {
                     path.add(new AccessPathNode("역할", role.getRoleName(), role.getRoleDesc()));
                     path.add(new AccessPathNode("권한", targetPermission.getDescription(), targetPermission.getName()));
-                    return new AccessPathDto(path, true, "접근 허용: 역할 '" + role.getRoleName() + "'을 통해 권한이 부여되었습니다.");
+                    return new AccessPathDto(path, true, "접근 허용: 역할 '" + role.getRoleName() + "'을 통해 권한이 부여됩니다.");
                 }
             }
         }
         path.add(new AccessPathNode("권한", targetPermission.getDescription(), targetPermission.getName()));
         return new AccessPathDto(path, false, "접근 거부: 해당 권한을 부여하는 경로를 찾을 수 없습니다.");
     }
+
 
     /**
      * [오류 수정 및 로직 개선] findAllByNameIn 오류를 해결하고, 실제 동작하는 로직으로 완성합니다.
@@ -134,8 +140,8 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
             return Collections.emptyList();
         }
 
-        // [오류 수정] 존재하지 않는 findAllByNameIn 대신, 수집된 keySet으로 findAllById를 수행하도록 수정
-        // Permission 엔티티의 name 필드에 unique 제약조건이 있으므로 findByName으로 조회해도 무방
+        // permissionRepository에 findAllByNameIn이 없으므로, keySet을 사용하여 조회
+        // name은 unique하므로, 이 방식이 더 효율적일 수 있음
         return permissionRepository.findAllByNameIn(permissionOrigins.keySet()).stream()
                 .map(p -> new EffectivePermissionDto(p.getName(), p.getDescription(), permissionOrigins.get(p.getName())))
                 .sorted(Comparator.comparing(EffectivePermissionDto::permissionDescription))

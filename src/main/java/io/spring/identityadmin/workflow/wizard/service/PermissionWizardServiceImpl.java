@@ -54,7 +54,6 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
 
         WizardContext initialContext = new WizardContext(contextId, policyName, policyDescription, subjects, request.permissionIds(), null);
 
-        // [오류 수정] FAKE_USER_ID 대신, 현재 인증된 사용자의 ID를 가져와 사용합니다.
         Long currentUserId = getCurrentUserId();
         userContextService.saveWizardProgress(contextId, currentUserId, initialContext);
 
@@ -137,8 +136,7 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         if (principal instanceof UserDto) { // principal이 Users 타입인 경우
             return ((UserDto) principal).getId();
         }
-        // principal이 CustomUserDetails 등 다른 타입인 경우에 대한 처리
-        // ...
+        log.warn("Could not determine current user ID. Returning 0 as fallback.");
         return 0L; // 익명 또는 시스템 사용자인 경우
     }
 }

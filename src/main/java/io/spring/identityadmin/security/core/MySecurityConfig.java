@@ -32,8 +32,9 @@ public class MySecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(auth -> auth
-                .anyRequest().access(customDynamicAuthorizationManager));
+        http.authorizeHttpRequests(auth -> auth.requestMatchers("/**").permitAll().anyRequest().permitAll());
+
+//                .anyRequest().access(customDynamicAuthorizationManager));
         http.formLogin(Customizer.withDefaults());
         http.authenticationProvider(customAuthenticationProvider);
         return http.build();

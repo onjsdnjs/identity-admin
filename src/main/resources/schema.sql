@@ -94,7 +94,8 @@ CREATE TABLE MANAGED_RESOURCE (
                                   service_owner VARCHAR(255),
                                   parameter_types VARCHAR(255),
                                   return_type VARCHAR(255),
-                                  is_managed BOOLEAN NOT NULL DEFAULT TRUE
+                                  is_managed BOOLEAN NOT NULL DEFAULT TRUE,
+                                  is_defined BOOLEAN NOT NULL DEFAULT FALSE -- [신규 추가]
 );
 
 -- 기능 그룹 테이블
