@@ -8,60 +8,33 @@
     <title>Please sign in</title>
     <link href="/css/main.css" rel="stylesheet" />
     <style>
-        /* body 다크 배경 강제 적용 */
-        html, body {
-            margin: 0;
-            padding: 0;
-            background: #0a0f1c !important;
-            min-height: 100vh;
-        }
-        *, *::before, *::after {
+        /* 로그인 페이지 필수 스타일 */
+        * {
             box-sizing: border-box;
         }
 
-        input, button {
+        body {
             margin: 0;
-            padding: 0;
-            border: 0;
-            font: inherit;
-            background: transparent;
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
+            background: #0a0f1c;
         }
 
-        /* 브라우저 기본 input 스타일 완전 제거 */
-        input[type="text"],
-        input[type="password"] {
-            background-image: none !important;
-            background-color: transparent !important;
-            -webkit-box-shadow: none !important;
-            box-shadow: none !important;
-        }
-
-        /* 로그인 페이지 전용 스타일 */
         .content {
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
-            width: 100%;
-            max-width: 400px;
-            margin: 0 auto;
             padding: 20px;
         }
 
         .login-form {
             width: 100%;
-            background: rgba(15, 23, 42, 0.8) !important;
+            max-width: 400px;
+            background: rgba(15, 23, 42, 0.8);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(71, 85, 105, 0.3);
             padding: 3rem;
             border-radius: 1rem;
             box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.5);
-            animation: slideInFromTop 0.6s ease-out;
-            display: flex;
-            flex-direction: column;
         }
 
         .login-form h2 {
@@ -76,131 +49,62 @@
         }
 
         .login-form p {
-            margin: 0 0 1.5rem 0 !important;
-            padding: 0 !important;
+            margin-bottom: 1.5rem;
         }
 
-        /* 입력 필드 - 모든 상태에서 다크 배경 유지 */
+        /* 입력 필드 - 다크 배경 강제 적용 */
         .login-form input[type="text"],
-        .login-form input[type="password"],
-        input#username,
-        input#password,
-        input[type="text"]:focus,
-        input[type="password"]:focus,
-        input[type="text"]:active,
-        input[type="password"]:active,
-        input[type="text"]:focus-visible,
-        input[type="password"]:focus-visible,
-        input[type="text"]:focus-within,
-        input[type="password"]:focus-within {
-            width: 100% !important;
-            padding: 0.75rem 1rem !important;
+        .login-form input[type="password"] {
+            width: 100%;
+            padding: 0.75rem 1rem;
             background: #1e293b !important;
             background-color: #1e293b !important;
-            background-image: none !important;
-            border: 2px solid #334155 !important;
-            border-radius: 0.5rem !important;
-            color: #e2e8f0 !important;
-            font-size: 1rem !important;
-            box-sizing: border-box !important;
-            -webkit-appearance: none !important;
-            -moz-appearance: none !important;
-            appearance: none !important;
-            outline: none !important;
-            -webkit-box-shadow: none !important;
-            box-shadow: none !important;
+            border: 2px solid #334155;
+            border-radius: 0.5rem;
+            color: #e2e8f0;
+            font-size: 1rem;
+            -webkit-appearance: none;
+            appearance: none;
         }
 
-        /* 포커스 상태 별도 정의 - 배경은 그대로, 테두리만 변경 */
         .login-form input[type="text"]:focus,
-        .login-form input[type="password"]:focus,
-        input#username:focus,
-        input#password:focus {
+        .login-form input[type="password"]:focus {
             background: #1e293b !important;
             background-color: #1e293b !important;
-            background-image: none !important;
-            border-color: #6366f1 !important;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
-            -webkit-box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
-            transform: translateY(-2px);
-            outline: none !important;
-            outline-offset: 0 !important;
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            outline: none;
         }
 
-        /* 자동완성 배경색 처리 - 모든 상태 커버 */
+        /* 자동완성 시 배경색 유지 */
         input:-webkit-autofill,
         input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus,
-        input:-webkit-autofill:active,
-        input[type="text"]:-webkit-autofill,
-        input[type="password"]:-webkit-autofill,
-        input[type="text"]:-webkit-autofill:focus,
-        input[type="password"]:-webkit-autofill:focus {
+        input:-webkit-autofill:focus {
             -webkit-box-shadow: 0 0 0 1000px #1e293b inset !important;
             -webkit-text-fill-color: #e2e8f0 !important;
-            box-shadow: 0 0 0 1000px #1e293b inset !important;
-            background-color: #1e293b !important;
-            background-clip: content-box !important;
-            transition: background-color 5000s ease-in-out 0s !important;
-        }
-
-        /* 브라우저별 포커스 스타일 제거 */
-        input:focus-visible {
-            outline: none !important;
-            background: #1e293b !important;
-        }
-
-        input:-moz-focusring {
-            outline: none !important;
-            background: #1e293b !important;
-        }
-
-        input::-moz-focus-inner {
-            border: 0 !important;
-            background: #1e293b !important;
         }
 
         .login-form input::placeholder {
-            color: #64748b !important;
+            color: #64748b;
         }
 
-        /* 버튼 - 입력 필드와 동일한 너비 */
-        .login-form button[type="submit"] {
-            width: 100% !important;
-            padding: 0.75rem 1rem !important;
-            background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
-            color: white !important;
-            border: none !important;
-            border-radius: 0.5rem !important;
-            font-size: 1rem !important;
-            font-weight: 600 !important;
-            cursor: pointer !important;
-            transition: all 0.3s ease !important;
-            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4) !important;
-            position: relative !important;
-            overflow: hidden !important;
-            box-sizing: border-box !important;
-        }
-
-        .login-form button[type="submit"]::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
+        .login-form button {
             width: 100%;
-            height: 100%;
-            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.3) 50%, transparent 70%);
-            transform: translateX(-100%);
-            transition: transform 0.6s;
+            padding: 0.75rem 1rem;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s ease;
         }
 
-        .login-form button[type="submit"]:hover::before {
-            transform: translateX(100%);
-        }
-
-        .login-form button[type="submit"]:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6) !important;
+        .login-form button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6);
         }
 
         .screenreader {
@@ -216,34 +120,11 @@
         }
     </style>
     <script>
-        // 페이지 로드 후 강제로 다크 스타일 적용
-        window.addEventListener('load', function() {
+        // 입력 필드 다크 배경 보장
+        window.addEventListener('DOMContentLoaded', function() {
             const inputs = document.querySelectorAll('input');
             inputs.forEach(function(input) {
-                // 초기 스타일 설정
                 input.style.backgroundColor = '#1e293b';
-                input.style.background = '#1e293b';
-
-                // 포커스 이벤트 시 다크 배경 유지
-                input.addEventListener('focus', function() {
-                    this.style.backgroundColor = '#1e293b';
-                    this.style.background = '#1e293b';
-                    this.style.color = '#e2e8f0';
-                });
-
-                // 블러 이벤트 시에도 다크 배경 유지
-                input.addEventListener('blur', function() {
-                    this.style.backgroundColor = '#1e293b';
-                    this.style.background = '#1e293b';
-                    this.style.color = '#e2e8f0';
-                });
-
-                // 입력 중에도 다크 배경 유지
-                input.addEventListener('input', function() {
-                    this.style.backgroundColor = '#1e293b';
-                    this.style.background = '#1e293b';
-                    this.style.color = '#e2e8f0';
-                });
             });
         });
     </script>
@@ -254,16 +135,13 @@
         <h2>Please sign in</h2>
         <p>
             <label for="username" class="screenreader">Username</label>
-            <input type="text" id="username" name="username" placeholder="Username" required autofocus
-                   style="width: 100% !important; padding: 0.75rem 1rem !important; background: #1e293b !important; background-color: #1e293b !important; border: 2px solid #334155 !important; border-radius: 0.5rem !important; color: #e2e8f0 !important; box-sizing: border-box !important;">
+            <input type="text" id="username" name="username" placeholder="Username" required autofocus>
         </p>
         <p>
             <label for="password" class="screenreader">Password</label>
-            <input type="password" id="password" name="password" placeholder="Password" required
-                   style="width: 100% !important; padding: 0.75rem 1rem !important; background: #0f172a !important; background-color: #0f172a !important; border: 2px solid #334155 !important; border-radius: 0.5rem !important; color: #e2e8f0 !important; box-sizing: border-box !important;">
+            <input type="password" id="password" name="password" placeholder="Password" required>
         </p>
-        <button type="submit" class="primary"
-                style="width: 100% !important; padding: 0.75rem 1rem !important; background: linear-gradient(135deg, #6366f1, #4f46e5) !important; color: white !important; border: none !important; border-radius: 0.5rem !important; font-size: 1rem !important; font-weight: 600 !important; cursor: pointer !important; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4) !important; box-sizing: border-box !important;">Sign in</button>
+        <button type="submit">Sign in</button>
     </form>
 </div>
 </body>
