@@ -17,6 +17,7 @@ import io.spring.identityadmin.workflow.wizard.dto.VirtualSubject;
 import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,13 +29,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GrantingWizardServiceImpl implements GrantingWizardService {
 
-    // UserContextService는 세션 관리를 위해 재사용
     private final io.spring.identityadmin.admin.support.context.service.UserContextService userContextService;
     private final UserManagementService userManagementService;
     private final GroupService groupService;
-    private final StudioVisualizerService visualizerService;
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
+    private final StudioVisualizerService visualizerService;
 
     @Override
     @Transactional
@@ -43,11 +43,16 @@ public class GrantingWizardServiceImpl implements GrantingWizardService {
         log.info("Beginning new granting wizard session for subject: {}/{}", request.getSubjectType(), request.getSubjectId());
 
         WizardContext.Subject targetSubject = new WizardContext.Subject(request.getSubjectId(), request.getSubjectType());
-        Set<Long> initialAssignments = getInitialAssignmentIds(targetSubject);
+        Set<Long> initialAssignmentIds = getInitialAssignmentIds(targetSubject);
+        String subjectName = getSubjectName(targetSubject);
+        String sessionTitle = String.format("'%s'님의 멤버십 관리", subjectName);
 
-        String title = getSubjectName(targetSubject) + "님의 권한 관리";
-
-        WizardContext initialContext = new WizardContext(contextId, title, "", targetSubject, initialAssignments, null, null, null);
+        WizardContext initialContext = WizardContext.builder()
+                .contextId(contextId)
+                .sessionTitle(sessionTitle)
+                .targetSubject(targetSubject)
+                .initialAssignmentIds(initialAssignmentIds)
+                .build();
 
         Long adminUserId = getCurrentAdminId();
         userContextService.saveWizardProgress(contextId, adminUserId, initialContext);
@@ -64,60 +69,58 @@ public class GrantingWizardServiceImpl implements GrantingWizardService {
     @Transactional
     public void commitAssignments(String contextId, AssignmentChangeDto finalAssignments) {
         WizardContext context = getWizardProgress(contextId);
-        WizardContext.Subject subject = context.targetSubject();
-        if (subject == null) {
-            throw new IllegalStateException("Management session is invalid: No target subject found.");
-        }
+        WizardContext.Subject subject = Optional.ofNullable(context.targetSubject())
+                .orElseThrow(() -> new IllegalStateException("Management session is invalid: No target subject found."));
 
         log.info("Committing assignments for subject: {}/{}", subject.type(), subject.id());
 
-        if ("USER".equalsIgnoreCase(subjectType)) {
-            UserDto userDto = userManagementService.getUser(subjectId);
-            // AssignmentChangeDto에 담긴 최종 그룹 ID 목록으로 설정
-            userDto.setSelectedGroupIds(
-                    finalAssignments.getAdded().stream()
-                            .filter(a -> "GROUP".equals(a.getTargetType()))
-                            .map(AssignmentChangeDto.Assignment::getTargetId)
-                            .collect(Collectors.toList())
-            );
+        if ("USER".equalsIgnoreCase(subject.type())) {
+            UserDto userDto = userManagementService.getUser(subject.id());
+
+            // [오류 수정] finalAssignments.getAssignments() -> finalAssignments.getAdded()
+            // UI에서 체크된 모든 항목이 added 리스트에 담겨 넘어온다고 가정합니다.
+            List<Long> finalGroupIds = finalAssignments.getAdded().stream()
+                    .filter(a -> "GROUP".equalsIgnoreCase(a.getTargetType()))
+                    .map(AssignmentChangeDto.Assignment::getTargetId)
+                    .collect(Collectors.toList());
+            userDto.setSelectedGroupIds(finalGroupIds);
             userManagementService.modifyUser(userDto);
 
-        } else if ("GROUP".equalsIgnoreCase(subjectType)) {
-            Group group = groupService.getGroup(subjectId).orElseThrow();
-            // AssignmentChangeDto에 담긴 최종 역할 ID 목록으로 설정
-            groupService.updateGroup(group,
-                    finalAssignments.getAdded().stream()
-                            .filter(a -> "ROLE".equals(a.getTargetType()))
-                            .map(AssignmentChangeDto.Assignment::getTargetId)
-                            .collect(Collectors.toList())
+        } else if ("GROUP".equalsIgnoreCase(subject.type())) {
+            Group group = groupService.getGroup(subject.id()).orElseThrow(
+                    () -> new IllegalArgumentException("Group not found with ID: " + subject.id())
             );
+
+            // [오류 수정] finalAssignments.getAssignments() -> finalAssignments.getAdded()
+            List<Long> finalRoleIds = finalAssignments.getAdded().stream()
+                    .filter(a -> "ROLE".equalsIgnoreCase(a.getTargetType()))
+                    .map(AssignmentChangeDto.Assignment::getTargetId)
+                    .collect(Collectors.toList());
+            groupService.updateGroup(group, finalRoleIds);
         } else {
-            throw new IllegalArgumentException("Unsupported subject type: " + subjectType);
+            throw new IllegalArgumentException("Unsupported subject type: " + subject.type());
         }
 
-        // 작업 완료 후 세션 정리
         userContextService.clearWizardProgress(contextId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public SimulationResultDto simulateAssignmentChanges(String contextId, AssignmentChangeDto changes) {
-        // TODO: contextId에서 관리 대상 주체 정보를 가져와야 함
-        Long subjectId = 1L; // 임시 값
-        String subjectType = "USER"; // 임시 값
+        WizardContext context = getWizardProgress(contextId);
+        WizardContext.Subject subject = Optional.ofNullable(context.targetSubject())
+                .orElseThrow(() -> new IllegalStateException("Management session is invalid: No target subject found."));
 
-        // 1. 변경 전 권한 계산
-        List<EffectivePermissionDto> beforePermissions = visualizerService.getEffectivePermissionsForSubject(subjectId, subjectType);
+        if (!"USER".equalsIgnoreCase(subject.type())) {
+            return new SimulationResultDto("그룹/역할에 대한 시뮬레이션은 아직 지원되지 않습니다.", Collections.emptyList());
+        }
 
-        // 2. 가상 주체 생성 및 변경 후 권한 계산
-        Users originalUser = userRepository.findByIdWithGroupsRolesAndPermissions(subjectId)
-                .orElseThrow(() -> new IllegalArgumentException("User not found: " + subjectId));
+        List<EffectivePermissionDto> beforePermissions = visualizerService.getEffectivePermissionsForSubject(subject.id(), subject.type());
 
-        Set<Long> originalGroupIds = originalUser.getUserGroups().stream()
-                .map(ug -> ug.getGroup().getId())
-                .collect(Collectors.toSet());
+        Users originalUser = userRepository.findByIdWithGroupsRolesAndPermissions(subject.id())
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + subject.id()));
 
-        Set<Long> afterGroupIds = new HashSet<>(originalGroupIds);
+        Set<Long> afterGroupIds = new HashSet<>(context.initialAssignmentIds());
         if (changes.getRemovedGroupIds() != null) {
             afterGroupIds.removeAll(changes.getRemovedGroupIds());
         }
@@ -131,30 +134,59 @@ public class GrantingWizardServiceImpl implements GrantingWizardService {
         VirtualSubject virtualSubject = new VirtualSubject(originalUser, virtualGroups);
         List<EffectivePermissionDto> afterPermissions = visualizerService.getEffectivePermissionsForSubject(virtualSubject);
 
-        // 3. 변경점(Gained/Lost) 비교 분석
         List<SimulationResultDto.ImpactDetail> impacts = new ArrayList<>();
         Map<String, EffectivePermissionDto> beforePermMap = beforePermissions.stream()
-                .collect(Collectors.toMap(EffectivePermissionDto::permissionName, p -> p));
+                .collect(Collectors.toMap(EffectivePermissionDto::permissionName, p -> p, (p1, p2) -> p1));
         Map<String, EffectivePermissionDto> afterPermMap = afterPermissions.stream()
-                .collect(Collectors.toMap(EffectivePermissionDto::permissionName, p -> p));
+                .collect(Collectors.toMap(EffectivePermissionDto::permissionName, p -> p, (p1, p2) -> p1));
 
-        // 획득한 권한
         afterPermMap.forEach((name, perm) -> {
             if (!beforePermMap.containsKey(name)) {
-                impacts.add(new SimulationResultDto.ImpactDetail(originalUser.getName(), "USER", name,
+                impacts.add(new SimulationResultDto.ImpactDetail(originalUser.getName(), "USER", perm.permissionDescription(),
                         SimulationResultDto.ImpactType.PERMISSION_GAINED, perm.origin()));
             }
         });
 
-        // 상실한 권한
         beforePermMap.forEach((name, perm) -> {
             if (!afterPermMap.containsKey(name)) {
-                impacts.add(new SimulationResultDto.ImpactDetail(originalUser.getName(), "USER", name,
+                impacts.add(new SimulationResultDto.ImpactDetail(originalUser.getName(), "USER", perm.permissionDescription(),
                         SimulationResultDto.ImpactType.PERMISSION_LOST, "멤버십 변경으로 인한 권한 회수"));
             }
         });
 
-        String summary = String.format("총 %d개의 권한 변경이 예상됩니다.", impacts.size());
+        String summary = String.format("권한 %d개 획득, %d개 상실 예상",
+                (int)impacts.stream().filter(i -> i.impactType() == SimulationResultDto.ImpactType.PERMISSION_GAINED).count(),
+                (int)impacts.stream().filter(i -> i.impactType() == SimulationResultDto.ImpactType.PERMISSION_LOST).count());
         return new SimulationResultDto(summary, impacts);
+    }
+
+    private Set<Long> getInitialAssignmentIds(WizardContext.Subject subject) {
+        if ("USER".equalsIgnoreCase(subject.type())) {
+            UserDto user = userManagementService.getUser(subject.id());
+            return new HashSet<>(user.getSelectedGroupIds());
+        } else if ("GROUP".equalsIgnoreCase(subject.type())) {
+            Group group = groupService.getGroup(subject.id()).orElseThrow();
+            return group.getGroupRoles().stream().map(gr -> gr.getRole().getId()).collect(Collectors.toSet());
+        }
+        return Collections.emptySet();
+    }
+
+    private String getSubjectName(WizardContext.Subject subject) {
+        if ("USER".equalsIgnoreCase(subject.type())) {
+            return userManagementService.getUser(subject.id()).getName();
+        } else if ("GROUP".equalsIgnoreCase(subject.type())) {
+            return groupService.getGroup(subject.id()).map(Group::getName).orElse("알 수 없는 그룹");
+        }
+        return "알 수 없는 주체";
+    }
+
+    private Long getCurrentAdminId() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (principal instanceof Users) {
+            return ((Users) principal).getId();
+        } else if (principal instanceof io.spring.identityadmin.security.core.CustomUserDetails) {
+            return ((io.spring.identityadmin.security.core.CustomUserDetails) principal).getUsers().getId();
+        }
+        return 0L;
     }
 }

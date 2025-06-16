@@ -40,7 +40,8 @@ public class ManagedResourceRepositoryCustomImpl implements ManagedResourceRepos
                 .from(resource)
                 .where(
                         keywordContains(resource, search.getKeyword()),
-                        resourceTypeEq(resource, search.getResourceType())
+                        resourceTypeEq(resource, search.getResourceType()),
+                        isDefinedEq(resource, search.getDefined()) // [신규] isDefined 조건 추가
                 )
                 .fetchOne();
 
@@ -58,5 +59,9 @@ public class ManagedResourceRepositoryCustomImpl implements ManagedResourceRepos
 
     private BooleanExpression resourceTypeEq(QManagedResource resource, ManagedResource.ResourceType resourceType) {
         return resourceType != null ? resource.resourceType.eq(resourceType) : null;
+    }
+
+    private BooleanExpression isDefinedEq(QManagedResource resource, Boolean isDefined) {
+        return isDefined != null ? resource.isDefined.eq(isDefined) : null;
     }
 }

@@ -23,13 +23,9 @@
             <ul class="space-y-1">
                 <li><a th:href="@{/admin/studio}" class="menu-link-sub"><span class="menu-bullet"></span>Authorization Studio<span class="menu-glow"></span></a></li>
                 <li><a th:href="@{/admin/policies}" class="menu-link-sub"><span class="menu-bullet"></span>전체 정책 목록<span class="menu-glow"></span></a></li>
-            </ul>
-        </div>
-        <div>
-            <h3 class="text-xs font-semibold uppercase text-slate-400 tracking-wider mt-4 mb-2 px-3">정책 관리</h3>
-            <ul class="space-y-1">
-                <li><a th:href="@{/admin/authoring/policy-workbench}" class="menu-link-sub">비즈니스 정책 생성</a></li>
-                <li><a th:href="@{/admin/policies}" class="menu-link-sub">기술 정책 관리</a></li>
+                <!-- 비즈니스 정책 생성 및 정책 빌더는 향후 새로운 마법사로 통합될 수 있으므로 일단 유지 -->
+                <li><a th:href="@{/admin/authoring/policy-workbench}" class="menu-link-sub"><span class="menu-bullet"></span>비즈니스 정책 생성</a></li>
+                <li><a th:href="@{/admin/policy-builder}" class="menu-link-sub"><span class="menu-bullet"></span>시각적 정책 빌더</a></li>
             </ul>
         </div>
 
@@ -45,10 +41,26 @@
         </div>
 
         <div>
-            <h3 class="section-title">시스템</h3>
+            <h3 class="section-title">시스템 메타데이터</h3>
             <ul class="space-y-1">
+                <!-- [핵심 변경] 기존 '전체 리소스' 메뉴를 '리소스 워크벤치'로 변경 -->
+                <li>
+                    <a th:href="@{/admin/workbench/resources}" class="menu-link-sub">
+                        <span class="menu-bullet"></span>
+                        <strong>리소스 워크벤치</strong>
+                        <span class="menu-glow"></span>
+                    </a>
+                </li>
+                <!--
+                   [변경 제안]
+                   FunctionCatalog 관련 메뉴들은 이제 '리소스 워크벤치'의 하위 개념 또는 통합된 기능이 되었습니다.
+                   메뉴 구조를 단순화하기 위해 주석 처리하거나, 필요 시 워크벤치 하위 메뉴로 재구성할 수 있습니다.
+                   여기서는 혼란을 줄이기 위해 주석 처리합니다.
+                -->
+                <!--
                 <li><a th:href="@{/admin/permissions/catalog}" class="menu-link-sub"><span class="menu-bullet"></span>권한 카탈로그<span class="menu-glow"></span></a></li>
-                <li><a th:href="@{/admin/resources}" class="menu-link-sub"><span class="menu-bullet"></span>(개발자용) 전체 리소스<span class="menu-glow"></span></a></li>
+                <li><a th:href="@{/admin/catalog}" class="menu-link-sub"><span class="menu-bullet"></span>기능 카탈로그 관리<span class="menu-glow"></span></a></li>
+                -->
             </ul>
         </div>
     </nav>

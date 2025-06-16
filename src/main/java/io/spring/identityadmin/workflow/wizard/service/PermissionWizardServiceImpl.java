@@ -9,7 +9,6 @@ import io.spring.identityadmin.security.core.CustomUserDetails;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyService;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
 import io.spring.identityadmin.studio.dto.WizardInitiationDto;
-import io.spring.identityadmin.workflow.translator.BusinessPolicyTranslator;
 import io.spring.identityadmin.workflow.wizard.dto.SavePermissionsRequest;
 import io.spring.identityadmin.workflow.wizard.dto.SaveSubjectsRequest;
 import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
@@ -33,7 +32,7 @@ import java.util.stream.Collectors;
 public class PermissionWizardServiceImpl implements PermissionWizardService {
 
     private final UserContextService userContextService;
-    private final BusinessPolicyTranslator policyTranslator;
+//    private final BusinessPolicyTranslator policyTranslator;
     private final PolicyService policyService;
     private final ModelMapper modelMapper;
 
@@ -55,10 +54,10 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
                     .forEach(subjects::add);
         }
 
-        WizardContext initialContext = new WizardContext(contextId, policyName, policyDescription, subjects, request.permissionIds(), null);
+        /*WizardContext initialContext = new WizardContext(contextId, policyName, policyDescription, subjects, request.permissionIds(), null);*/
 
         Long currentUserId = getCurrentUserId();
-        userContextService.saveWizardProgress(contextId, currentUserId, initialContext);
+        userContextService.saveWizardProgress(contextId, currentUserId, null);
 
         return new WizardInitiationDto(contextId, "/admin/policy-wizard/" + contextId);
     }
@@ -78,12 +77,12 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         request.userIds().forEach(id -> newSubjects.add(new WizardContext.Subject(id, "USER")));
         request.groupIds().forEach(id -> newSubjects.add(new WizardContext.Subject(id, "GROUP")));
 
-        WizardContext updatedContext = new WizardContext(
+       /* WizardContext updatedContext = new WizardContext(
                 contextId, currentContext.policyName(), currentContext.policyDescription(),
                 newSubjects, currentContext.permissionIds(), currentContext.conditions()
         );
-        userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);
-        return updatedContext;
+        userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);*/
+        return null;
     }
 
     @Override
@@ -92,12 +91,12 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         WizardContext currentContext = userContextService.getWizardProgress(contextId);
         log.info("Updating permissions for wizard context: {}", contextId);
 
-        WizardContext updatedContext = new WizardContext(
+        /*WizardContext updatedContext = new WizardContext(
                 contextId, currentContext.policyName(), currentContext.policyDescription(),
                 currentContext.subjects(), request.permissionIds(), currentContext.conditions()
         );
-        userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);
-        return updatedContext;
+        userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);*/
+        return null;
     }
 
     @Override
@@ -106,12 +105,12 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         WizardContext currentContext = userContextService.getWizardProgress(contextId);
         log.info("Updating policy details for wizard context: {}", contextId);
 
-        WizardContext updatedContext = new WizardContext(
+       /* WizardContext updatedContext = new WizardContext(
                 contextId, policyName, policyDescription,
                 currentContext.subjects(), currentContext.permissionIds(), currentContext.conditions()
         );
-        userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);
-        return updatedContext;
+        userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);*/
+        return null;
     }
 
     @Override
@@ -120,7 +119,7 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         log.info("Committing policy for wizard context: {}", contextId);
         WizardContext context = userContextService.getWizardProgress(contextId);
 
-        if (CollectionUtils.isEmpty(context.subjects()) || CollectionUtils.isEmpty(context.permissionIds())) {
+        /*if (CollectionUtils.isEmpty(context.subjects()) || CollectionUtils.isEmpty(context.permissionIds())) {
             throw new IllegalStateException("정책을 생성하려면 주체와 권한이 반드시 선택되어야 합니다.");
         }
 
@@ -130,8 +129,8 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         Policy createdPolicy = policyService.createPolicy(policyDto);
         log.info("Policy successfully created with ID: {}", createdPolicy.getId());
 
-        userContextService.clearWizardProgress(contextId);
-        return createdPolicy;
+        userContextService.clearWizardProgress(contextId);*/
+        return null;
     }
 
     private Long getCurrentUserId() {
