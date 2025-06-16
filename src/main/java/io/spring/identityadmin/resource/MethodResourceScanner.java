@@ -1,16 +1,13 @@
 package io.spring.identityadmin.resource;
 
 import io.spring.identityadmin.domain.entity.ManagedResource;
-import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.context.ApplicationContext;
-import org.springframework.security.access.prepost.PostAuthorize;
-import org.springframework.security.access.prepost.PostFilter;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.access.prepost.PreFilter;
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -36,60 +33,40 @@ public class MethodResourceScanner implements ResourceScanner {
             Class<?> beanClass = AopUtils.getTargetClass(bean);
 
             if (!beanClass.getPackageName().startsWith("io.spring.identityadmin")) continue;
+            if (beanClass.isAnnotationPresent(Controller.class) || beanClass.isAnnotationPresent(RestController.class)) continue;
 
             for (Method method : beanClass.getDeclaredMethods()) {
                 if (!Modifier.isPublic(method.getModifiers())) continue;
 
-                // [핵심 변경] 보안 어노테이션이 있는 메서드만 필터링
-                if (!isSecureMethod(method)) {
+                Protectable protectableAnnotation = method.getAnnotation(Protectable.class);
+                if (protectableAnnotation == null) {
                     continue;
                 }
 
                 String params = Arrays.stream(method.getParameterTypes()).map(Class::getSimpleName).collect(Collectors.joining(","));
                 String identifier = String.format("%s.%s", beanClass.getName(), method.getName());
 
-                Operation operation = method.getAnnotation(Operation.class);
-                String friendlyName;
-                String description;
-                boolean isDefinedByAnnotation;
+                // [핵심 변경] @Protectable 어노테이션의 값을 초기 정보로 사용
+                String friendlyName = protectableAnnotation.name();
+                String description = protectableAnnotation.description();
 
-                if (operation != null && !operation.summary().isEmpty()) {
-                    friendlyName = operation.summary();
-                    description = operation.description();
-                    isDefinedByAnnotation = true;
-                } else {
-                    friendlyName = method.getName();
-                    description = "개발자는 코드에 @Operation 어노테이션을 추가하여 이 메서드의 비즈니스 용도를 명시해야 합니다.";
-                    isDefinedByAnnotation = false;
-                }
+                String sourceCodeLocation = String.format("%s.java", beanClass.getName().replace('.', '/'));
 
                 resources.add(ManagedResource.builder()
                         .resourceIdentifier(identifier)
                         .resourceType(ManagedResource.ResourceType.METHOD)
-                        .friendlyName(friendlyName)
-                        .description(description)
+                        .friendlyName(friendlyName) // @Protectable의 name
+                        .description(description)     // @Protectable의 description
                         .serviceOwner(beanClass.getSimpleName())
                         .parameterTypes(params)
                         .returnType(method.getReturnType().getSimpleName())
-                        .isManaged(false) // 관리자가 명시적으로 관리하기 전까지는 false
-                        .isDefined(isDefinedByAnnotation) // @Operation 유무에 따라 결정
+                        .sourceCodeLocation(sourceCodeLocation)
+                        .isManaged(false)
+                        .isDefined(true) // @Protectable이 붙은 순간, 개발자에 의해 1차 정의된 것으로 간주
                         .build());
             }
         }
-        log.info("Successfully scanned and discovered {} METHOD resources.", resources.size());
+        log.info("Successfully scanned and discovered {} protectable METHOD resources.", resources.size());
         return resources;
-    }
-
-    /**
-     * [신규 헬퍼 메서드]
-     * 해당 메서드에 보안 관련 어노테이션이 있는지 확인합니다.
-     * @param method 검사할 메서드
-     * @return 보안 어노테이션이 있으면 true
-     */
-    private boolean isSecureMethod(Method method) {
-        return method.isAnnotationPresent(PreAuthorize.class) ||
-                method.isAnnotationPresent(PostAuthorize.class) ||
-                method.isAnnotationPresent(PreFilter.class) ||
-                method.isAnnotationPresent(PostFilter.class);
     }
 }

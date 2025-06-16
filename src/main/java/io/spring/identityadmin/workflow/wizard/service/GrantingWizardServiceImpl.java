@@ -42,12 +42,14 @@ public class GrantingWizardServiceImpl implements GrantingWizardService {
         String contextId = UUID.randomUUID().toString();
         log.info("Beginning new granting wizard session for subject: {}/{}", request.getSubjectType(), request.getSubjectId());
 
-        // TODO: WizardContext DTO를 확장하여 관리 대상 주체 정보 및 현재 멤버십 정보를 담도록 설계 필요
-        // 이 단계에서는 임시로 컨텍스트를 생성하고 저장하는 로직만 구현
-        WizardContext initialContext = new WizardContext(contextId, "Granting Session", "", null, null, null);
+        WizardContext.Subject targetSubject = new WizardContext.Subject(request.getSubjectId(), request.getSubjectType());
+        Set<Long> initialAssignments = getInitialAssignmentIds(targetSubject);
 
-        // TODO: 현재 로그인한 관리자 ID를 가져오는 로직 필요
-        Long adminUserId = 1L; // 임시 값
+        String title = getSubjectName(targetSubject) + "님의 권한 관리";
+
+        WizardContext initialContext = new WizardContext(contextId, title, "", targetSubject, initialAssignments, null, null, null);
+
+        Long adminUserId = getCurrentAdminId();
         userContextService.saveWizardProgress(contextId, adminUserId, initialContext);
 
         return new WizardInitiationDto(contextId, "/admin/granting-wizard/" + contextId);
@@ -62,11 +64,12 @@ public class GrantingWizardServiceImpl implements GrantingWizardService {
     @Transactional
     public void commitAssignments(String contextId, AssignmentChangeDto finalAssignments) {
         WizardContext context = getWizardProgress(contextId);
-        // TODO: context에서 관리 대상 주체(subjectId, subjectType) 정보를 가져와야 함
-        Long subjectId = 1L; // 임시 값
-        String subjectType = "USER"; // 임시 값
+        WizardContext.Subject subject = context.targetSubject();
+        if (subject == null) {
+            throw new IllegalStateException("Management session is invalid: No target subject found.");
+        }
 
-        log.info("Committing assignments for subject: {}/{}", subjectType, subjectId);
+        log.info("Committing assignments for subject: {}/{}", subject.type(), subject.id());
 
         if ("USER".equalsIgnoreCase(subjectType)) {
             UserDto userDto = userManagementService.getUser(subjectId);

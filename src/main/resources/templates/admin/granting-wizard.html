@@ -3,7 +3,6 @@
 <head>
     <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='권한 부여 마법사')}"></th:block>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
-    <!-- granting-wizard.css 추가 예정 -->
 </head>
 <body class="flex flex-col min-h-screen font-sans">
 <div th:insert="~{fragments/header :: header}"></div>
@@ -13,13 +12,16 @@
     <aside th:insert="~{fragments/admin-menu :: menu}"></aside>
 
     <main class="flex-1 p-6 lg:p-8 overflow-y-auto">
-        <div id="granting-wizard-container" class="dark-card p-6 sm:p-8 rounded-xl" th:data-context-id="${contextId}">
+        <div id="granting-wizard-container" class="dark-card p-6 sm:p-8 rounded-xl"
+             th:data-context-id="${contextId}"
+             th:data-subject-type="${subjectType}"
+             th:data-assignment-type="${assignmentType}">
             <!-- 헤더 -->
             <div class="mb-8 flex justify-between items-center">
                 <div>
                     <h1 class="text-3xl font-bold text-gradient">권한 부여 마법사</h1>
                     <p class="text-dark-muted mt-2">
-                        주체 <strong id="subject-name" class="text-indigo-300">사용자 이름</strong>의 그룹 및 역할 멤버십을 관리합니다.
+                        주체 <strong id="subject-name" class="text-indigo-300" th:text="${subjectName}"></strong>의 멤버십을 관리합니다.
                     </p>
                 </div>
                 <div>
@@ -34,30 +36,30 @@
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <!-- 좌측: 선택 목록 -->
                 <div id="selection-panel" class="lg:col-span-4 dark-card p-4">
-                    <h3 class="font-semibold text-lg text-slate-300 mb-4">전체 그룹 목록</h3>
+                    <h3 class="font-semibold text-lg text-slate-300 mb-4" th:text="'전체 ' + ${assignmentType} + ' 목록'"></h3>
                     <div class="h-96 overflow-y-auto space-y-2 pr-2">
-                        <div th:each="group : ${allGroups}" class="dark-checkbox-item">
-                            <input type="checkbox" th:value="${group.id}" th:id="'group-'+${group.id}"
-                                   th:checked="${#lists.contains(selectedGroupIds, group.id)}" class="dark-checkbox">
-                            <label th:for="'group-'+${group.id}" class="text-slate-200" th:text="${group.name}"></label>
+                        <div th:each="item : ${allAssignments}" class="dark-checkbox-item">
+                            <input type="checkbox" th:value="${item.id}" th:id="'item-'+${item.id}"
+                                   th:checked="${#lists.contains(selectedAssignmentIds, item.id)}" class="dark-checkbox assignment-checkbox">
+                            <label th:for="'item-'+${item.id}" class="text-slate-200" th:text="${assignmentType == 'GROUP' ? item.name : item.roleName}"></label>
                         </div>
                     </div>
                 </div>
 
-                <!-- 중앙: 현재 할당 (JS로 동적 관리) -->
-                <div id="assignment-panel" class="lg:col-span-4 dark-card p-4">
-                    <h3 class="font-semibold text-lg text-slate-300 mb-4">현재 할당된 그룹</h3>
+                <!-- 중앙: 현재 할당 -->
+                <div class="lg:col-span-4 dark-card p-4">
+                    <h3 class="font-semibold text-lg text-slate-300 mb-4" th:text="'현재 할당된 ' + ${assignmentType}"></h3>
                     <div id="assignment-list" class="h-96 overflow-y-auto space-y-2 pr-2">
                         <!-- JS로 동적으로 채워짐 -->
                     </div>
                 </div>
 
                 <!-- 우측: 실시간 분석 -->
-                <div id="simulation-panel" class="lg:col-span-4 dark-card p-4">
+                <div class="lg:col-span-4 dark-card p-4">
                     <h3 class="font-semibold text-lg text-slate-300 mb-4">실시간 영향 분석</h3>
                     <div id="simulation-result-container" class="h-96 overflow-y-auto space-y-4">
                         <div class="flex items-center justify-center h-full text-slate-500">
-                            변경사항 발생 시 분석 결과가 여기에 표시됩니다.
+                            멤버십 변경 시 분석 결과가 여기에 표시됩니다.
                         </div>
                     </div>
                 </div>

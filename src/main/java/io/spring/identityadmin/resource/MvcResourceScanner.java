@@ -1,9 +1,9 @@
 package io.spring.identityadmin.resource;
 
 import io.spring.identityadmin.domain.entity.ManagedResource;
-import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,6 +23,10 @@ public class MvcResourceScanner implements ResourceScanner {
 
     private final RequestMappingHandlerMapping handlerMapping;
 
+    // [신규] application.yml에서 Spring REST Docs가 생성한 문서의 기본 경로를 주입받음
+    @Value("${app.docs.rest-docs-path:/docs/index.html}")
+    private String restDocsPath;
+
     @Override
     public List<ManagedResource> scan() {
         final List<ManagedResource> resources = new ArrayList<>();
@@ -33,21 +37,11 @@ public class MvcResourceScanner implements ResourceScanner {
             final HandlerMethod handlerMethod = entry.getValue();
             final Class<?> beanType = handlerMethod.getBeanType();
 
-            // 필터링 규칙 1: io.spring.identityadmin 패키지 내의 컨트롤러로 한정
-            if (!beanType.getPackageName().startsWith("io.spring.identityadmin")) {
-                continue;
-            }
+            if (!beanType.getPackageName().startsWith("io.spring.identityadmin")) continue;
+            if (!beanType.isAnnotationPresent(Controller.class) && !beanType.isAnnotationPresent(RestController.class)) continue;
 
-            // 필터링 규칙 2: @Controller 또는 @RestController 어노테이션이 붙은 클래스만 대상
-            if (!beanType.isAnnotationPresent(Controller.class) && !beanType.isAnnotationPresent(RestController.class)) {
-                continue;
-            }
-
-            // RequestMapping 정보가 없으면 스킵 (URL 기반 스캔의 핵심)
             PathPatternsRequestCondition pathPatternsCondition = mappingInfo.getPathPatternsCondition();
-            if (pathPatternsCondition == null || pathPatternsCondition.getPatterns().isEmpty()) {
-                continue;
-            }
+            if (pathPatternsCondition == null || pathPatternsCondition.getPatterns().isEmpty()) continue;
 
             final String urlPattern = pathPatternsCondition.getPatterns().stream().findFirst().get().getPatternString();
             final String httpMethodStr = mappingInfo.getMethodsCondition().getMethods().stream()
@@ -60,20 +54,14 @@ public class MvcResourceScanner implements ResourceScanner {
                 httpMethod = ManagedResource.HttpMethod.ANY;
             }
 
-            Operation operation = handlerMethod.getMethodAnnotation(Operation.class);
-            String friendlyName;
-            String description;
-            boolean isDefinedByAnnotation;
+            // [변경] @Operation 대신 메서드 이름과 기본 설명 사용
+            String friendlyName = handlerMethod.getMethod().getName();
+            String description = String.format("URL: [%s] %s", httpMethodStr, urlPattern);
 
-            if (operation != null && !operation.summary().isEmpty()) {
-                friendlyName = operation.summary();
-                description = operation.description();
-                isDefinedByAnnotation = true;
-            } else {
-                friendlyName = handlerMethod.getMethod().getName();
-                description = "개발자는 코드에 @Operation 어노테이션을 추가하여 이 리소스의 비즈니스 용도를 명시해야 합니다.";
-                isDefinedByAnnotation = false;
-            }
+            // [신규] Spring REST Docs 문서의 앵커 링크 생성 규칙
+            // 예: /docs/index.html#users_create
+            String docsAnchor = String.format("%s_%s", beanType.getSimpleName().toLowerCase().replace("controller", ""), handlerMethod.getMethod().getName().toLowerCase());
+            String apiDocsUrl = String.format("%s#%s", restDocsPath, docsAnchor);
 
             resources.add(ManagedResource.builder()
                     .resourceIdentifier(urlPattern)
@@ -81,13 +69,14 @@ public class MvcResourceScanner implements ResourceScanner {
                     .resourceType(ManagedResource.ResourceType.URL)
                     .friendlyName(friendlyName)
                     .description(description)
-                    .serviceOwner(handlerMethod.getBeanType().getSimpleName())
-                    .isManaged(false) // [의미 변경] 워크벤치에서 관리자가 명시적으로 관리하기 전까지는 false
-                    .isDefined(isDefinedByAnnotation) // [의미 변경] @Operation으로 정의되었는지 여부
+                    .serviceOwner(beanType.getSimpleName())
+                    .apiDocsUrl(apiDocsUrl) // [신규] REST Docs 링크 저장
+                    .isManaged(false)
+                    .isDefined(false) // [변경] 관리자가 정의하기 전까지는 항상 false
                     .build());
         }
 
-        log.info("Successfully scanned and discovered {} URL resources.", resources.size());
+        log.info("Successfully scanned and discovered {} URL resources for REST Docs.", resources.size());
         return resources;
     }
 }

@@ -3,9 +3,12 @@ package io.spring.identityadmin.workflow.wizard.controller;
 import io.spring.identityadmin.admin.iam.service.GroupService;
 import io.spring.identityadmin.admin.iam.service.RoleService;
 import io.spring.identityadmin.admin.iam.service.UserManagementService;
+import io.spring.identityadmin.domain.dto.UserDto;
+import io.spring.identityadmin.domain.entity.Group;
 import io.spring.identityadmin.studio.dto.SimulationResultDto;
 import io.spring.identityadmin.workflow.wizard.dto.AssignmentChangeDto;
 import io.spring.identityadmin.workflow.wizard.dto.InitiateManagementRequestDto;
+import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 import io.spring.identityadmin.workflow.wizard.service.GrantingWizardService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +16,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.Collections;
 
 @Controller
 @RequestMapping("/admin/granting-wizard")
@@ -37,12 +42,36 @@ public class GrantingWizardController {
 
     @GetMapping("/{contextId}")
     public String getWizardPage(@PathVariable String contextId, Model model) {
-        // TODO: contextId로 관리 대상 주체 정보를 가져와서,
-        // user/group에 따라 다른 데이터를 모델에 담아야 함
-        // 예시: 주체가 User이면, 전체 Group 목록과 선택된 Group 목록을 전달
-        model.addAttribute("allGroups", groupService.getAllGroups());
-        model.addAttribute("selectedGroupIds", java.util.Collections.emptyList()); // 실제 데이터로 교체 필요
+        WizardContext context = grantingWizardService.getWizardProgress(contextId);
+        WizardContext.Subject subject = context.targetSubject();
+
+        String subjectName = "알 수 없음";
+        String subjectType = "UNKNOWN";
+        Object allAssignments = Collections.emptyList();
+        Object selectedAssignmentIds = Collections.emptyList();
+
+        if (subject != null) {
+            subjectType = subject.type();
+            if ("USER".equalsIgnoreCase(subjectType)) {
+                UserDto user = userManagementService.getUser(subject.id());
+                subjectName = user.getName();
+                allAssignments = groupService.getAllGroups();
+                selectedAssignmentIds = user.getSelectedGroupIds();
+                model.addAttribute("assignmentType", "GROUP");
+            } else if ("GROUP".equalsIgnoreCase(subjectType)) {
+                Group group = groupService.getGroup(subject.id()).orElseThrow();
+                subjectName = group.getName();
+                allAssignments = roleService.getRoles();
+                selectedAssignmentIds = group.getGroupRoles().stream().map(gr -> gr.getRole().getId()).toList();
+                model.addAttribute("assignmentType", "ROLE");
+            }
+        }
+
         model.addAttribute("contextId", contextId);
+        model.addAttribute("subjectName", subjectName);
+        model.addAttribute("subjectType", subjectType);
+        model.addAttribute("allAssignments", allAssignments);
+        model.addAttribute("selectedAssignmentIds", selectedAssignmentIds);
 
         return "admin/granting-wizard";
     }
