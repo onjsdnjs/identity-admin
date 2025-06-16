@@ -1,16 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Mermaid.js가 로드되었는지 확인
     if (typeof mermaid === 'undefined') {
-        console.error('Mermaid 라이브러리가 로드되지 않았습니다.');
-        return;
+        console.error('Mermaid 라이브러리가 로드되지 않았습니다. 기능이 제한될 수 있습니다.');
+        // mermaid가 없어도 나머지 기능은 동작하도록 return하지 않습니다.
+    } else {
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
     }
-    mermaid.initialize({ startOnLoad: false, theme: 'default' });
 
     // --- 상태 관리 (State) ---
     class StudioState {
-        constructor() {
-            this.selected = { USER: null, GROUP: null, PERMISSION: null, POLICY: null };
-        }
+        constructor() { this.selected = { USER: null, GROUP: null, PERMISSION: null, POLICY: null }; }
         select(type, item) {
             this.selected[type] = (this.selected[type]?.id === item.id) ? null : item;
             if (type === 'USER' && this.selected.USER) this.selected.GROUP = null;
@@ -247,10 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
         handleManageMembershipClick(event) {
             event.preventDefault();
             const subject = this.state.getSubject();
-            if (!subject) {
-                showToast("관리할 주체를 먼저 선택해주세요.", "error");
-                return;
-            }
+            if (!subject) return;
+
             const manageBtn = document.getElementById('manage-membership-btn');
             const originalBtnText = manageBtn ? manageBtn.innerHTML : '';
             if (manageBtn) this.ui.setLoading(manageBtn, true, originalBtnText);
