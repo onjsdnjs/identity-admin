@@ -28,7 +28,7 @@ public class WorkbenchInitializer implements ApplicationRunner {
     public void run(ApplicationArguments args) throws Exception {
         log.info("IAM Command Center: Starting resource synchronization on application startup...");
         try {
-            resourceRegistryService.refreshAndSynchronizePermissions();
+            resourceRegistryService.refreshAndSynchronizeResources();
             log.info("IAM Command Center: Resource synchronization completed successfully.");
             log.info("Checking for policies without friendly descriptions...");
 

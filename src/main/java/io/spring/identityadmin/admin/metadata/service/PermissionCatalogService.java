@@ -2,6 +2,8 @@ package io.spring.identityadmin.admin.metadata.service;
 
 import io.spring.identityadmin.domain.dto.PermissionDto;
 import io.spring.identityadmin.domain.entity.ManagedResource;
+import io.spring.identityadmin.domain.entity.Permission;
+
 import java.util.List;
 
 /**
@@ -13,19 +15,19 @@ import java.util.List;
 public interface PermissionCatalogService {
 
     /**
-     * 스캐너가 발견한 리소스 목록을 기반으로 시스템의 권한 카탈로그를 최신 상태로 동기화합니다.
-     * - 새로운 리소스(@Operation 명시)는 신규 Permission으로 자동 생성됩니다.
-     * - 기존 리소스의 @Operation 정보가 변경되면, 연결된 Permission의 설명도 자동 업데이트됩니다.
-     * - 코드에서 삭제된 리소스에 연결된 Permission은 비활성화(deprecated) 처리될 수 있습니다.
+     * [기존 synchronize 역할 대체 및 구체화]
+     * 단일 ManagedResource를 기반으로 Permission을 생성하거나 업데이트합니다.
+     * '리소스 워크벤치'에서 권한을 정의할 때 ResourceRegistryService에 의해 호출됩니다.
      *
-     * @param discoveredResources 스캐너가 발견한 리소스 목록 (Swagger 정보 포함)
+     * @param definedResource is_defined=true로 설정된, 비즈니스 의미가 부여된 리소스
+     * @return 생성 또는 업데이트된 Permission
      */
-    void synchronize(List<ManagedResource> discoveredResources);
+    Permission synchronizePermissionFor(ManagedResource definedResource);
 
     /**
-     * 정책 생성 UI(마법사, Studio)에서 관리자가 '선택'할 수 있는 모든 비즈니스 권한 목록을 조회합니다.
-     *
-     * @return 사용자 친화적인 권한 DTO 목록 (ID, 이름, 설명 등 포함)
+     * [기존 getAvailablePermissions 역할 유지]
+     * 권한 부여 마법사 등에서 사용할 수 있는, 현재 시스템에 정의된 모든 권한 목록을 조회합니다.
+     * @return 사용 가능한 Permission DTO 목록
      */
     List<PermissionDto> getAvailablePermissions();
 }

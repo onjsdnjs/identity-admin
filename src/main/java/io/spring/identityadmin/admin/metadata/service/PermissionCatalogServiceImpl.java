@@ -1,10 +1,8 @@
 package io.spring.identityadmin.admin.metadata.service;
 
 import io.spring.identityadmin.domain.dto.PermissionDto;
-import io.spring.identityadmin.domain.entity.FunctionCatalog;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
-import io.spring.identityadmin.repository.FunctionCatalogRepository;
 import io.spring.identityadmin.repository.PermissionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,62 +19,53 @@ import java.util.stream.Collectors;
 public class PermissionCatalogServiceImpl implements PermissionCatalogService {
 
     private final PermissionRepository permissionRepository;
-    private final FunctionCatalogRepository functionCatalogRepository;
     private final ModelMapper modelMapper;
 
-    /**
-     * [최종 수정] 리소스 동기화 시, FunctionCatalog를 찾아 Permission과의 관계를 명시적으로 설정합니다.
-     */
     @Override
     @Transactional
-    public void synchronize(List<ManagedResource> discoveredResources) {
-        log.info("Starting permission catalog synchronization...");
-
-        List<ManagedResource> resourcesToSync = discoveredResources.stream()
-                .filter(ManagedResource::isDefined)
-                .toList();
-
-        for (ManagedResource resource : resourcesToSync) {
-            // 1. 해당 리소스에 대한 FunctionCatalog가 있는지 확인하거나 생성합니다.
-            FunctionCatalog catalog = functionCatalogRepository.findByManagedResource(resource)
-                    .orElseGet(() -> {
-                        log.info("Creating new FunctionCatalog for resource: {}", resource.getFriendlyName());
-                        return functionCatalogRepository.save(FunctionCatalog.builder()
-                                .managedResource(resource)
-                                .friendlyName(resource.getFriendlyName())
-                                .description(resource.getDescription())
-                                .status(FunctionCatalog.CatalogStatus.ACTIVE) // isDefined = true 이므로 바로 ACTIVE
-                                .build());
-                    });
-
-            // 2. Permission을 찾거나 새로 생성합니다.
-            String permissionName = "PERM_" + resource.getResourceType() + "_" + resource.getId();
-            Permission permission = permissionRepository.findByName(permissionName)
-                    .orElseGet(() -> {
-                        log.info("New permission will be created for resource: {}", resource.getFriendlyName());
-                        return Permission.builder().name(permissionName).build();
-                    });
-
-            // 3. Permission 정보 업데이트
-            permission.setFriendlyName(resource.getFriendlyName());
-            permission.setDescription(resource.getDescription());
-            permission.setTargetType(resource.getResourceType().name());
-            permission.setActionType(resource.getHttpMethod() != null ? resource.getHttpMethod().name() : "ACCESS");
-
-            // 4. Permission과 FunctionCatalog의 관계를 설정합니다.
-            // 이 코드를 통해 PERMISSION_FUNCTIONS 조인 테이블에 데이터가 입력됩니다.
-            permission.getFunctions().add(catalog);
-
-            permissionRepository.save(permission);
+    public Permission synchronizePermissionFor(ManagedResource resource) {
+        if (!resource.isDefined()) {
+            throw new IllegalStateException("Cannot create permission from an undefined resource. Resource ID: " + resource.getId());
         }
-        log.info("Permission catalog synchronized with {} defined resources.", resourcesToSync.size());
+
+        String permissionName = generatePermissionName(resource);
+
+        Permission permission = permissionRepository.findByName(permissionName)
+                .orElseGet(() -> Permission.builder().name(permissionName).build());
+
+        permission.setFriendlyName(resource.getFriendlyName());
+        permission.setDescription(resource.getDescription());
+        permission.setTargetType(resource.getResourceType().name());
+
+        String actionType = "EXECUTE"; // 메서드 기반일 때 기본값
+        if (resource.getResourceType() == ManagedResource.ResourceType.URL && resource.getHttpMethod() != null) {
+            actionType = resource.getHttpMethod().name();
+        }
+        permission.setActionType(actionType);
+
+        Permission savedPermission = permissionRepository.save(permission);
+        log.info("Permission '{}' has been synchronized for resource '{}'.", savedPermission.getName(), resource.getResourceIdentifier());
+
+        return savedPermission;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<PermissionDto> getAvailablePermissions() {
-        return permissionRepository.findDefinedPermissionsWithDetails().stream()
+        // isDefined=true인 리소스에서 생성된 권한만 가져오도록 쿼리 수정 필요 (예시)
+        return permissionRepository.findAll().stream() // TODO: 향후 findDefinedPermissions() 등으로 변경
                 .map(p -> modelMapper.map(p, PermissionDto.class))
-                .toList();
+                .collect(Collectors.toList());
+    }
+
+    private String generatePermissionName(ManagedResource resource) {
+        // PERM_리소스ID_리소스식별자(일부) 로 고유하고 예측 가능한 이름 생성
+        String identifierPart = resource.getResourceIdentifier()
+                .replaceAll("[^a-zA-Z0-9]", "_")
+                .toUpperCase();
+        if (identifierPart.length() > 50) {
+            identifierPart = identifierPart.substring(identifierPart.length() - 50);
+        }
+        return String.format("PERM_%d_%s", resource.getId(), identifierPart);
     }
 }

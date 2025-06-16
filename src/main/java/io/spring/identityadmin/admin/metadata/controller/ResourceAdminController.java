@@ -1,34 +1,67 @@
 package io.spring.identityadmin.admin.metadata.controller;
 
+import io.spring.identityadmin.domain.dto.ResourceManagementDto;
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
+import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
+import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.resource.ResourceRegistryService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 @Controller
-@RequestMapping("/admin/resources")
+@RequestMapping("/admin/workbench/resources")
 @RequiredArgsConstructor
 public class ResourceAdminController {
 
     private final ResourceRegistryService resourceRegistryService;
 
     @GetMapping
-    public String resourceListPage(Model model) {
-        model.addAttribute("resources", resourceRegistryService.findAllForAdmin());
-        return "admin/resources";
+    public String resourceWorkbenchPage(
+            @ModelAttribute("criteria") ResourceSearchCriteria criteria,
+            @PageableDefault(size = 20, sort = "id") Pageable pageable,
+            Model model) {
+
+        Page<ManagedResource> resourcePage = resourceRegistryService.findResources(criteria, pageable);
+        model.addAttribute("resourcePage", resourcePage);
+        return "admin/resource-workbench";
     }
 
-    @PostMapping("/{id}/update")
-    public String updateResource(@PathVariable Long id, @ModelAttribute ResourceMetadataDto metadataDto, RedirectAttributes ra) {
+    @PostMapping("/refresh")
+    public String refreshResources(RedirectAttributes ra) {
         try {
-            resourceRegistryService.updateResource(id, metadataDto);
-            ra.addFlashAttribute("message", "리소스 (ID: " + id + ") 정보가 성공적으로 업데이트되었습니다.");
+            resourceRegistryService.refreshAndSynchronizeResources();
+            ra.addFlashAttribute("message", "시스템 리소스를 성공적으로 새로고침했습니다.");
         } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", "업데이트 중 오류 발생: " + e.getMessage());
+            ra.addFlashAttribute("errorMessage", "리소스 새로고침 중 오류 발생: " + e.getMessage());
         }
-        return "redirect:/admin/resources";
+        return "redirect:/admin/workbench/resources";
+    }
+
+    @PostMapping("/{id}/define")
+    public String defineResource(@PathVariable Long id, @ModelAttribute ResourceMetadataDto metadataDto, RedirectAttributes ra) {
+        try {
+            resourceRegistryService.defineResourceAsPermission(id, metadataDto);
+            ra.addFlashAttribute("message", "리소스 (ID: " + id + ")가 성공적으로 권한으로 정의되었습니다.");
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage", "권한 정의 중 오류 발생: " + e.getMessage());
+        }
+        return "redirect:/admin/workbench/resources";
+    }
+
+    @PostMapping("/{id}/manage")
+    public String updateManagementStatus(@PathVariable Long id, @ModelAttribute ResourceManagementDto managementDto, RedirectAttributes ra) {
+        try {
+            resourceRegistryService.updateResourceManagementStatus(id, managementDto);
+            ra.addFlashAttribute("message", "리소스 (ID: " + id + ")의 관리 상태가 변경되었습니다.");
+        } catch (Exception e) {
+            ra.addFlashAttribute("errorMessage", "관리 상태 변경 중 오류 발생: " + e.getMessage());
+        }
+        return "redirect:/admin/workbench/resources";
     }
 }

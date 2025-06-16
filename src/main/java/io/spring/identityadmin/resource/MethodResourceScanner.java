@@ -6,6 +6,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.context.ApplicationContext;
+import org.springframework.security.access.prepost.PostAuthorize;
+import org.springframework.security.access.prepost.PostFilter;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.prepost.PreFilter;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
@@ -36,23 +40,27 @@ public class MethodResourceScanner implements ResourceScanner {
             for (Method method : beanClass.getDeclaredMethods()) {
                 if (!Modifier.isPublic(method.getModifiers())) continue;
 
+                // [핵심 변경] 보안 어노테이션이 있는 메서드만 필터링
+                if (!isSecureMethod(method)) {
+                    continue;
+                }
+
                 String params = Arrays.stream(method.getParameterTypes()).map(Class::getSimpleName).collect(Collectors.joining(","));
                 String identifier = String.format("%s.%s", beanClass.getName(), method.getName());
 
                 Operation operation = method.getAnnotation(Operation.class);
                 String friendlyName;
                 String description;
-                boolean isDefined;
+                boolean isDefinedByAnnotation;
 
-                // [최종 수정] @Operation 존재 여부로 isDefined 필드를 명확하게 설정
                 if (operation != null && !operation.summary().isEmpty()) {
                     friendlyName = operation.summary();
                     description = operation.description();
-                    isDefined = true;
+                    isDefinedByAnnotation = true;
                 } else {
                     friendlyName = method.getName();
                     description = "개발자는 코드에 @Operation 어노테이션을 추가하여 이 메서드의 비즈니스 용도를 명시해야 합니다.";
-                    isDefined = false;
+                    isDefinedByAnnotation = false;
                 }
 
                 resources.add(ManagedResource.builder()
@@ -63,8 +71,8 @@ public class MethodResourceScanner implements ResourceScanner {
                         .serviceOwner(beanClass.getSimpleName())
                         .parameterTypes(params)
                         .returnType(method.getReturnType().getSimpleName())
-                        .isManaged(operation != null)
-                        .isDefined(isDefined)
+                        .isManaged(false) // 관리자가 명시적으로 관리하기 전까지는 false
+                        .isDefined(isDefinedByAnnotation) // @Operation 유무에 따라 결정
                         .build());
             }
         }
@@ -72,10 +80,16 @@ public class MethodResourceScanner implements ResourceScanner {
         return resources;
     }
 
-    private String convertCamelCaseToTitleCase(String camelCase) {
-        if (camelCase == null || camelCase.isEmpty()) return "";
-        String regex = "(?<=[a-z])(?=[A-Z])";
-        String result = camelCase.replaceAll(regex, " ");
-        return result.substring(0, 1).toUpperCase() + result.substring(1);
+    /**
+     * [신규 헬퍼 메서드]
+     * 해당 메서드에 보안 관련 어노테이션이 있는지 확인합니다.
+     * @param method 검사할 메서드
+     * @return 보안 어노테이션이 있으면 true
+     */
+    private boolean isSecureMethod(Method method) {
+        return method.isAnnotationPresent(PreAuthorize.class) ||
+                method.isAnnotationPresent(PostAuthorize.class) ||
+                method.isAnnotationPresent(PreFilter.class) ||
+                method.isAnnotationPresent(PostFilter.class);
     }
 }

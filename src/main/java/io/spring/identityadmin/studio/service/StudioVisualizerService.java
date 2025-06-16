@@ -2,6 +2,7 @@ package io.spring.identityadmin.studio.service;
 
 import io.spring.identityadmin.admin.support.visualization.dto.GraphDataDto; // 신규 import
 import io.spring.identityadmin.studio.dto.*;
+import io.spring.identityadmin.workflow.wizard.dto.VirtualSubject;
 
 import java.util.List;
 
@@ -35,5 +36,15 @@ public interface StudioVisualizerService {
      * @return 유효 권한 및 그 근거를 담은 DTO 목록
      */
     List<EffectivePermissionDto> getEffectivePermissionsForSubject(Long subjectId, String subjectType);
+
+    /**
+     * [신규 오버로딩 메서드]
+     * DB에 저장되지 않은 가상의 주체에 대한 유효 권한을 계산합니다.
+     * PermissionWizardService의 시뮬레이션 기능에 의해 호출됩니다.
+     *
+     * @param subject DB의 실제 정보에 UI의 변경사항이 메모리상에서만 적용된 가상 주체 객체
+     * @return 계산된 유효 권한 및 그 근거를 담은 DTO 목록
+     */
+    List<EffectivePermissionDto> getEffectivePermissionsForSubject(VirtualSubject subject);
 
 }

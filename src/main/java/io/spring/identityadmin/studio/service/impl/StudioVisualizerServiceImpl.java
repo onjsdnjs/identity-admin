@@ -9,6 +9,7 @@ import io.spring.identityadmin.studio.dto.AccessPathDto;
 import io.spring.identityadmin.studio.dto.AccessPathNode;
 import io.spring.identityadmin.studio.dto.EffectivePermissionDto;
 import io.spring.identityadmin.studio.service.StudioVisualizerService;
+import io.spring.identityadmin.workflow.wizard.dto.VirtualSubject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -238,6 +239,36 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
         return permissionRepository.findAllByNameIn(permissionOrigins.keySet()).stream()
                 .map(p -> new EffectivePermissionDto(p.getName(), p.getDescription(), permissionOrigins.get(p.getName())))
                 .sorted(Comparator.comparing(EffectivePermissionDto::permissionDescription))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * [신규 구현] VirtualSubject에 대한 유효 권한 계산
+     */
+    @Override
+    public List<EffectivePermissionDto> getEffectivePermissionsForSubject(VirtualSubject subject) {
+        Map<String, String> permissionOrigins = new HashMap<>();
+
+        // [핵심 변경] DB 대신 VirtualSubject의 그룹 정보를 사용
+        subject.getVirtualGroups().forEach(group -> {
+            // Lazy-loading을 위해 실제 Group 엔티티를 다시 조회해야 할 수 있음
+            Group groupWithRoles = groupRepository.findByIdWithRoles(group.getId()).orElse(group);
+            groupWithRoles.getGroupRoles().forEach(gr -> {
+                Role role = gr.getRole();
+                String origin = "그룹: " + group.getName() + " / 역할: " + role.getRoleName();
+                role.getRolePermissions().forEach(rp ->
+                        permissionOrigins.putIfAbsent(rp.getPermission().getName(), origin)
+                );
+            });
+        });
+
+        if(permissionOrigins.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        return permissionRepository.findAllByNameIn(permissionOrigins.keySet()).stream()
+                .map(p -> new EffectivePermissionDto(p.getName(), p.getDescription(), permissionOrigins.get(p.getName())))
+                .sorted(Comparator.comparing(EffectivePermissionDto::permissionName))
                 .collect(Collectors.toList());
     }
 }
