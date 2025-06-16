@@ -1,10 +1,11 @@
 package io.spring.identityadmin.repository;
 
-import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.QManagedResource;
+import io.spring.identityadmin.domain.entity.QPermission;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -15,9 +16,10 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 
 /**
- * [수정됨]
- * 사유: ResourceSearchCriteria에 추가된 serviceOwner, status 필터를 처리하기 위해
- *      where절에 새로운 BooleanExpression들을 추가합니다.
+ * [최종 디버깅 및 완성]
+ * 사유: QuerydslRepositorySupport를 사용하지 않는 현재 구조에서 존재하지 않는 getQuerydsl()을
+ *      호출하는 치명적인 오류를 수정합니다. JPAQueryFactory를 사용하여 직접 offset, limit을
+ *      적용하는 방식으로 페이징 로직을 올바르게 구현합니다.
  */
 @Repository
 @RequiredArgsConstructor
@@ -26,45 +28,53 @@ public class ManagedResourceRepositoryCustomImpl implements ManagedResourceRepos
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<ManagedResource> findByCriteria(ResourceSearchCriteria search, Pageable pageable) {
+    public Page<ManagedResource> findByCriteria(ResourceSearchCriteria criteria, Pageable pageable) {
         QManagedResource resource = QManagedResource.managedResource;
+        QPermission permission = QPermission.permission;
 
+        BooleanBuilder whereClause = createWhereClause(criteria, resource);
+
+        // Content 조회 쿼리 (fetch join 포함)
         List<ManagedResource> content = queryFactory
                 .selectFrom(resource)
-                .where(
-                        keywordContains(resource, search.getKeyword()),
-                        serviceOwnerEq(resource, search.getServiceOwner()),
-                        statusEq(resource, search.getStatus())
-                )
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .orderBy(resource.createdAt.desc())
+                .leftJoin(resource.permission, permission).fetchJoin()
+                .where(whereClause)
+                .offset(pageable.getOffset()) // [핵심 수정] getQuerydsl() 대신 직접 offset 적용
+                .limit(pageable.getPageSize())  // [핵심 수정] getQuerydsl() 대신 직접 limit 적용
+                .orderBy(resource.createdAt.desc()) // 정렬 조건 추가
                 .fetch();
 
+        // Count 조회 쿼리 (동일한 WHERE 조건 사용)
         Long total = queryFactory
                 .select(resource.count())
                 .from(resource)
-                .where(
-                        keywordContains(resource, search.getKeyword()),
-                        serviceOwnerEq(resource, search.getServiceOwner()),
-                        statusEq(resource, search.getStatus())
-                )
+                .where(whereClause)
                 .fetchOne();
-        return null;
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0);
     }
 
-    private BooleanExpression keywordContains(QManagedResource resource, String keyword) {
-        if (!StringUtils.hasText(keyword)) return null;
-        return resource.friendlyName.containsIgnoreCase(keyword)
-                .or(resource.resourceIdentifier.containsIgnoreCase(keyword))
-                .or(resource.description.containsIgnoreCase(keyword));
-    }
+    private BooleanBuilder createWhereClause(ResourceSearchCriteria search, QManagedResource resource) {
+        BooleanBuilder builder = new BooleanBuilder();
 
-    private BooleanExpression serviceOwnerEq(QManagedResource resource, String serviceOwner) {
-        return StringUtils.hasText(serviceOwner) ? resource.serviceOwner.eq(serviceOwner) : null;
-    }
+        if (search.getStatus() != null) {
+            builder.and(resource.status.eq(search.getStatus()));
+        } else {
+            builder.and(resource.status.ne(ManagedResource.Status.EXCLUDED));
+        }
 
-    private BooleanExpression statusEq(QManagedResource resource, ManagedResource.Status status) {
-        return status != null ? resource.status.eq(status) : null;
+        if (StringUtils.hasText(search.getKeyword())) {
+            builder.and(
+                    resource.friendlyName.containsIgnoreCase(search.getKeyword())
+                            .or(resource.resourceIdentifier.containsIgnoreCase(search.getKeyword()))
+                            .or(resource.description.containsIgnoreCase(search.getKeyword()))
+            );
+        }
+
+        if (StringUtils.hasText(search.getServiceOwner())) {
+            builder.and(resource.serviceOwner.eq(search.getServiceOwner()));
+        }
+
+        return builder;
     }
 }

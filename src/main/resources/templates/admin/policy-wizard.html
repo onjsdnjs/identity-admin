@@ -154,5 +154,18 @@
 
 <script th:src="@{/js/toast.js}"></script>
 <script th:src="@{/js/policy-wizard.js}"></script>
+<script th:inline="javascript">
+    document.addEventListener('DOMContentLoaded', () => {
+        // [핵심 수정] 컨트롤러에서 전달된 메시지를 토스트로 표시
+        const message = /*[[${message}]]*/ null;
+        if (message) {
+            showToast(message, 'success');
+        }
+        const errorMessage = /*[[${errorMessage}]]*/ null;
+        if (errorMessage) {
+            showToast(errorMessage, 'error');
+        }
+    });
+</script>
 </body>
 </html>

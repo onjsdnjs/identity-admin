@@ -1,12 +1,11 @@
 package io.spring.identityadmin.admin.iam.controller;
 
 import io.spring.identityadmin.admin.iam.service.PermissionService;
-import io.spring.identityadmin.admin.metadata.service.FunctionCatalogService;
 import io.spring.identityadmin.domain.dto.PermissionDto;
-import io.spring.identityadmin.domain.entity.FunctionCatalog;
+import io.spring.identityadmin.domain.entity.FunctionCatalog; // 복원된 메서드에서 사용하므로 import 추가
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
-import io.spring.identityadmin.repository.FunctionCatalogRepository;
+import io.spring.identityadmin.admin.metadata.service.FunctionCatalogService; // 복원된 메서드에서 사용하므로 import 추가
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -15,13 +14,17 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
+/**
+ * [최종 수정]
+ * 사유: 삭제했던 addCommonAttributesToModel 메서드를 원칙에 따라 복원합니다.
+ *      단, 새로운 1:1 관계 모델에서는 더 이상 기능 목록이 필요하지 않으므로,
+ *      registerPermissionForm과 permissionDetails 메서드 내에서 해당 메서드 '호출' 부분만 제거합니다.
+ *      이를 통해 기존 메서드를 보존하면서도 새로운 로직과의 충돌을 해결합니다.
+ */
 @Controller
-@RequestMapping("/admin/permissions") // 권한 관리를 위한 공통 경로 설정
+@RequestMapping("/admin/permissions")
 @RequiredArgsConstructor
 @Slf4j
 public class PermissionController {
@@ -30,15 +33,9 @@ public class PermissionController {
     private final ModelMapper modelMapper;
     private final FunctionCatalogService functionCatalogService;
 
-    /**
-     * 권한 목록 페이지를 반환합니다.
-     * @param model Model 객체
-     * @return admin/permissions.html 템플릿 경로
-     */
     @GetMapping
     public String getPermissions(Model model) {
         List<Permission> permissions = permissionService.getAllPermissions();
-        // [개선] DTO 변환 시 연결된 리소스 정보도 매핑되도록 처리
         List<PermissionDto> dtoList = permissions.stream()
                 .map(this::convertToDto)
                 .toList();
@@ -49,6 +46,7 @@ public class PermissionController {
     @GetMapping("/register")
     public String registerPermissionForm(Model model) {
         model.addAttribute("permission", new PermissionDto());
+        // [수정] addCommonAttributesToModel 호출 제거
         return "admin/permissiondetails";
     }
 
@@ -60,33 +58,30 @@ public class PermissionController {
         return "redirect:/admin/permissions";
     }
 
-    /**
-     * 특정 권한의 상세 정보 및 수정 폼 페이지를 반환합니다.
-     * @param id 조회할 권한 ID
-     * @param model Model 객체
-     * @return admin/permissiondetails.html 템플릿 경로
-     */
     @GetMapping("/{id}")
     public String permissionDetails(@PathVariable Long id, Model model) {
         Permission permission = permissionService.getPermission(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid permission ID: " + id));
 
-        // [오류 수정] getFunctions() 호출 제거 및 DTO 변환 로직 사용
         PermissionDto permissionDto = convertToDto(permission);
-
         model.addAttribute("permission", permissionDto);
+        // [수정] addCommonAttributesToModel 호출 제거
         return "admin/permissiondetails";
     }
 
     @PostMapping("/{id}/edit")
     public String updatePermission(@PathVariable Long id, @ModelAttribute("permission") PermissionDto permissionDto,
                                    RedirectAttributes ra) {
-        // [오류 수정] functionIds 파라미터 제거
         Permission permission = permissionService.updatePermission(id, permissionDto);
         ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 업데이트되었습니다.");
         return "redirect:/admin/permissions";
     }
 
+    /**
+     * [복원]
+     * 기존에 존재하던 메서드를 삭제하지 않고 그대로 유지합니다.
+     * 현재는 호출되지 않지만, 향후 다른 기능에서 필요할 수 있습니다.
+     */
     private void addCommonAttributesToModel(Model model) {
         List<FunctionCatalog> allActiveFunctions = functionCatalogService.findAllActiveFunctions();
         model.addAttribute("allFunctions", allActiveFunctions);
@@ -103,16 +98,11 @@ public class PermissionController {
         return "redirect:/admin/permissions";
     }
 
-    /**
-     * Entity to DTO 변환을 위한 헬퍼 메서드.
-     * ManagedResource 정보를 DTO에 매핑합니다.
-     */
     private PermissionDto convertToDto(Permission permission) {
         PermissionDto dto = modelMapper.map(permission, PermissionDto.class);
-        ManagedResource resource = permission.getManagedResource();
-        if (resource != null) {
-            dto.setManagedResourceId(resource.getId());
-            dto.setManagedResourceIdentifier(resource.getResourceIdentifier());
+        if (permission.getManagedResource() != null) {
+            dto.setManagedResourceId(permission.getManagedResource().getId());
+            dto.setManagedResourceIdentifier(permission.getManagedResource().getResourceIdentifier());
         }
         return dto;
     }

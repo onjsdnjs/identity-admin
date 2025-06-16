@@ -9,6 +9,7 @@ import io.spring.identityadmin.resource.ResourceRegistryService;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
 import io.spring.identityadmin.workflow.wizard.service.PermissionWizardService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -23,6 +24,7 @@ import java.util.Set;
 @Controller
 @RequestMapping("/admin/workbench/resources")
 @RequiredArgsConstructor
+@Slf4j
 public class ResourceAdminController {
 
     private final ResourceRegistryService resourceRegistryService;
@@ -69,9 +71,8 @@ public class ResourceAdminController {
     public String defineAndGrantPermission(@PathVariable Long id, @ModelAttribute ResourceMetadataDto metadataDto, RedirectAttributes ra) {
         try {
             Permission newPermission = resourceRegistryService.defineResourceAsPermission(id, metadataDto);
-            ra.addFlashAttribute("message", "리소스가 권한 '" + newPermission.getName() + "'으로 정의되었습니다. 이제 이 권한을 역할에 할당하세요.");
+            log.info("Resource defined as permission '{}'. Initiating grant wizard.", newPermission.getName());
 
-            // [핵심 연동] 권한 부여 마법사 시작
             InitiateGrantRequestDto grantRequest = new InitiateGrantRequestDto();
             grantRequest.setPermissionIds(Set.of(newPermission.getId()));
 
@@ -79,9 +80,11 @@ public class ResourceAdminController {
                     "신규 권한 할당: " + newPermission.getFriendlyName(),
                     "리소스 워크벤치에서 생성된 신규 권한을 역할에 할당합니다.");
 
-            return "redirect:" + initiation.wizardUrl();
+            // [핵심 수정] RedirectAttributes에 메시지를 담지 않고, 마법사 페이지 URL에 쿼리 파라미터로 성공 여부를 전달
+            return "redirect:" + initiation.wizardUrl() + "?from=workbench&permName=" + newPermission.getName();
 
         } catch (Exception e) {
+            log.error("Error during define and grant process for resource ID: {}", id, e);
             ra.addFlashAttribute("errorMessage", "권한 정의 및 연결 중 오류 발생: " + e.getMessage());
             return "redirect:/admin/workbench/resources";
         }

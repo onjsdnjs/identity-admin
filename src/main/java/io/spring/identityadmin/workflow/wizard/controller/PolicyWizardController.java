@@ -58,15 +58,34 @@ public class PolicyWizardController {
      * 각 단계에 필요한 데이터(전체 사용자/그룹/권한 목록)를 모델에 담아 뷰에 전달합니다.
      */
     @GetMapping("/{contextId}")
-    public String getWizardPage(@PathVariable String contextId, Model model) {
-        log.debug("Loading wizard page for contextId: {}", contextId);
-        WizardContext context = wizardService.getWizardProgress(contextId);
-        model.addAttribute("wizardContext", context);
-        model.addAttribute("allUsers", userManagementService.getUsers()); // 이거 대박이다
-        model.addAttribute("allGroups", groupService.getAllGroups());
-        model.addAttribute("allPermissions", permissionCatalogService.getAvailablePermissions());
-        model.addAttribute("activePage", "policy-wizard"); // 사이드바 활성화를 위함
-        return "admin/policy-wizard";
+    public String getWizardPage(
+            @PathVariable String contextId,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String permName,
+            Model model,
+            RedirectAttributes ra) {
+        try {
+            WizardContext context = wizardService.getWizardProgress(contextId);
+            if (context == null) {
+                throw new IllegalStateException("유효하지 않거나 만료된 마법사 세션입니다.");
+            }
+
+            // [핵심 수정] 워크벤치에서 넘어온 경우, 성공 메시지를 Model에 추가
+            if ("workbench".equals(from) && permName != null) {
+                model.addAttribute("message", "리소스가 권한 '" + permName + "'으로 정의되었습니다. 이제 이 권한을 역할에 할당하세요.");
+            }
+
+            model.addAttribute("wizardContext", context);
+            model.addAttribute("allUsers", userManagementService.getUsers());
+            model.addAttribute("allGroups", groupService.getAllGroups());
+            model.addAttribute("allPermissions", permissionCatalogService.getAvailablePermissions());
+            model.addAttribute("activePage", "policy-wizard");
+            return "admin/policy-wizard";
+        } catch (IllegalStateException e) {
+            log.warn("Failed to get wizard progress for contextId {}: {}", contextId, e.getMessage());
+            ra.addFlashAttribute("errorMessage", e.getMessage());
+            return "redirect:/admin/studio"; // 오류 발생 시 안전한 스튜디오 페이지로 이동
+        }
     }
 
     /**

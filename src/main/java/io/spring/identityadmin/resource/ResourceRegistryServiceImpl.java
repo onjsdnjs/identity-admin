@@ -1,11 +1,13 @@
 package io.spring.identityadmin.resource;
 
+import com.querydsl.core.BooleanBuilder;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
 import io.spring.identityadmin.domain.dto.ResourceManagementDto;
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
 import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
+import io.spring.identityadmin.domain.entity.QManagedResource;
 import io.spring.identityadmin.repository.ManagedResourceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +16,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.function.Function;
@@ -34,12 +37,22 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
         log.info("Starting resource scanning and DB synchronization...");
 
         Map<String, ManagedResource> discoveredResourcesMap = scanners.stream()
-                .flatMap(scanner -> scanner.scan().stream())
+                .flatMap(scanner -> {
+                    try {
+                        return scanner.scan().stream();
+                    } catch (Exception e) {
+                        log.error("Error during resource scanning from scanner: {}", scanner.getClass().getSimpleName(), e);
+                        return null; // 스트림에서 제외
+                    }
+                })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toMap(
                         ManagedResource::getResourceIdentifier,
                         Function.identity(),
                         (existing, replacement) -> existing
                 ));
+
+        log.info("Discovered {} unique resources from all scanners.", discoveredResourcesMap.size());
 
         Map<String, ManagedResource> existingResourcesMap = managedResourceRepository.findAll().stream()
                 .collect(Collectors.toMap(ManagedResource::getResourceIdentifier, Function.identity()));
@@ -49,38 +62,40 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
         discoveredResourcesMap.forEach((identifier, discovered) -> {
             ManagedResource existing = existingResourcesMap.get(identifier);
             if (existing != null) {
-                // [오류 수정] isDefined() 대신 getStatus()를 사용하여 비교합니다.
-                // 스캔된 정보와 DB 정보가 다를 때만 업데이트합니다.
+                // 기존 리소스가 있을 경우, 스캔된 정보로 업데이트가 필요한지 확인
                 boolean needsUpdate = !Objects.equals(existing.getFriendlyName(), discovered.getFriendlyName()) ||
                         !Objects.equals(existing.getDescription(), discovered.getDescription()) ||
                         !Objects.equals(existing.getApiDocsUrl(), discovered.getApiDocsUrl()) ||
                         !Objects.equals(existing.getSourceCodeLocation(), discovered.getSourceCodeLocation());
 
                 if (needsUpdate) {
+                    log.trace("Resource '{}' needs update.", identifier);
                     existing.setFriendlyName(discovered.getFriendlyName());
                     existing.setDescription(discovered.getDescription());
                     existing.setApiDocsUrl(discovered.getApiDocsUrl());
                     existing.setSourceCodeLocation(discovered.getSourceCodeLocation());
-                    // isDefined 상태는 스캐너가 결정하므로 함께 업데이트
-                    if (discovered.getStatus() == ManagedResource.Status.NEEDS_DEFINITION) {
-                        // 기존 상태가 정의 완료였다면 스캐너에 의해 미정의로 바뀌지 않도록 함
-                        if(existing.getStatus() != ManagedResource.Status.PERMISSION_CREATED && existing.getStatus() != ManagedResource.Status.POLICY_CONNECTED){
-                            existing.setStatus(ManagedResource.Status.NEEDS_DEFINITION);
-                        }
-                    } else {
+
+                    // [로직 개선] 관리자가 이미 상태를 변경한 경우(예: EXCLUDED), 스캔 결과로 덮어쓰지 않음
+                    // 스캐너가 결정한 상태(NEEDS_DEFINITION 또는 PERMISSION_CREATED)는
+                    // 기존 리소스가 초기 상태일 때만 적용
+                    if (existing.getStatus() == ManagedResource.Status.NEEDS_DEFINITION) {
                         existing.setStatus(discovered.getStatus());
                     }
 
                     resourcesToSave.add(existing);
                 }
             } else {
+                // 새로운 리소스 추가
+                log.trace("New resource '{}' found.", identifier);
                 resourcesToSave.add(discovered);
             }
         });
 
         if (!resourcesToSave.isEmpty()) {
             managedResourceRepository.saveAll(resourcesToSave);
-            log.info("{} new or updated ManagedResources have been saved.", resourcesToSave.size());
+            log.info("{} new or updated ManagedResources have been saved to the database.", resourcesToSave.size());
+        } else {
+            log.info("No new or updated resources to save.");
         }
 
         log.info("Resource synchronization process completed.");
@@ -118,7 +133,8 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     @Override
     @Transactional(readOnly = true)
     public Page<ManagedResource> findResources(ResourceSearchCriteria criteria, Pageable pageable) {
-        // RepositoryCustomImpl 에서 검색 로직을 처리
+        // [핵심 수정] 존재하지 않는 findAll(predicate, pageable) 대신,
+        // ManagedResourceRepositoryCustom에 정의하고 구현한 findByCriteria를 호출합니다.
         return managedResourceRepository.findByCriteria(criteria, pageable);
     }
 

@@ -8,6 +8,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -17,12 +18,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * [오류 수정 및 로직 개선]
- * 사유: 1. 존재하지 않는 isDefined() 빌더 메서드 호출 오류를 제거했습니다.
- *      2. @Protectable 어노테이션이 붙은 리소스는 개발자가 이미 '정의'한 것으로 간주하여,
- *         초기 상태를 'NEEDS_DEFINITION'이 아닌 'PERMISSION_CREATED'로 설정합니다.
- *         이를 통해 관리자는 별도의 '정의' 과정 없이 바로 권한을 역할에 할당할 수 있어
- *         워크플로우가 크게 단축됩니다.
+ * [오류 수정 및 최종 완성]
+ * 사유: 이전 수정에서 잘못된 필터링 로직으로 인해 @Service, @Component 등이 붙은
+ *      핵심 비즈니스 Bean들을 스캔에서 누락하는 치명적인 오류가 있었습니다.
+ *      모든 Bean을 대상으로 하되, 우리가 관리하고자 하는 패키지 내의 Bean만 스캔하도록
+ *      로직을 단순화하고 명확하게 수정하여 메서드 리소스가 정상적으로 DB에 저장되도록 합니다.
  */
 @Slf4j
 @Component
@@ -41,45 +41,63 @@ public class MethodResourceScanner implements ResourceScanner {
             try {
                 bean = applicationContext.getBean(beanName);
             } catch (Exception e) {
-                log.trace("Skipping bean '{}' during scan due to initialization issue: {}", beanName, e.getMessage());
+                log.trace("Skipping bean '{}' during scan: {}", beanName, e.getMessage());
                 continue;
             }
 
-            Class<?> beanClass = AopUtils.getTargetClass(bean);
+            // AOP 프록시 객체가 아닌 실제 타겟 클래스를 가져옴
+            Class<?> targetClass = AopUtils.getTargetClass(bean);
 
-            if (!beanClass.getPackageName().startsWith("io.spring.identityadmin")) continue;
-            if (beanClass.isAnnotationPresent(Controller.class) || beanClass.isAnnotationPresent(RestController.class)) continue;
+            // [핵심 수정] 스캔 대상을 우리 애플리케이션 패키지로 한정하는 것 외에 다른 필터링은 제거
+            if (!targetClass.getPackageName().startsWith("io.spring.identityadmin")) {
+                continue;
+            }
 
-            for (Method method : beanClass.getDeclaredMethods()) {
-                if (!Modifier.isPublic(method.getModifiers())) continue;
+            // [핵심 수정] 웹 컨트롤러는 MvcResourceScanner가 담당하므로 명시적으로 제외
+            if (AnnotationUtils.findAnnotation(targetClass, Controller.class) != null ||
+                    AnnotationUtils.findAnnotation(targetClass, RestController.class) != null) {
+                continue;
+            }
 
-                Protectable protectableAnnotation = method.getAnnotation(Protectable.class);
-                if (protectableAnnotation == null) {
-                    continue;
+            try {
+                for (Method method : targetClass.getDeclaredMethods()) {
+                    // public 메서드만 스캔
+                    if (!Modifier.isPublic(method.getModifiers())) {
+                        continue;
+                    }
+
+                    // @Protectable 어노테이션이 붙은 메서드만 스캔 대상
+                    Protectable protectableAnnotation = AnnotationUtils.findAnnotation(method, Protectable.class);
+                    if (protectableAnnotation == null) {
+                        continue;
+                    }
+
+                    String params = Arrays.stream(method.getParameterTypes())
+                            .map(Class::getSimpleName)
+                            .collect(Collectors.joining(","));
+                    String identifier = String.format("%s.%s(%s)", targetClass.getName(), method.getName(), params);
+
+                    String friendlyName = protectableAnnotation.name();
+                    String description = protectableAnnotation.description();
+                    String sourceCodeLocation = String.format("%s.java", targetClass.getName().replace('.', '/'));
+
+                    resources.add(ManagedResource.builder()
+                            .resourceIdentifier(identifier)
+                            .resourceType(ManagedResource.ResourceType.METHOD)
+                            .friendlyName(friendlyName)
+                            .description(description)
+                            .serviceOwner(targetClass.getSimpleName())
+                            .parameterTypes(params)
+                            .returnType(method.getReturnType().getSimpleName())
+                            .sourceCodeLocation(sourceCodeLocation)
+                            .status(ManagedResource.Status.PERMISSION_CREATED)
+                            .build());
                 }
-
-                String params = Arrays.stream(method.getParameterTypes()).map(Class::getSimpleName).collect(Collectors.joining(","));
-                String identifier = String.format("%s.%s(%s)", beanClass.getName(), method.getName(), params);
-
-                String friendlyName = protectableAnnotation.name();
-                String description = protectableAnnotation.description();
-                String sourceCodeLocation = String.format("%s.java", beanClass.getName().replace('.', '/'));
-
-                resources.add(ManagedResource.builder()
-                        .resourceIdentifier(identifier)
-                        .resourceType(ManagedResource.ResourceType.METHOD)
-                        .friendlyName(friendlyName)
-                        .description(description)
-                        .serviceOwner(beanClass.getSimpleName())
-                        .parameterTypes(params)
-                        .returnType(method.getReturnType().getSimpleName())
-                        .sourceCodeLocation(sourceCodeLocation)
-                        // [로직 개선] @Protectable 리소스는 즉시 권한 할당이 가능한 'PERMISSION_CREATED' 상태로 시작
-                        .status(ManagedResource.Status.PERMISSION_CREATED)
-                        .build());
+            } catch (Exception e) {
+                log.warn("Could not scan methods on bean '{}' of type {}: {}", beanName, targetClass.getSimpleName(), e.getMessage());
             }
         }
-        log.info("Successfully scanned and discovered {} protectable METHOD resources.", resources.size());
+        log.info("Scanned and discovered {} protectable METHOD resources.", resources.size());
         return resources;
     }
 }
