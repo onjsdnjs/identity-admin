@@ -423,3 +423,7 @@
     rx: 5;
     ry: 5;
 }
+
+/*.hidden {
+    display: none !important;
+}*/
