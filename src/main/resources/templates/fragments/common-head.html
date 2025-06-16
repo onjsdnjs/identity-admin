@@ -10,21 +10,34 @@
             theme: {
                 extend: {
                     colors: {
-                        'app-primary': '#3f51b5',        // 예: Indigo 600 (주요 브랜드 색상, 품격있는 파랑)
-                        'app-primary-dark': '#303f9f',  // 예: Indigo 700
-                        'app-secondary': '#455a64',     // 예: Blue Gray 700 (차분한 보조색, 사이드바 등)
-                        'app-accent': '#2196f3',        // 예: Blue 500 (포인트 색상: 버튼, 링크, 아이콘)
-                        'app-accent-hover': '#1976d2',  // 예: Blue 700
-                        'app-light-gray': '#f3f4f6',    // Tailwind gray-100 (페이지 전체 배경)
-                        'app-dark-gray': '#374151',     // Tailwind gray-700 (기본 텍스트)
-                        'app-border': '#d1d5db',        // Tailwind gray-300 (테두리)
-                        'app-input-focus-border': '#60a5fa', // Tailwind blue-400 (입력 필드 포커스)
-                        'error': '#ef4444',             // Tailwind red-500 (오류 메시지, 아이콘)
-                        'success': '#22c55e',           // Tailwind green-500 (성공 메시지, 아이콘)
-                        'info': '#3b82f6'               // Tailwind blue-500 (정보 메시지, 아이콘)
+                        'app-primary': '#6366f1',        // 밝은 인디고 (주요 브랜드 색상)
+                        'app-primary-dark': '#4f46e5',  // 진한 인디고
+                        'app-secondary': '#1e293b',     // 진한 슬레이트 (사이드바, 카드 배경)
+                        'app-accent': '#38bdf8',        // 밝은 스카이블루 (포인트 색상)
+                        'app-accent-hover': '#0284c7',  // 진한 스카이블루
+                        'app-dark-bg': '#050810',       // 가장 어두운 배경
+                        'app-dark-bg-secondary': '#0a0f1c', // 두번째 어두운 배경
+                        'app-dark-bg-tertiary': '#0f172a',  // 세번째 어두운 배경
+                        'app-light-gray': '#e2e8f0',    // 밝은 텍스트
+                        'app-dark-gray': '#94a3b8',     // 보조 텍스트
+                        'app-border': '#334155',         // 다크 테두리
+                        'app-input-focus-border': '#6366f1', // 입력 필드 포커스
+                        'error': '#ef4444',             // 빨간색 (오류)
+                        'success': '#22c55e',           // 초록색 (성공)
+                        'info': '#3b82f6',              // 파란색 (정보)
+                        'warning': '#f59e0b'            // 주황색 (경고)
                     },
                     fontFamily: {
                         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif', '"Apple Color Emoji"', '"Segoe UI Emoji"', '"Segoe UI Symbol"', '"Noto Color Emoji"'],
+                    },
+                    backgroundImage: {
+                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+                        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+                    },
+                    animation: {
+                        'pulse-glow': 'pulse-glow 2s infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                        'slide-in': 'slideInFromTop 0.6s ease-out',
                     }
                 }
             }

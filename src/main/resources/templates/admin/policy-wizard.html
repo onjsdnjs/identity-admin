@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='권한 부여 마법사')}"></th:block>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/policy-wizard.css}" />
+    <style>
+        .step-circle {
+            background: rgba(30, 41, 59, 0.6);
+            border: 2px solid rgba(71, 85, 105, 0.5);
+            color: #94a3b8;
+        }
+        .step-item.active .step-circle {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            border-color: #6366f1;
+            color: white;
+        }
+        .step-connector {
+            background: rgba(71, 85, 105, 0.3);
+        }
+        .wizard-card {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            padding: 2rem;
+            border-radius: 0.75rem;
+        }
+        select {
+            background: rgba(30, 41, 59, 0.6);
+            border: 2px solid rgba(71, 85, 105, 0.5);
+            color: #e2e8f0;
+        }
+        select:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        input[type="text"], textarea {
+            background: rgba(30, 41, 59, 0.6);
+            border: 2px solid rgba(71, 85, 105, 0.5);
+            color: #e2e8f0;
+        }
+        input[type="text"]:focus, textarea:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        }
+        .permission-item {
+            background: rgba(30, 41, 59, 0.4);
+            border: 1px solid rgba(71, 85, 105, 0.3);
+        }
+        .permission-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen font-sans">
+
+<div th:insert="~{fragments/header :: header}"></div>
+<div id="toast-container" class="fixed top-5 right-5 z-50"></div>
+
+<div class="flex-1 flex items-center justify-center p-4">
+    <div class="w-full max-w-4xl rounded-2xl shadow-xl p-8" style="background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(71, 85, 105, 0.3);">
+
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-gradient">권한 부여 마법사</h1>
+            <p class="text-dark-muted mt-2">3단계의 간단한 과정으로 새로운 인가 정책을 생성합니다.</p>
+            <input type="hidden" id="wizardContextId" th:value="${wizardContext.contextId()}"/>
+        </div>
+
+        <div id="step-indicator-container" class="flex items-center justify-center mb-12">
+            <div id="step-1-indicator" class="step-item">
+                <div class="step-circle">1</div>
+                <div class="step-label" style="color: #cbd5e1;">주체 선택 (Who)</div>
+            </div>
+            <div class="step-connector"></div>
+            <div id="step-2-indicator" class="step-item">
+                <div class="step-circle">2</div>
+                <div class="step-label" style="color: #cbd5e1;">권한 선택 (What)</div>
+            </div>
+            <div class="step-connector"></div>
+            <div id="step-3-indicator" class="step-item">
+                <div class="step-circle">3</div>
+                <div class="step-label" style="color: #cbd5e1;">검토 및 생성</div>
+            </div>
+        </div>
+
+        <div id="wizard-content">
+            <div id="step-1" class="wizard-card">
+                <h2 class="text-2xl font-semibold text-center mb-6" style="color: #e2e8f0;">Step 1: 누구에게 권한을 부여하시겠습니까?</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="subject-users" class="font-semibold" style="color: #cbd5e1;">사용자 선택 (다중 선택 가능)</label>
+                        <select id="subject-users" multiple class="w-full h-48 mt-2 p-2 rounded-md focus:ring-2 focus:ring-indigo-300">
+                            <option th:each="user : ${allUsers}" th:value="${user.id}" th:text="${user.name} + ' (' + ${user.username} + ')'"
+                                    th:selected="${#sets.contains(wizardContext.subjects().![id], user.id)}"></option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="subject-groups" class="font-semibold" style="color: #cbd5e1;">그룹 선택 (다중 선택 가능)</label>
+                        <select id="subject-groups" multiple class="w-full h-48 mt-2 p-2 rounded-md focus:ring-2 focus:ring-indigo-300">
+                            <option th:each="group : ${allGroups}" th:value="${group.id}" th:text="${group.name}"
+                                    th:selected="${#sets.contains(wizardContext.subjects().![id], group.id)}"></option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step-2" class="wizard-card">
+                <h2 class="text-2xl font-semibold text-center mb-6" style="color: #e2e8f0;">Step 2: 어떤 권한을 부여하시겠습니까?</h2>
+                <div class="h-80 overflow-y-auto p-4 rounded-md space-y-3" style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(71, 85, 105, 0.3);">
+                    <div th:each="perm : ${allPermissions}" class="flex items-start p-3 permission-item rounded-lg shadow-sm">
+                        <input type="checkbox" name="permissions" th:id="'perm-' + ${perm.id}" th:value="${perm.id}" class="h-5 w-5 mt-1"
+                               th:checked="${#sets.contains(wizardContext.permissionIds(), perm.id)}">
+                        <label th:for="'perm-' + ${perm.id}" class="ml-4 flex-1 cursor-pointer">
+                            <p class="font-semibold" style="color: #e2e8f0;" th:text="${perm.description}">사용자 정보 조회</p>
+                            <p class="text-xs font-mono" style="color: #94a3b8;" th:text="'(ID: ' + ${perm.name} + ')'">(ID: PERM_URL_123)</p>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="step-3" class="wizard-card">
+                <h2 class="text-2xl font-semibold text-center mb-6" style="color: #e2e8f0;">Step 3: 생성할 정책 검토</h2>
+                <div class="p-6 rounded-lg space-y-4" style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(71, 85, 105, 0.3);">
+                    <div>
+                        <label for="policyName" class="font-bold" style="color: #cbd5e1;">정책 이름</label>
+                        <input type="text" id="policyName" class="w-full mt-1 p-2 rounded-md" th:value="${wizardContext.policyName()}">
+                    </div>
+                    <div>
+                        <label for="policyDescription" class="font-bold" style="color: #cbd5e1;">정책 설명</label>
+                        <textarea id="policyDescription" class="w-full mt-1 p-2 rounded-md" rows="3" th:text="${wizardContext.policyDescription()}"></textarea>
+                    </div>
+                    <div id="review-summary" class="p-4 border-t mt-4" style="border-color: rgba(71, 85, 105, 0.3); color: #e2e8f0;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-between mt-8 pt-6 border-t" style="border-color: rgba(71, 85, 105, 0.3);">
+            <button id="prev-btn"
+                    class="px-6 py-2 rounded-lg disabled:opacity-50 transition-opacity"
+                    style="background: rgba(107, 114, 128, 0.2); color: #9ca3af; border: 1px solid rgba(107, 114, 128, 0.3);">이전</button>
+            <div>
+                <button id="next-btn"
+                        class="px-6 py-2 rounded-lg"
+                        style="background: linear-gradient(135deg, #6366f1, #4f46e5); color: white; box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);">다음</button>
+                <button id="commit-btn"
+                        class="px-6 py-2 rounded-lg hidden"
+                        style="background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">정책 생성 및 적용</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script th:src="@{/js/toast.js}"></script>
+<script th:src="@{/js/policy-wizard.js}"></script>
+</body>
+</html>

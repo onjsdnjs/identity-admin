@@ -25,7 +25,7 @@ public class RoleAuthority implements GrantedAuthority, Serializable {
         Assert.notNull(role.getId(), "Role ID cannot be null");
         Assert.hasText(role.getRoleName(), "Role name cannot be empty");
 
-        this.authority = ROLE_PREFIX + role.getRoleName().toUpperCase();
+        this.authority = role.getRoleName().startsWith("ROLE_") ? role.getRoleName() : ROLE_PREFIX + role.getRoleName().toUpperCase();
         this.roleId = role.getId();
         this.roleName = role.getRoleName();
     }

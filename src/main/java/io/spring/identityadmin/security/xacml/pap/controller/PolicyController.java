@@ -52,7 +52,7 @@ public class PolicyController {
     @GetMapping("/{id}")
     public String detailForm(@PathVariable Long id, Model model) {
         Policy policy = policyService.findById(id);
-        PolicyDto dto = modelMapper.map(policy, PolicyDto.class);
+        PolicyDto dto = toDto(policy);
         if (dto.getRules().isEmpty()) {
             dto.getRules().add(new PolicyDto.RuleDto());
         }

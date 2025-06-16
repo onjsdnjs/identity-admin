@@ -9,6 +9,7 @@ import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,5 +40,17 @@ public class WorkbenchMetadataController {
     @GetMapping("/roles")
     public ResponseEntity<List<RoleMetadataDto>> getRoles() {
         return ResponseEntity.ok(businessMetadataService.getAllRoles()); // BusinessMetadataService에 추가 필요
+    }
+
+    @GetMapping("/authoring-metadata")
+    public ResponseEntity<Map<String, Object>> getPolicyAuthoringMetadata() {
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("subjects", businessMetadataService.getAllUsersAndGroups());
+        metadata.put("resources", businessMetadataService.getAllBusinessResources());
+        // 모든 리소스에 대한 모든 액션을 미리 보내기보다, 리소스 선택 시 동적으로 액션을 가져오는 것이 효율적일 수 있음.
+        // 여기서는 일단 모든 액션을 보냄.
+        metadata.put("actions", businessMetadataService.getAllBusinessActions());
+        metadata.put("conditionTemplates", businessMetadataService.getAllConditionTemplates());
+        return ResponseEntity.ok(metadata);
     }
 }

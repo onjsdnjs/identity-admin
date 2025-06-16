@@ -36,49 +36,38 @@ public class MvcResourceScanner implements ResourceScanner {
             final RequestMappingInfo mappingInfo = entry.getKey();
             final HandlerMethod handlerMethod = entry.getValue();
 
-            // [핵심 수정] getPatternsCondition()이 null을 반환하는 경우를 방어합니다.
             PathPatternsRequestCondition pathPatternsCondition = mappingInfo.getPathPatternsCondition();
-            if (pathPatternsCondition == null) {
-                continue; // URL 패턴이 없는 매핑은 건너뜁니다.
-            }
+            if (pathPatternsCondition == null || pathPatternsCondition.getPatterns().isEmpty()) continue;
+            if (!handlerMethod.getBeanType().getPackageName().startsWith("io.spring.identityadmin")) continue;
 
-            Set<PathPattern> urlPatterns = pathPatternsCondition.getPatterns();
-            if (urlPatterns.isEmpty()) {
-                continue;
-            }
-
-            // 프로젝트 내부의 컨트롤러만 대상으로 필터링
-            if (!handlerMethod.getBeanType().getPackageName().startsWith("io.spring.identityadmin")) {
-                continue;
-            }
-
-            // 대표 URL 패턴 하나만 사용
-            final String urlPattern = urlPatterns.stream().findFirst().get().getPatternString();
-
-            // HTTP 메서드 추출
+            final String urlPattern = pathPatternsCondition.getPatterns().stream().findFirst().get().getPatternString();
             final String httpMethod = mappingInfo.getMethodsCondition().getMethods().stream()
                     .findFirst().map(Enum::name).orElse("ANY");
 
             Operation operation = handlerMethod.getMethodAnnotation(Operation.class);
             String friendlyName;
             String description;
+            boolean isDefined;
 
             if (operation != null && !operation.summary().isEmpty()) {
-                friendlyName = operation.summary(); // 어노테이션의 summary를 최우선으로 사용
+                friendlyName = operation.summary();
                 description = operation.description();
+                isDefined = true;
             } else {
-                friendlyName = convertCamelCaseToTitleCase(handlerMethod.getMethod().getName()); // 차선책
-                description = "Mapped to: " + handlerMethod.getBeanType().getSimpleName() + "." + handlerMethod.getMethod().getName();
+                friendlyName = handlerMethod.getMethod().getName(); // 어노테이션 없으면 그냥 메서드 이름 사용
+                description = "개발자는 코드에 @Operation 어노테이션을 추가하여 이 리소스의 비즈니스 용도를 명시해야 합니다.";
+                isDefined = false;
             }
-
 
             resources.add(ManagedResource.builder()
                     .resourceIdentifier(urlPattern)
-                    .httpMethod(ManagedResource.HttpMethod.valueOf(httpMethod))
+                    .httpMethod(ManagedResource.HttpMethod.valueOf(httpMethod.toUpperCase()))
                     .resourceType(ManagedResource.ResourceType.URL)
                     .friendlyName(friendlyName)
                     .description(description)
                     .serviceOwner(handlerMethod.getBeanType().getSimpleName())
+                    .isManaged(operation != null)
+                    .isDefined(isDefined)
                     .build());
         }
 

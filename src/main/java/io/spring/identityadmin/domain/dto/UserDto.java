@@ -16,6 +16,7 @@ public class UserDto {
     private String username;
     private String name;
     private String password;
+    private boolean mfaEnabled;
     private List<String> roles;
     private List<String> permissions;
     private List<Long> selectedGroupIds;

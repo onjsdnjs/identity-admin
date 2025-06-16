@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class PermissionDto {
     private Long id;
     private String name;
+    private String friendlyName;
     private String description;
     private String targetType;
     private String actionType;

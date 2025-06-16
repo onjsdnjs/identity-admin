@@ -2,132 +2,164 @@ package io.spring.identityadmin.security.xacml.pap.service;
 
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.entity.ConditionTemplate;
+import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.domain.entity.business.BusinessResource;
 import io.spring.identityadmin.domain.entity.business.BusinessResourceAction;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.domain.entity.policy.PolicyRule;
 import io.spring.identityadmin.domain.entity.policy.PolicyTarget;
-import io.spring.identityadmin.repository.BusinessActionRepository;
-import io.spring.identityadmin.repository.BusinessResourceActionRepository;
-import io.spring.identityadmin.repository.BusinessResourceRepository;
-import io.spring.identityadmin.repository.ConditionTemplateRepository;
-import io.spring.identityadmin.repository.UserRepository;
+import io.spring.identityadmin.repository.*;
 import io.spring.identityadmin.security.xacml.pep.CustomDynamicAuthorizationManager;
-import io.spring.identityadmin.repository.GroupRepository;
-import io.spring.identityadmin.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BusinessPolicyServiceImpl implements BusinessPolicyService {
 
     private final PolicyRepository policyRepository;
-    private final BusinessActionRepository businessActionRepository;
     private final BusinessResourceRepository businessResourceRepository;
+    private final BusinessResourceActionRepository businessResourceActionRepository;
     private final ConditionTemplateRepository conditionTemplateRepository;
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final CustomDynamicAuthorizationManager authorizationManager;
-    private final BusinessResourceActionRepository businessResourceActionRepository;
+    private final PolicyEnrichmentService policyEnrichmentService;
 
     @Override
     @Transactional
     public Policy createPolicyFromBusinessRule(BusinessPolicyDto dto) {
         Policy policy = new Policy();
-        // DTO를 기반으로 새로운 Policy 엔티티를 채움
-        updatePolicyFromDto(policy, dto);
+        translateAndApplyDtoToPolicy(policy, dto);
+        policyEnrichmentService.enrichPolicyWithFriendlyDescription(policy); // 설명 자동 생성
         Policy savedPolicy = policyRepository.save(policy);
-        authorizationManager.reload();
+        authorizationManager.reload(); // 인가 시스템 런타임 갱신
+        log.info("Successfully created a new policy '{}' from business rule.", savedPolicy.getName());
         return savedPolicy;
     }
 
     @Override
     @Transactional
     public Policy updatePolicyFromBusinessRule(Long policyId, BusinessPolicyDto dto) {
-        Policy existingPolicy = policyRepository.findById(policyId)
+        Policy existingPolicy = policyRepository.findByIdWithDetails(policyId)
                 .orElseThrow(() -> new IllegalArgumentException("Policy not found with id: " + policyId));
-        // DTO를 기반으로 기존 Policy 엔티티를 업데이트
-        updatePolicyFromDto(existingPolicy, dto);
+        translateAndApplyDtoToPolicy(existingPolicy, dto);
+        policyEnrichmentService.enrichPolicyWithFriendlyDescription(existingPolicy); // 설명 자동 생성
         Policy savedPolicy = policyRepository.save(existingPolicy);
-        authorizationManager.reload();
+        authorizationManager.reload(); // 인가 시스템 런타임 갱신
+        log.info("Successfully updated the policy '{}' from business rule.", savedPolicy.getName());
         return savedPolicy;
     }
 
     @Override
-    public BusinessPolicyDto getBusinessRuleForPolicy(Long policyId) {
-        return null;
+    public BusinessPolicyDto translatePolicyToBusinessRule(Long policyId) {
+        // 역번역 기능은 복잡도가 높아 향후 과제로 남겨둡니다.
+        // 현재는 생성/수정 기능에 집중합니다.
+        throw new UnsupportedOperationException("Translating technical policy back to business rule is not yet implemented.");
     }
 
-    // BusinessPolicyDto를 Policy 엔티티로 번역하고 채우는 핵심 로직
-    private void updatePolicyFromDto(Policy policy, BusinessPolicyDto dto) {
+    @Override
+    public BusinessPolicyDto getBusinessRuleForPolicy(Long policyId) {
+        throw new UnsupportedOperationException("Translating technical policy back to business rule is not yet implemented.");
+    }
+
+    /**
+     * BusinessPolicyDto를 Policy 엔티티로 번역하고 적용하는 핵심 로직
+     */
+    private void translateAndApplyDtoToPolicy(Policy policy, BusinessPolicyDto dto) {
         policy.setName(dto.getPolicyName());
         policy.setDescription(dto.getDescription());
-        policy.setEffect(Policy.Effect.ALLOW); // UI에서 선택하도록 확장 가능
-        policy.setPriority(100); // UI에서 입력받도록 확장 가능
+        policy.setEffect(dto.getEffect());
+        policy.setPriority(500); // 비즈니스 정책은 중간 우선순위 부여
 
-        List<String> conditions = new ArrayList<>();
+        List<String> subjectConditions = new ArrayList<>();
+        List<String> actionConditions = new ArrayList<>();
+        List<String> contextualConditions = new ArrayList<>();
 
         // 1. 주체(Subject) 조건 생성
         if (!CollectionUtils.isEmpty(dto.getSubjectUserIds())) {
-            String userConditions = dto.getSubjectUserIds().stream()
-                    .map(id -> userRepository.findById(id).orElseThrow().getUsername())
+            subjectConditions.add(dto.getSubjectUserIds().stream()
+                    .map(id -> userRepository.findById(id).map(Users::getUsername)
+                            .orElseThrow(() -> new IllegalArgumentException("Invalid user ID: " + id)))
                     .map(username -> String.format("authentication.name == '%s'", username))
-                    .collect(Collectors.joining(" or "));
-            conditions.add("(" + userConditions + ")");
+                    .collect(Collectors.joining(" or ")));
         }
         if (!CollectionUtils.isEmpty(dto.getSubjectGroupIds())) {
-            String groupConditions = dto.getSubjectGroupIds().stream()
-                    .map(id -> groupRepository.findById(id).orElseThrow().getName())
-                    .map(groupName -> String.format("hasAuthority('GROUP_%s')", groupName.toUpperCase()))
-                    .collect(Collectors.joining(" or "));
-            conditions.add("(" + groupConditions + ")");
+            subjectConditions.add(dto.getSubjectGroupIds().stream()
+                    .map(id -> String.format("hasAuthority('GROUP_%d')", id)) // CustomUserDetails에서 'GROUP_{ID}' 형태의 권한을 부여해야 함
+                    .collect(Collectors.joining(" or ")));
         }
 
         // 2. 행위(Action) + 자원(Resource) 조건 생성 -> hasAuthority(PERMISSION_NAME)
-        Long resourceId = dto.getBusinessResourceId();
-        Long actionId = dto.getBusinessActionId();
+        if (!CollectionUtils.isEmpty(dto.getBusinessActionIds()) && !CollectionUtils.isEmpty(dto.getBusinessResourceIds())) {
+            // 모든 자원/행위 조합에 대한 기술 권한을 찾음
+            Set<String> requiredPermissions = new HashSet<>();
+            for (Long resourceId : dto.getBusinessResourceIds()) {
+                for (Long actionId : dto.getBusinessActionIds()) {
+                    BusinessResourceAction.BusinessResourceActionId mappingId = new BusinessResourceAction.BusinessResourceActionId(resourceId, actionId);
+                    businessResourceActionRepository.findById(mappingId)
+                            .ifPresent(mapping -> requiredPermissions.add(mapping.getMappedPermissionName()));
+                }
+            }
+            if(!requiredPermissions.isEmpty()) {
+                actionConditions.add(requiredPermissions.stream()
+                        .map(perm -> String.format("hasAuthority('%s')", perm))
+                        .collect(Collectors.joining(" and ")));
+            }
+        }
 
-        // BusinessResourceActionId를 만들어 중간 테이블에서 매핑 정보를 찾음
-        BusinessResourceAction.BusinessResourceActionId mappingId = new BusinessResourceAction.BusinessResourceActionId(resourceId, actionId);
-        BusinessResourceAction mapping = businessResourceActionRepository.findById(mappingId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 자원에 대한 행위가 정의되지 않았습니다."));
-
-        // 매핑 테이블에서 찾은 기술적 권한 이름을 조건으로 추가
-        conditions.add(String.format("hasAuthority('%s')", mapping.getMappedPermissionName()));
-
-        // 3. 추가 조건(Contextual Condition) 생성
+        // 3. 추가 컨텍스트 조건(Contextual Condition) 생성
         if (dto.getConditions() != null) {
             dto.getConditions().forEach((templateId, params) -> {
-                ConditionTemplate template = conditionTemplateRepository.findById(templateId).orElseThrow();
+                ConditionTemplate template = conditionTemplateRepository.findById(templateId)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid ConditionTemplate ID: " + templateId));
                 String spel = String.format(template.getSpelTemplate().replace("?", "'%s'"), params.toArray());
-                conditions.add(spel);
+                contextualConditions.add(spel);
             });
         }
 
-        // 4. 생성된 모든 조건을 AND로 결합하여 최종 PolicyRule 생성
+        // 4. 모든 조건들을 AND로 결합하여 최종 PolicyRule 생성
+        List<String> allConditions = new ArrayList<>();
+        if (!subjectConditions.isEmpty()) {
+            allConditions.add("(" + String.join(" or ", subjectConditions) + ")");
+        }
+        if (!actionConditions.isEmpty()) {
+            allConditions.add("(" + String.join(" and ", actionConditions) + ")");
+        }
+        allConditions.addAll(contextualConditions);
+
         policy.getRules().clear();
-        PolicyRule finalRule = PolicyRule.builder().policy(policy).description("Auto-generated from Business Rule").build();
-        Set<PolicyCondition> finalConditions = conditions.stream()
+        PolicyRule finalRule = PolicyRule.builder()
+                .policy(policy)
+                .description("Generated from Policy Authoring Workbench")
+                .build();
+        Set<PolicyCondition> finalPolicyConditions = allConditions.stream()
                 .map(condStr -> PolicyCondition.builder().rule(finalRule).expression(condStr).build())
                 .collect(Collectors.toSet());
-        finalRule.setConditions(finalConditions);
+        finalRule.setConditions(finalPolicyConditions);
         policy.getRules().add(finalRule);
 
         // 5. Target 설정
         policy.getTargets().clear();
-        BusinessResource resource = businessResourceRepository.findById(dto.getBusinessResourceId()).orElseThrow();
-        PolicyTarget target = PolicyTarget.builder()
-                .policy(policy).targetType(resource.getResourceType()).targetIdentifier("/**") // 모든 하위 개체를 대상으로 가정, 향후 특정 ID(#target.id)를 받는 로직으로 확장 가능
-                .build();
-        policy.getTargets().add(target);
+        if(!CollectionUtils.isEmpty(dto.getBusinessResourceIds())) {
+            dto.getBusinessResourceIds().forEach(resourceId -> {
+                BusinessResource resource = businessResourceRepository.findById(resourceId)
+                        .orElseThrow(() -> new IllegalArgumentException("Invalid BusinessResource ID: " + resourceId));
+                // TODO: 향후 개별 자원 ID까지 타겟팅 가능하도록 확장. 현재는 타입의 모든 자원을 대상으로 함.
+                policy.getTargets().add(PolicyTarget.builder()
+                        .policy(policy)
+                        .targetType(resource.getResourceType())
+                        .targetIdentifier("/**")
+                        .build());
+            });
+        }
     }
 }

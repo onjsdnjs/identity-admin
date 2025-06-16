@@ -19,6 +19,7 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -34,8 +35,9 @@ public class MySecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .anyRequest().access(customDynamicAuthorizationManager));
-        http.formLogin(Customizer.withDefaults());
+        http.formLogin(form -> form.loginPage("/login").defaultSuccessUrl("/admin"));
         http.authenticationProvider(customAuthenticationProvider);
+        http.csrf(AbstractHttpConfigurer::disable);
         return http.build();
     }
 

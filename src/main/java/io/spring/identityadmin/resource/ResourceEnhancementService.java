@@ -58,6 +58,6 @@ public class ResourceEnhancementService {
      * 시스템의 리소스를 새로고침합니다. 기존 로직을 그대로 호출합니다.
      */
     public void refreshResources() {
-        resourceRegistryService.refreshResources();
+        resourceRegistryService.refreshAndSynchronizePermissions();
     }
 }

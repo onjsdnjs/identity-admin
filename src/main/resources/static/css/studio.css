@@ -1,0 +1,425 @@
+/* 전체 Explorer 패널을 다크 테마로 - 강제 적용 */
+#explorer-panel {
+    background-color: #0f172a !important;
+    color: white !important;
+}
+
+/* Canvas 패널 다크 테마 */
+#canvas-panel {
+    background-color: #0f172a !important;
+    color: white !important;
+}
+
+/* Inspector 패널 다크 테마 */
+#inspector-panel {
+    background-color: #0f172a !important;
+    color: white !important;
+}
+
+/* 검색 영역 배경 제거 */
+#explorer-panel > div:first-child {
+    padding: 1rem !important;
+    background: transparent !important;
+    border-bottom-color: #475569 !important;
+}
+
+/* 검색창 다크 스타일 강제 적용 */
+#explorer-search {
+    width: 100% !important;
+    padding: 1rem 1.5rem !important;
+    font-size: 1rem !important;
+    background-color: #1e293b !important;
+    border: 2px solid #334155 !important;
+    border-radius: 1rem !important;
+    color: white !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1) !important;
+    letter-spacing: 0.5px !important;
+}
+
+#explorer-search::placeholder {
+    color: #94a3b8 !important;
+}
+
+#explorer-search:focus {
+    border-color: #6366f1 !important;
+    background-color: #1a202e !important;
+    outline: none !important;
+}
+
+/* 리스트 컨테이너 배경 */
+#explorer-list-container {
+    background-color: #0f172a !important;
+    padding: 1rem 0.5rem !important;
+}
+
+/* 아코디언 섹션 스타일 */
+.accordion {
+    position: relative !important;
+    margin-bottom: 2rem !important;
+    padding-bottom: 1rem !important;
+}
+
+/* 카테고리 헤더 */
+.accordion-header {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 1rem 1rem !important;
+    padding: 0.5rem 0 !important;
+    font-size: 0.75rem !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.2em !important;
+    color: #94a3b8 !important;
+    pointer-events: none !important;
+    background: none !important;
+    border: none !important;
+}
+
+/* 카테고리 이름 배경 */
+.accordion-header span {
+    position: relative !important;
+    z-index: 10 !important;
+    padding: 0 1rem !important;
+    background-color: #0f172a !important;
+}
+
+/* 카테고리별 그라데이션 언더라인 */
+.accordion-header::after {
+    content: "" !important;
+    position: absolute !important;
+    top: 50% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 1px !important;
+    transform: translateY(-50%) !important;
+}
+
+.accordion:nth-child(1) .accordion-header::after {
+    background: linear-gradient(90deg, transparent, #3b82f6, transparent) !important;
+}
+
+.accordion:nth-child(2) .accordion-header::after {
+    background: linear-gradient(90deg, transparent, #10b981, transparent) !important;
+}
+
+.accordion:nth-child(3) .accordion-header::after {
+    background: linear-gradient(90deg, transparent, #8b5cf6, transparent) !important;
+}
+
+.accordion:nth-child(4) .accordion-header::after {
+    background: linear-gradient(90deg, transparent, #f59e0b, transparent) !important;
+}
+
+/* 아이콘 숨기기 (원본처럼) */
+.accordion-header .accordion-icon {
+    display: none !important;
+}
+
+/* 콘텐츠 항상 표시 (원본처럼) */
+.accordion-content {
+    max-height: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+}
+
+/* Explorer 아이템 검색 시 숨김 처리 강화 */
+.explorer-item {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    margin: 0 0.75rem 0.5rem !important;
+    padding: 1rem !important;
+    background-color: rgba(30, 41, 59, 0.5) !important;
+    backdrop-filter: blur(4px) !important;
+    border-radius: 0.75rem !important;
+    border: 1px solid rgba(71, 85, 105, 0.5) !important;
+    cursor: pointer !important;
+    transition: all 300ms !important;
+    overflow: hidden !important;
+}
+
+.explorer-item[style*="display: none"] {
+    display: none !important;
+}
+
+.explorer-item:not([style*="display: none"]) {
+    display: flex !important;
+}
+
+.explorer-item:hover {
+    background-color: #1e293b !important;
+    border-color: #475569 !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2) !important;
+    transform: translateX(4px) !important;
+}
+
+/* 아이콘을 큰 원형 아바타로 */
+.explorer-item .item-icon {
+    width: 3rem !important;
+    height: 3rem !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: white !important;
+    font-weight: bold !important;
+    font-size: 1.125rem !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* 카테고리별 아이콘 그라데이션 */
+.accordion:nth-child(1) .explorer-item .item-icon {
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+}
+
+.accordion:nth-child(2) .explorer-item .item-icon {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+}
+
+.accordion:nth-child(3) .explorer-item .item-icon {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed) !important;
+}
+
+.accordion:nth-child(4) .explorer-item .item-icon {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+}
+
+/* 텍스트 스타일 */
+.explorer-item .item-text {
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.explorer-item .item-text .item-name {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+    color: white !important;
+    margin-bottom: 0.25rem !important;
+    letter-spacing: 0.025em !important;
+}
+
+.explorer-item .item-text .item-description {
+    font-size: 0.875rem !important;
+    color: #94a3b8 !important;
+    font-weight: 300 !important;
+    letter-spacing: 0.025em !important;
+}
+
+/* 선택된 아이템 - 네온 효과 */
+.explorer-item.selected {
+    background-color: rgba(67, 56, 202, 0.3) !important;
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.5) !important;
+    animation: pulse-glow 2s infinite !important;
+}
+
+@keyframes pulse-glow {
+    0%, 100% {
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.5),
+        inset 0 0 20px rgba(99, 102, 241, 0.1) !important;
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(99, 102, 241, 0.8),
+        inset 0 0 30px rgba(99, 102, 241, 0.2) !important;
+    }
+}
+
+.explorer-item.selected::before {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 !important;
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.2), transparent) !important;
+}
+
+.explorer-item.selected .item-icon {
+    background: linear-gradient(135deg, #818cf8, #6366f1) !important;
+    box-shadow: 0 20px 25px -5px rgba(99, 102, 241, 0.5) !important;
+}
+
+.explorer-item.selected .item-text .item-name {
+    color: #e0e7ff !important;
+}
+
+.explorer-item.selected .item-text .item-description {
+    color: #c7d2fe !important;
+}
+
+/* 커스텀 스크롤바 - 모든 패널에 적용 */
+#explorer-list-container::-webkit-scrollbar,
+#canvas-panel::-webkit-scrollbar,
+#inspector-panel::-webkit-scrollbar {
+    width: 8px !important;
+}
+
+#explorer-list-container::-webkit-scrollbar-track,
+#canvas-panel::-webkit-scrollbar-track,
+#inspector-panel::-webkit-scrollbar-track {
+    background: #1e293b !important;
+}
+
+#explorer-list-container::-webkit-scrollbar-thumb,
+#canvas-panel::-webkit-scrollbar-thumb,
+#inspector-panel::-webkit-scrollbar-thumb {
+    background: #475569 !important;
+    border-radius: 9999px !important;
+}
+
+#explorer-list-container::-webkit-scrollbar-thumb:hover,
+#canvas-panel::-webkit-scrollbar-thumb:hover,
+#inspector-panel::-webkit-scrollbar-thumb:hover {
+    background: #64748b !important;
+}
+
+/* 로더를 모던하게 */
+#explorer-loader {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 5rem 0 !important;
+    background-color: transparent !important;
+}
+
+#explorer-loader i {
+    font-size: 3rem !important;
+    color: #6366f1 !important;
+    margin-bottom: 1rem !important;
+    animation: spin-scale 1.5s ease-in-out infinite !important;
+}
+
+@keyframes spin-scale {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.1); }
+}
+
+#explorer-loader::after {
+    content: "Loading..." !important;
+    color: #94a3b8 !important;
+    font-size: 0.875rem !important;
+    font-weight: 300 !important;
+    letter-spacing: 0.1em !important;
+    text-transform: uppercase !important;
+}
+
+/* Canvas 가이드 스타일 */
+#canvas-guide {
+    color: #94a3b8 !important;
+}
+
+#canvas-guide i {
+    color: #475569 !important;
+}
+
+/* Canvas 콘텐츠 스타일 */
+#canvas-content h2 {
+    color: #e2e8f0 !important;
+}
+
+/* Path 컨테이너 스타일 개선 */
+.path-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 1rem !important;
+}
+
+.path-node {
+    background: rgba(30, 41, 59, 0.8) !important;
+    border: 2px solid #334155 !important;
+    color: #e2e8f0 !important;
+    width: 100% !important;
+    max-width: 32rem !important;
+}
+
+.path-icon {
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    color: white !important;
+}
+
+.path-arrow {
+    color: #475569 !important;
+    font-size: 1.5rem !important;
+}
+
+/* Inspector 스타일 */
+#inspector-placeholder {
+    color: #94a3b8 !important;
+}
+
+#inspector-placeholder i {
+    color: #475569 !important;
+}
+
+#inspector-content h3 {
+    color: #e2e8f0 !important;
+}
+
+#inspector-content .border-t {
+    border-color: #334155 !important;
+}
+
+/* 권한 부여 버튼 */
+.btn-primary {
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4) !important;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.6) !important;
+}
+
+/* 에러 메시지 스타일 */
+.text-red-600 {
+    color: #f87171 !important;
+}
+
+.bg-red-50 {
+    background: rgba(239, 68, 68, 0.1) !important;
+}
+
+.border-red-200 {
+    border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+#canvas-content .mermaid {
+    width: 100%;
+    height: 100%;
+}
+
+.node-type {
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    opacity: 0.8;
+    margin-bottom: 4px;
+}
+
+.node-label {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+#mermaid-graph-wrapper {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+}
+
+.mermaid {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+}
+
+/* Mermaid 노드 스타일 오버라이드 */
+.node rect {
+    rx: 5;
+    ry: 5;
+}

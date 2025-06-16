@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ko">
+<head>
+    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='Authorization Studio')}"></th:block>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <link rel="stylesheet" th:href="@{/css/studio.css}" />
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body class="flex flex-col min-h-screen bg-app-light-gray font-sans text-app-dark-gray">
+
+<div th:insert="~{fragments/header :: header}"></div>
+<div id="toast-container" class="fixed top-5 right-5 z-50"></div>
+
+<div class="flex flex-1 overflow-hidden">
+    <aside th:insert="~{fragments/admin-menu :: menu}" class="hidden md:block"></aside>
+
+    <main id="studio-main" class="flex-1 grid grid-cols-12 gap-4 p-4 min-h-0">
+
+        <div id="explorer-panel" class="col-span-12 md:col-span-3 bg-white rounded-xl shadow-lg flex flex-col">
+            <div class="p-3 border-b sticky top-0 bg-white z-10">
+                <div class="relative">
+                    <input type="search" id="explorer-search" placeholder="검색..."
+                           class="w-full pl-10 pr-10 py-2 border rounded-lg focus:ring-2 focus:ring-app-accent">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    <button id="clear-search" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 hidden">
+                        <i class="fas fa-times-circle"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="explorer-list-container" class="flex-1 p-2 overflow-y-auto">
+                <div id="explorer-loader" class="flex items-center justify-center p-8"><i class="fas fa-spinner fa-spin text-3xl text-app-primary"></i></div>
+            </div>
+        </div>
+
+        <div id="canvas-panel" class="col-span-12 md:col-span-6 bg-white rounded-xl shadow-lg flex flex-col p-6 overflow-y-auto">
+            <div id="canvas-guide" class="flex flex-col items-center justify-center h-full text-slate-500 text-center">
+            </div>
+            <div id="canvas-content" class="hidden"></div>
+        </div>
+
+        <div id="inspector-panel" class="col-span-12 md:col-span-3 bg-gray-50 rounded-xl shadow-inner flex flex-col p-4 overflow-y-auto">
+            <div id="inspector-placeholder" class="flex flex-col items-center justify-center h-full text-slate-400 text-center">
+                <i class="fas fa-info-circle text-5xl text-slate-300"></i>
+                <p class="mt-4 text-sm">항목을 선택하면<br/>상세 정보와 관련 작업이 표시됩니다.</p>
+            </div>
+            <div id="inspector-content" class="hidden"></div>
+        </div>
+
+    </main>
+</div>
+
+<div th:insert="~{fragments/footer :: footer}" class="mt-auto"></div>
+<script th:src="@{/js/toast.js}"></script>
+<script th:src="@{/js/studio.js}"></script>
+</body>
+</html>
