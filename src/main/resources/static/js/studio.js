@@ -165,26 +165,22 @@ class StudioUI {
         });
         detailsHtml += '</div>';
 
-        let actionsHtml = '<h3 class="font-bold text-lg mb-2 mt-4 border-t pt-4">실행 가능한 작업</h3>';
+        let actionsHtml = '<h3 class="font-bold text-lg mb-2 mt-4 border-t border-slate-700 pt-4 text-slate-200">실행 가능한 작업</h3>';
 
         if (subject && permission) {
-            // [수정] analysisData를 확인하여 접근 허용 여부를 판단합니다.
-            let isAccessGranted = false;
-            if (analysisData && analysisData.nodes) {
-                const permNode = analysisData.nodes.find(n => n.type === 'PERMISSION');
-                if (permNode && permNode.properties) {
-                    isAccessGranted = permNode.properties.granted;
-                }
-            }
-
+            // 주체와 권한이 모두 선택된 경우 (기존 로직 유지)
+            let isAccessGranted = analysisData?.nodes?.find(n => n.type === 'PERMISSION')?.properties?.granted || false;
             if (isAccessGranted) {
-                actionsHtml += `<div class="p-3 text-center bg-green-100 text-green-800 rounded-lg text-sm font-semibold"><i class="fas fa-check-circle mr-2"></i>이미 권한을 보유하고 있습니다.</div>`;
+                actionsHtml += `<div class="p-3 text-center bg-green-900/50 text-green-400 rounded-lg text-sm font-semibold border border-green-500/30"><i class="fas fa-check-circle mr-2"></i>이미 권한을 보유하고 있습니다.</div>`;
             } else {
-                const title = `'${subject.name}'에게 '${permission.name}' 권한을 부여하는 정책을 생성합니다.`;
-                actionsHtml += `<button id="grant-btn" class="w-full btn-primary text-sm py-2" title="${title}">권한 부여하기</button>`;
+                actionsHtml += `<button id="grant-btn" class="w-full dark-btn-primary text-sm py-2">권한 부여하기</button>`;
             }
+        } else if (subject) {
+            // [핵심 추가] 주체만 선택된 경우
+            const title = `'${subject.name}'의 그룹/역할 할당을 관리합니다.`;
+            actionsHtml += `<button id="manage-membership-btn" class="w-full dark-btn-primary text-sm py-2" title="${title}"><i class='fas fa-edit mr-2'></i>멤버십 및 권한 관리</button>`;
         } else {
-            actionsHtml += '<p class="text-sm text-slate-500">주체와 권한을 함께 선택하면<br/>관련 작업을 실행할 수 있습니다.</p>';
+            actionsHtml += '<p class="text-sm text-slate-500">주체를 선택하면 관련 작업을 실행할 수 있습니다.</p>';
         }
 
         if (hasSelection) {
@@ -484,6 +480,12 @@ class StudioAPI {
         return this.fetchApi(`/admin/studio/api/access-path-graph?subjectId=${subjectId}&subjectType=${subjectType}&permissionId=${permissionId}`);
     }
     getEffectivePermissions(subjectId, subjectType) { return this.fetchApi(`/admin/studio/api/effective-permissions?subjectId=${subjectId}&subjectType=${subjectType}`); }
+    initiateGrant(grantRequest) {
+        return this.fetchApi('/admin/studio/api/initiate-grant', {
+            method: 'POST',
+            body: JSON.stringify(grantRequest)
+        });
+    }
 
 }
 
@@ -522,11 +524,42 @@ class StudioApp {
         }
     }
 
+    async handleManageMembershipClick() {
+        const subject = this.state.getSubject();
+        if (!subject) {
+            showToast("관리할 주체를 먼저 선택해주세요.", "error");
+            return;
+        }
+
+        const grantRequest = {
+            userIds: subject.type === 'USER' ? [subject.id] : [],
+            groupIds: subject.type === 'GROUP' ? [subject.id] : [],
+            permissionIds: [] // 특정 권한을 미리 선택하지 않으므로 비워둠
+        };
+
+        const manageBtn = document.getElementById('manage-membership-btn');
+        if (manageBtn) this.ui.setLoading(manageBtn, true, "<i class='fas fa-edit mr-2'></i>멤버십 및 권한 관리");
+
+        try {
+            // API 호출
+            const initiationData = await this.api.initiateGrant(grantRequest);
+            if (initiationData && initiationData.wizardUrl) {
+                // 성공 시, 반환된 URL로 페이지 이동
+                window.location.href = initiationData.wizardUrl;
+            } else {
+                throw new Error("서버에서 유효한 마법사 URL을 받지 못했습니다.");
+            }
+        } catch (error) {
+            showToast(error.message || "마법사 시작에 실패했습니다.", "error");
+            if(manageBtn) this.ui.setLoading(manageBtn, false, "<i class='fas fa-edit mr-2'></i>멤버십 및 권한 관리");
+        }
+    }
+
     bindEventListeners() {
         this.elements.explorerListContainer.addEventListener('click', e => this.handleExplorerClick(e));
         this.elements.search.addEventListener('keyup', e => this.ui.filterExplorer(e.target.value.toLowerCase()));
         this.elements.inspectorPanel.addEventListener('click', e => {
-            if (e.target.closest('#grant-btn')) this.handleGrantClick();
+            if (e.target.closest('#manage-membership-btn')) this.handleManageMembershipClick();
         });
     }
 
