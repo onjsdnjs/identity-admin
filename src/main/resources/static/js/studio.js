@@ -1,12 +1,16 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Mermaid.js가 로드되었는지 확인
     if (typeof mermaid === 'undefined') {
         console.error('Mermaid 라이브러리가 로드되지 않았습니다.');
         return;
     }
     mermaid.initialize({ startOnLoad: false, theme: 'default' });
 
+    // --- 상태 관리 (State) ---
     class StudioState {
-        constructor() { this.selected = { USER: null, GROUP: null, PERMISSION: null, POLICY: null }; }
+        constructor() {
+            this.selected = { USER: null, GROUP: null, PERMISSION: null, POLICY: null };
+        }
         select(type, item) {
             this.selected[type] = (this.selected[type]?.id === item.id) ? null : item;
             if (type === 'USER' && this.selected.USER) this.selected.GROUP = null;
@@ -16,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         getPermission() { return this.selected.PERMISSION; }
     }
 
+    // --- UI 렌더링 및 조작 ---
     class StudioUI {
         constructor(elements) { this.elements = elements; }
 
@@ -116,6 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             try {
+                // [오류 수정] 안정적인 Mermaid API 호출 방식 사용
                 const { svg } = await mermaid.render('mermaid-graph-container', mermaidSyntax);
                 this.elements.canvasContent.innerHTML = svg;
                 this.hideGuide(true);
@@ -159,6 +165,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- API 통신 ---
     class StudioAPI {
         async fetchApi(url, options = {}) {
             try {
@@ -187,6 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- 애플리케이션 총괄 ---
     class StudioApp {
         constructor() {
             this.elements = {
