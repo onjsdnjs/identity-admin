@@ -2,58 +2,73 @@ package io.spring.identityadmin.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.LocalDateTime;
+
+/**
+ * [수정됨]
+ * 사유: 워크벤치의 명확한 상태 관리를 위해 기존의 isManaged, isDefined boolean 필드를
+ *      하나의 Status Enum 타입으로 통합합니다. 이를 통해 '정의 필요', '권한 생성됨', '정책 연결됨' 등
+ *      리소스의 생명주기를 더 명확하게 표현하고 관리할 수 있습니다.
+ */
 @Entity
-@Table(name = "MANAGED_RESOURCE",
-        uniqueConstraints = @UniqueConstraint(columnNames = "resourceIdentifier"))
+@Table(name = "MANAGED_RESOURCE")
 @Getter @Setter @Builder
 @NoArgsConstructor @AllArgsConstructor
+@EntityListeners(AuditingEntityListener.class)
 public class ManagedResource {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    // ... 기존 필드들 (resourceIdentifier, resourceType, httpMethod 등) ...
+    @Column(nullable = false, length = 512)
     private String resourceIdentifier;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ResourceType resourceType;
-
     @Enumerated(EnumType.STRING)
     private HttpMethod httpMethod;
-
     @Column(nullable = false)
     private String friendlyName;
-
     @Column(length = 1024)
     private String description;
-
     private String serviceOwner;
-
-    // --- [기존] 상세 기술 정보 ---
     private String parameterTypes;
     private String returnType;
+    private String apiDocsUrl;
+    private String sourceCodeLocation;
 
-    // --- [신규] 관리자 판단을 위한 컨텍스트 정보 ---
-    @Column(length = 2048)
-    private String sourceCodeLocation; // 예: "com.example.service.OrderService.java:42"
-
-    @Column(columnDefinition = "TEXT")
-    private String javadocContent; // 수집 가능한 경우 JavaDoc 내용
-
-    @Column(length = 2048)
-    private String apiDocsUrl; // Spring REST Docs 문서의 앵커 링크
-
+    /**
+     * [신규/대체] 리소스의 현재 상태를 나타내는 Enum.
+     * boolean 필드보다 더 명확한 상태 관리를 제공합니다.
+     */
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default
-    private boolean isManaged = false;
+    private Status status = Status.NEEDS_DEFINITION;
 
+    @OneToOne(mappedBy = "managedResource", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private Permission permission;
+
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
     @Column(nullable = false)
-    @Builder.Default
-    private boolean isDefined = false;
+    private LocalDateTime updatedAt;
 
     public enum ResourceType { URL, METHOD }
     public enum HttpMethod { GET, POST, PUT, DELETE, PATCH, ANY }
+    public enum Status {
+        NEEDS_DEFINITION, // 정의 필요 (스캔 후 초기 상태)
+        PERMISSION_CREATED, // 권한 생성됨 (정책과는 아직 미연결)
+        POLICY_CONNECTED, // 정책 연결됨
+        EXCLUDED // 관리 제외
+    }
 }

@@ -12,4 +12,6 @@ public class ResourceSearchCriteria {
     private ManagedResource.ResourceType resourceType; // URL 또는 METHOD
     private boolean isManaged;
     private Boolean defined;
+    private String serviceOwner;
+    private ManagedResource.Status status;
 }

@@ -20,7 +20,6 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true) // 기본적으로 읽기 전용 트랜잭션 적용
 public class PermissionServiceImpl implements PermissionService {
     private final PermissionRepository permissionRepository;
     private final FunctionCatalogRepository functionCatalogRepository;
@@ -89,25 +88,22 @@ public class PermissionServiceImpl implements PermissionService {
      * 관련 캐시(usersWithRolesAndPermissions, 특정 Permission 캐시)를 갱신합니다.
      * @return 업데이트된 Permission 엔티티
      */
-    @Transactional
     @Caching(
             evict = {@CacheEvict(value = "usersWithRolesAndPermissions", allEntries = true)}, // 모든 사용자 권한 캐시 무효화
             put = {@CachePut(value = "permissions", key = "#result.id")} // 특정 Permission 캐시 갱신
     )
+    @Transactional
     @Override
-    public Permission updatePermission(Long id, PermissionDto permissionDto, Set<Long> functionIds) {
+    public Permission updatePermission(Long id, PermissionDto permissionDto) {
         Permission permission = permissionRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Permission not found: " + id));
 
         permission.setName(permissionDto.getName());
+        permission.setFriendlyName(permissionDto.getFriendlyName());
         permission.setDescription(permissionDto.getDescription());
+        permission.setTargetType(permissionDto.getTargetType());
+        permission.setActionType(permissionDto.getActionType());
         permission.setConditionExpression(permissionDto.getConditionExpression());
-
-        permission.getFunctions().clear();
-        if (functionIds != null && !functionIds.isEmpty()) {
-            List<FunctionCatalog> functions = functionCatalogRepository.findAllById(functionIds);
-            permission.getFunctions().addAll(functions);
-        }
 
         return permissionRepository.save(permission);
     }

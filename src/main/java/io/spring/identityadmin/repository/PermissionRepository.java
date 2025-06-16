@@ -21,9 +21,9 @@ public interface PermissionRepository extends JpaRepository<Permission, Long> {
      * [오류 수정 및 성능 개선] isDefined = true인 권한을 조회할 때, N+1 문제를 방지하기 위해
      * Fetch Join을 사용하여 연관된 모든 엔티티를 한번의 쿼리로 가져옵니다.
      */
-    @Query("SELECT DISTINCT p FROM Permission p " +
-            "LEFT JOIN FETCH p.functions f " +
-            "LEFT JOIN FETCH f.managedResource mr " +
-            "WHERE mr.isDefined = true")
+    @Query("SELECT p FROM Permission p " +
+            "LEFT JOIN FETCH p.managedResource mr " +
+            "WHERE mr.status <> io.spring.identityadmin.domain.entity.ManagedResource.Status.NEEDS_DEFINITION " +
+            "AND mr.status <> io.spring.identityadmin.domain.entity.ManagedResource.Status.EXCLUDED")
     List<Permission> findDefinedPermissionsWithDetails();
 }

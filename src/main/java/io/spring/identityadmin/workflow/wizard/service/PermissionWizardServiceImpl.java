@@ -43,13 +43,13 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         log.info("Beginning new permission grant wizard. Context ID: {}", contextId);
 
         Set<WizardContext.Subject> subjects = new HashSet<>();
-        if (!CollectionUtils.isEmpty(request.userIds())) {
-            request.userIds().stream()
+        if (!CollectionUtils.isEmpty(request.getUserIds())) {
+            request.getUserIds().stream()
                     .map(id -> new WizardContext.Subject(id, "USER"))
                     .forEach(subjects::add);
         }
-        if (!CollectionUtils.isEmpty(request.groupIds())) {
-            request.groupIds().stream()
+        if (!CollectionUtils.isEmpty(request.getGroupIds())) {
+            request.getGroupIds().stream()
                     .map(id -> new WizardContext.Subject(id, "GROUP"))
                     .forEach(subjects::add);
         }

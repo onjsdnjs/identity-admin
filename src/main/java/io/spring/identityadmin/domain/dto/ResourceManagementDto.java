@@ -1,5 +1,6 @@
 package io.spring.identityadmin.domain.dto;
 
+import io.spring.identityadmin.domain.entity.ManagedResource;
 import lombok.Data;
 
 /**
@@ -8,5 +9,5 @@ import lombok.Data;
  */
 @Data
 public class ResourceManagementDto {
-    private boolean isManaged;
+    private ManagedResource.Status status;
 }

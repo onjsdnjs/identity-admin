@@ -2,10 +2,15 @@ package io.spring.identityadmin.repository;
 
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.Optional;
+import java.util.Set;
 
 public interface ManagedResourceRepository extends JpaRepository<ManagedResource, Long>, ManagedResourceRepositoryCustom {
 
     Optional<ManagedResource> findByResourceIdentifier(String resourceIdentifier);
+
+     @Query("SELECT DISTINCT r.serviceOwner FROM ManagedResource r WHERE r.serviceOwner IS NOT NULL ORDER BY r.serviceOwner ASC")
+     Set<String> findAllServiceOwners();
 }

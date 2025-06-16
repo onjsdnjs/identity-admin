@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
-<head th:replace="~{fragments/common-head :: head-elements(pageTitle=${permission.id != null ? '권한 수정' : '권한 등록'})}"></head>
+<head>
+    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle=${permission.id != null ? '권한 수정' : '권한 등록'})}"></th:block>
+</head>
 <body class="flex flex-col min-h-screen font-sans">
 
 <div th:insert="~{fragments/header :: header}"></div>
@@ -13,67 +15,48 @@
         <div class="w-full max-w-lg p-8 sm:p-10 rounded-xl shadow-2xl" style="background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(71, 85, 105, 0.3);">
             <div class="text-center mb-8">
                 <h2 class="mt-4 text-3xl font-bold text-gradient" th:text="${permission.id != null ? '권한 수정' : '새 권한 등록'}"></h2>
+                <p class="text-sm text-slate-400 mt-2" th:if="${permission.id == null}">이 화면에서는 '리소스 워크벤치'와 연결되지 않은 독립적인 권한을 생성할 수 있습니다.</p>
             </div>
 
             <form th:action="${permission.id != null ? '/admin/permissions/' + permission.id + '/edit' : '/admin/permissions'}" method="post" th:object="${permission}" class="space-y-5">
                 <input type="hidden" th:field="*{id}" th:if="${permission.id != null}" />
                 <div>
-                    <label for="name" class="block text-sm font-medium" style="color: #cbd5e1;">권한명 (고유값, 예: DOCUMENT_READ):</label>
-                    <input type="text" id="name" th:field="*{name}"
-                           class="mt-1 block w-full px-4 py-2.5 rounded-lg shadow-sm sm:text-sm font-mono"
-                           style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;" required />
+                    <label for="name" class="dark-label">권한명 (고유값):</label>
+                    <input type="text" id="name" th:field="*{name}" class="dark-input font-mono" required />
                 </div>
                 <div>
-                    <label for="description" class="block text-sm font-medium" style="color: #cbd5e1;">설명:</label>
-                    <input type="text" id="description" th:field="*{description}"
-                           class="mt-1 block w-full px-4 py-2.5 rounded-lg shadow-sm sm:text-sm"
-                           style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;" />
+                    <label for="friendlyName" class="dark-label">친화적 이름:</label>
+                    <input type="text" id="friendlyName" th:field="*{friendlyName}" class="dark-input" />
                 </div>
                 <div>
-                    <label for="targetType" class="block text-sm font-medium" style="color: #cbd5e1;">대상 타입 (예: DOCUMENT, BOARD, FILE):</label>
-                    <input type="text" id="targetType" th:field="*{targetType}"
-                           class="mt-1 block w-full px-4 py-2.5 rounded-lg shadow-sm sm:text-sm"
-                           style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;" />
+                    <label for="description" class="dark-label">설명:</label>
+                    <input type="text" id="description" th:field="*{description}" class="dark-input" />
                 </div>
                 <div>
-                    <label for="actionType" class="block text-sm font-medium" style="color: #cbd5e1;">행동 타입 (예: READ, WRITE, DELETE):</label>
-                    <input type="text" id="actionType" th:field="*{actionType}"
-                           class="mt-1 block w-full px-4 py-2.5 rounded-lg shadow-sm sm:text-sm"
-                           style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;" />
+                    <label for="targetType" class="dark-label">대상 타입:</label>
+                    <input type="text" id="targetType" th:field="*{targetType}" class="dark-input" />
                 </div>
-
                 <div>
-                    <label for="conditionExpression" class="block text-sm font-medium" style="color: #cbd5e1;">조건 표현식 (SpEL):</label>
-                    <textarea id="conditionExpression" th:field="*{conditionExpression}" rows="3"
-                              class="mt-1 block w-full px-4 py-2.5 rounded-lg shadow-sm sm:text-sm font-mono"
-                              style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0; resize: vertical;"
-                              placeholder="예: #request.remoteAddr == '192.168.0.1'"></textarea>
-                    <p class="text-xs mt-1" style="color: #94a3b8;">SpEL을 사용하여 동적 조건을 명시합니다. 비워두면 조건 없이 평가됩니다.</p>
+                    <label for="actionType" class="dark-label">행동 타입:</label>
+                    <input type="text" id="actionType" th:field="*{actionType}" class="dark-input" />
+                </div>
+                <div>
+                    <label for="conditionExpression" class="dark-label">조건 표현식 (SpEL):</label>
+                    <textarea id="conditionExpression" th:field="*{conditionExpression}" rows="3" class="dark-input font-mono"></textarea>
                 </div>
 
-                <div>
-                    <label class="block text-sm font-medium mb-2" style="color: #cbd5e1;">이 권한에 포함될 기능 선택:</label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-lg max-h-60 overflow-y-auto"
-                         style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(71, 85, 105, 0.3);">
-                        <div th:each="func : ${allFunctions}">
-                            <input type="checkbox" th:id="'func_' + ${func.id}" name="functionIds" th:value="${func.id}"
-                                   th:checked="${#sets.contains(selectedFunctionIds, func.id)}"
-                                   class="mr-2 h-4 w-4 rounded focus:ring-app-accent"
-                                   style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5);" />
-                            <label th:for="'func_' + ${func.id}" th:text="${func.friendlyName}"
-                                   class="text-sm font-medium" style="color: #e2e8f0;"></label>
-                        </div>
-                        <div th:if="${#lists.isEmpty(allFunctions)}" class="text-sm col-span-full text-center" style="color: #94a3b8;">
-                            정책 설정에 사용 가능한 기능이 없습니다. '기능 카탈로그 관리'에서 기능을 활성화해주세요.
-                        </div>
+                <!-- [UI 수정] 기능 선택 체크박스를 연결된 리소스 정보 표시로 변경 -->
+                <div th:if="${permission.id != null and permission.managedResourceId != null}">
+                    <label class="dark-label mb-2">연결된 리소스:</label>
+                    <div class="p-4 rounded-lg" style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(71, 85, 105, 0.3);">
+                        <p class="text-sm font-mono text-slate-300" th:text="${permission.managedResourceIdentifier}"></p>
+                        <a th:href="@{/admin/workbench/resources(keyword=${permission.managedResourceIdentifier})}" class="text-xs text-indigo-400 hover:underline mt-1 inline-block">워크벤치에서 보기 →</a>
                     </div>
+                    <p class="text-xs mt-1 text-slate-500">권한과 리소스의 연결은 '리소스 워크벤치'에서 관리됩니다.</p>
                 </div>
 
                 <div class="pt-2">
-                    <button type="submit"
-                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-app-accent transition-all duration-150 ease-in-out transform hover:scale-105"
-                            style="background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);"
-                            th:text="${permission.id != null ? '권한 저장' : '권한 등록'}"></button>
+                    <button type="submit" class="dark-btn-primary w-full" th:text="${permission.id != null ? '권한 저장' : '권한 등록'}"></button>
                 </div>
             </form>
             <div class="mt-6 text-center">

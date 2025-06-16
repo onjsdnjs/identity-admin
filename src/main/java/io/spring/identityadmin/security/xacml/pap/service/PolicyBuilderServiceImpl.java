@@ -77,8 +77,12 @@ public class PolicyBuilderServiceImpl implements PolicyBuilderService {
                 .collect(Collectors.joining(" or "));
         if (!subjectExpr.isEmpty()) conditions.add("(" + subjectExpr + ")");
 
-        List<Permission> perms = permissionRepository.findAllById(dto.permissions().stream()
-                .map(VisualPolicyDto.PermissionIdentifier::id).collect(Collectors.toSet()));
+        // VisualPolicyDto에서 전달된 permissionId로 Permission 목록을 조회합니다.
+        Set<Long> permissionIds = dto.permissions().stream()
+                .map(VisualPolicyDto.PermissionIdentifier::id)
+                .collect(Collectors.toSet());
+        List<Permission> perms = permissionRepository.findAllById(permissionIds);
+
         String permExpr = perms.stream().map(p -> String.format("hasAuthority('%s')", p.getName()))
                 .collect(Collectors.joining(" and "));
         if(!permExpr.isEmpty()) conditions.add("(" + permExpr + ")");
@@ -87,18 +91,24 @@ public class PolicyBuilderServiceImpl implements PolicyBuilderService {
                 .description("Visually built rule").build();
         rule.setConditions(conditions.stream().map(expr -> PolicyCondition.builder().expression(expr).rule(rule).build()).collect(Collectors.toSet()));
 
+        // [오류 수정] getFunctions() 대신 getManagedResource()를 직접 사용하여 PolicyTarget 생성
         Set<PolicyTarget> targets = perms.stream()
-                .flatMap(p -> p.getFunctions().stream())
-                .map(FunctionCatalog::getManagedResource)
-                .map(mr -> PolicyTarget.builder().policy(policy).targetType(mr.getResourceType().name())
+                .map(Permission::getManagedResource) // 각 Permission에 직접 연결된 ManagedResource를 가져옴
+                .filter(Objects::nonNull) // 혹시 모를 null 값 방지
+                .map(mr -> PolicyTarget.builder()
+                        .policy(policy)
+                        .targetType(mr.getResourceType().name())
                         .httpMethod(mr.getHttpMethod() != null ? mr.getHttpMethod().name() : null)
-                        .targetIdentifier(mr.getResourceIdentifier()).build())
+                        .targetIdentifier(mr.getResourceIdentifier())
+                        .build())
                 .collect(Collectors.toSet());
 
         policy.setRules(Set.of(rule));
         policy.setTargets(targets);
 
-        return policyService.createPolicy(modelMapper.map(policy, io.spring.identityadmin.domain.dto.PolicyDto.class));
+        // PolicyService를 통해 DTO로 변환하여 생성 요청
+        PolicyDto policyDto = modelMapper.map(policy, PolicyDto.class);
+        return policyService.createPolicy(policyDto);
     }
 
     /**

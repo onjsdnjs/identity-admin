@@ -70,9 +70,8 @@ public class MvcResourceScanner implements ResourceScanner {
                     .friendlyName(friendlyName)
                     .description(description)
                     .serviceOwner(beanType.getSimpleName())
-                    .apiDocsUrl(apiDocsUrl) // [신규] REST Docs 링크 저장
-                    .isManaged(false)
-                    .isDefined(false) // [변경] 관리자가 정의하기 전까지는 항상 false
+                    .apiDocsUrl(apiDocsUrl)
+                    .status(ManagedResource.Status.NEEDS_DEFINITION)
                     .build());
         }
 

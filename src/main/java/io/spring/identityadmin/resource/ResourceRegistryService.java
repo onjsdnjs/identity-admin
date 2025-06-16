@@ -9,6 +9,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Set;
 
 public interface ResourceRegistryService {
     /**
@@ -47,4 +48,11 @@ public interface ResourceRegistryService {
      * @param managedDto 관리 여부 등
      */
     void updateResourceManagementStatus(Long resourceId, ResourceManagementDto managedDto); // ResourceManagementDto는 isManaged 필드만 가짐
+
+    void excludeResourceFromManagement(Long resourceId);
+
+    void restoreResourceToManagement(Long resourceId);
+
+    Set<String> getAllServiceOwners();
+    void batchUpdateStatus(List<Long> ids, ManagedResource.Status status);
 }

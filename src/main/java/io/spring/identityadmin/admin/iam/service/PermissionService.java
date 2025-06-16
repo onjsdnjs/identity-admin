@@ -12,6 +12,6 @@ public interface PermissionService {
     Optional<Permission> getPermission(Long id);
     List<Permission> getAllPermissions();
     void deletePermission(Long id);
-    Permission updatePermission(Long id, PermissionDto permissionDto, Set<Long> functionIds);
+    Permission updatePermission(Long id, PermissionDto permissionDto);
     Optional<Permission> findByName(String name);
 }

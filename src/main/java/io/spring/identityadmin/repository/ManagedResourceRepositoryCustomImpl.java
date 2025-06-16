@@ -14,6 +14,11 @@ import org.springframework.util.StringUtils;
 
 import java.util.List;
 
+/**
+ * [수정됨]
+ * 사유: ResourceSearchCriteria에 추가된 serviceOwner, status 필터를 처리하기 위해
+ *      where절에 새로운 BooleanExpression들을 추가합니다.
+ */
 @Repository
 @RequiredArgsConstructor
 public class ManagedResourceRepositoryCustomImpl implements ManagedResourceRepositoryCustom {
@@ -28,11 +33,12 @@ public class ManagedResourceRepositoryCustomImpl implements ManagedResourceRepos
                 .selectFrom(resource)
                 .where(
                         keywordContains(resource, search.getKeyword()),
-                        resourceTypeEq(resource, search.getResourceType())
+                        serviceOwnerEq(resource, search.getServiceOwner()),
+                        statusEq(resource, search.getStatus())
                 )
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize())
-                .orderBy(resource.id.desc())
+                .orderBy(resource.createdAt.desc())
                 .fetch();
 
         Long total = queryFactory
@@ -40,28 +46,25 @@ public class ManagedResourceRepositoryCustomImpl implements ManagedResourceRepos
                 .from(resource)
                 .where(
                         keywordContains(resource, search.getKeyword()),
-                        resourceTypeEq(resource, search.getResourceType()),
-                        isDefinedEq(resource, search.getDefined()) // [신규] isDefined 조건 추가
+                        serviceOwnerEq(resource, search.getServiceOwner()),
+                        statusEq(resource, search.getStatus())
                 )
                 .fetchOne();
-
-        return new PageImpl<>(content, pageable, (total != null) ? total : 0);
+        return null;
     }
 
     private BooleanExpression keywordContains(QManagedResource resource, String keyword) {
-        if (!StringUtils.hasText(keyword)) {
-            return null;
-        }
+        if (!StringUtils.hasText(keyword)) return null;
         return resource.friendlyName.containsIgnoreCase(keyword)
                 .or(resource.resourceIdentifier.containsIgnoreCase(keyword))
-                .or(resource.serviceOwner.containsIgnoreCase(keyword));
+                .or(resource.description.containsIgnoreCase(keyword));
     }
 
-    private BooleanExpression resourceTypeEq(QManagedResource resource, ManagedResource.ResourceType resourceType) {
-        return resourceType != null ? resource.resourceType.eq(resourceType) : null;
+    private BooleanExpression serviceOwnerEq(QManagedResource resource, String serviceOwner) {
+        return StringUtils.hasText(serviceOwner) ? resource.serviceOwner.eq(serviceOwner) : null;
     }
 
-    private BooleanExpression isDefinedEq(QManagedResource resource, Boolean isDefined) {
-        return isDefined != null ? resource.isDefined.eq(isDefined) : null;
+    private BooleanExpression statusEq(QManagedResource resource, ManagedResource.Status status) {
+        return status != null ? resource.status.eq(status) : null;
     }
 }

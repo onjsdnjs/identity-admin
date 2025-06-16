@@ -4,6 +4,7 @@ import io.spring.identityadmin.admin.iam.service.PermissionService;
 import io.spring.identityadmin.admin.metadata.service.FunctionCatalogService;
 import io.spring.identityadmin.domain.dto.PermissionDto;
 import io.spring.identityadmin.domain.entity.FunctionCatalog;
+import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.repository.FunctionCatalogRepository;
 import lombok.RequiredArgsConstructor;
@@ -37,41 +38,25 @@ public class PermissionController {
     @GetMapping
     public String getPermissions(Model model) {
         List<Permission> permissions = permissionService.getAllPermissions();
+        // [개선] DTO 변환 시 연결된 리소스 정보도 매핑되도록 처리
         List<PermissionDto> dtoList = permissions.stream()
-                .map(p -> modelMapper.map(p, PermissionDto.class))
+                .map(this::convertToDto)
                 .toList();
         model.addAttribute("permissions", dtoList);
         return "admin/permissions";
     }
 
-    /**
-     * 새 권한 등록 폼 페이지를 반환합니다.
-     * @param model Model 객체
-     * @return admin/permissiondetails.html 템플릿 경로
-     */
     @GetMapping("/register")
     public String registerPermissionForm(Model model) {
         model.addAttribute("permission", new PermissionDto());
-        model.addAttribute("selectedFunctionIds", new ArrayList<Long>());
-        // 공통 로직을 호출하여 모델에 데이터를 추가합니다.
-        addCommonAttributesToModel(model);
         return "admin/permissiondetails";
     }
 
-    /**
-     * 새 권한을 생성하는 POST 요청을 처리합니다.
-     * @param permissionDto 폼에서 전송된 Permission 데이터
-     * @param ra RedirectAttributes for flash messages
-     * @return 리다이렉트 경로
-     */
     @PostMapping
     public String createPermission(@ModelAttribute("permission") PermissionDto permissionDto, RedirectAttributes ra) {
-
         Permission permission = modelMapper.map(permissionDto, Permission.class);
         permissionService.createPermission(permission);
         ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 생성되었습니다.");
-        log.info("Permission created: {}", permission.getName());
-
         return "redirect:/admin/permissions";
     }
 
@@ -86,17 +71,20 @@ public class PermissionController {
         Permission permission = permissionService.getPermission(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid permission ID: " + id));
 
-        PermissionDto permissionDto = modelMapper.map(permission, PermissionDto.class);
-        Set<Long> selectedFunctionIds = permission.getFunctions().stream()
-                .map(FunctionCatalog::getId)
-                .collect(Collectors.toSet());
+        // [오류 수정] getFunctions() 호출 제거 및 DTO 변환 로직 사용
+        PermissionDto permissionDto = convertToDto(permission);
 
         model.addAttribute("permission", permissionDto);
-        model.addAttribute("selectedFunctionIds", selectedFunctionIds);
-        // 공통 로직을 호출하여 모델에 데이터를 추가합니다.
-        addCommonAttributesToModel(model);
-
         return "admin/permissiondetails";
+    }
+
+    @PostMapping("/{id}/edit")
+    public String updatePermission(@PathVariable Long id, @ModelAttribute("permission") PermissionDto permissionDto,
+                                   RedirectAttributes ra) {
+        // [오류 수정] functionIds 파라미터 제거
+        Permission permission = permissionService.updatePermission(id, permissionDto);
+        ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 업데이트되었습니다.");
+        return "redirect:/admin/permissions";
     }
 
     private void addCommonAttributesToModel(Model model) {
@@ -104,39 +92,28 @@ public class PermissionController {
         model.addAttribute("allFunctions", allActiveFunctions);
     }
 
-    /**
-     * 특정 권한을 업데이트하는 POST 요청을 처리합니다.
-     * @param id 업데이트할 권한 ID
-     * @param permissionDto 폼에서 전송된 Permission 데이터
-     * @param ra RedirectAttributes for flash messages
-     * @return 리다이렉트 경로
-     */
-    @PostMapping("/{id}/edit")
-    public String updatePermission(@PathVariable Long id, @ModelAttribute("permission") PermissionDto permissionDto,
-                                   @RequestParam(value="functionIds", required = false) Set<Long> functionIds,
-                                   RedirectAttributes ra) {
-
-        Permission permission = permissionService.updatePermission(id, permissionDto, functionIds);
-        ra.addFlashAttribute("message", "권한 '" + permission.getName() + "'이 성공적으로 업데이트되었습니다.");
-        return "redirect:/admin/permissions";
-    }
-
-    /**
-     * 특정 권한을 삭제하는 GET 요청을 처리합니다.
-     * @param id 삭제할 권한 ID
-     * @param ra RedirectAttributes for flash messages
-     * @return 리다이렉트 경로
-     */
     @GetMapping("/delete/{id}")
     public String deletePermission(@PathVariable Long id, RedirectAttributes ra) {
         try {
             permissionService.deletePermission(id);
             ra.addFlashAttribute("message", "권한 (ID: " + id + ")이 성공적으로 삭제되었습니다.");
-            log.info("Permission deleted: ID {}", id);
         } catch (Exception e) {
             ra.addFlashAttribute("errorMessage", "권한 삭제 중 오류 발생: " + e.getMessage());
-            log.error("Error deleting permission ID: {}", id, e);
         }
         return "redirect:/admin/permissions";
+    }
+
+    /**
+     * Entity to DTO 변환을 위한 헬퍼 메서드.
+     * ManagedResource 정보를 DTO에 매핑합니다.
+     */
+    private PermissionDto convertToDto(Permission permission) {
+        PermissionDto dto = modelMapper.map(permission, PermissionDto.class);
+        ManagedResource resource = permission.getManagedResource();
+        if (resource != null) {
+            dto.setManagedResourceId(resource.getId());
+            dto.setManagedResourceIdentifier(resource.getResourceIdentifier());
+        }
+        return dto;
     }
 }

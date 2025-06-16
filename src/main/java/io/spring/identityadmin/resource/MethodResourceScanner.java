@@ -16,6 +16,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * [오류 수정 및 로직 개선]
+ * 사유: 1. 존재하지 않는 isDefined() 빌더 메서드 호출 오류를 제거했습니다.
+ *      2. @Protectable 어노테이션이 붙은 리소스는 개발자가 이미 '정의'한 것으로 간주하여,
+ *         초기 상태를 'NEEDS_DEFINITION'이 아닌 'PERMISSION_CREATED'로 설정합니다.
+ *         이를 통해 관리자는 별도의 '정의' 과정 없이 바로 권한을 역할에 할당할 수 있어
+ *         워크플로우가 크게 단축됩니다.
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -29,7 +37,14 @@ public class MethodResourceScanner implements ResourceScanner {
         String[] beanNames = applicationContext.getBeanDefinitionNames();
 
         for (String beanName : beanNames) {
-            Object bean = applicationContext.getBean(beanName);
+            Object bean;
+            try {
+                bean = applicationContext.getBean(beanName);
+            } catch (Exception e) {
+                log.trace("Skipping bean '{}' during scan due to initialization issue: {}", beanName, e.getMessage());
+                continue;
+            }
+
             Class<?> beanClass = AopUtils.getTargetClass(bean);
 
             if (!beanClass.getPackageName().startsWith("io.spring.identityadmin")) continue;
@@ -44,25 +59,23 @@ public class MethodResourceScanner implements ResourceScanner {
                 }
 
                 String params = Arrays.stream(method.getParameterTypes()).map(Class::getSimpleName).collect(Collectors.joining(","));
-                String identifier = String.format("%s.%s", beanClass.getName(), method.getName());
+                String identifier = String.format("%s.%s(%s)", beanClass.getName(), method.getName(), params);
 
-                // [핵심 변경] @Protectable 어노테이션의 값을 초기 정보로 사용
                 String friendlyName = protectableAnnotation.name();
                 String description = protectableAnnotation.description();
-
                 String sourceCodeLocation = String.format("%s.java", beanClass.getName().replace('.', '/'));
 
                 resources.add(ManagedResource.builder()
                         .resourceIdentifier(identifier)
                         .resourceType(ManagedResource.ResourceType.METHOD)
-                        .friendlyName(friendlyName) // @Protectable의 name
-                        .description(description)     // @Protectable의 description
+                        .friendlyName(friendlyName)
+                        .description(description)
                         .serviceOwner(beanClass.getSimpleName())
                         .parameterTypes(params)
                         .returnType(method.getReturnType().getSimpleName())
                         .sourceCodeLocation(sourceCodeLocation)
-                        .isManaged(false)
-                        .isDefined(true) // @Protectable이 붙은 순간, 개발자에 의해 1차 정의된 것으로 간주
+                        // [로직 개선] @Protectable 리소스는 즉시 권한 할당이 가능한 'PERMISSION_CREATED' 상태로 시작
+                        .status(ManagedResource.Status.PERMISSION_CREATED)
                         .build());
             }
         }
