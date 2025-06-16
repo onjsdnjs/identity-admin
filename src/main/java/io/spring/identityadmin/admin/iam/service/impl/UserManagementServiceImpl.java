@@ -10,16 +10,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.security.access.method.P;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.ModelAttribute;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -34,61 +31,49 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     @Transactional
     @Override
-    @CacheEvict(value = "usersWithAuthorities", key = "#userDto.username", allEntries = true)
-//    @PreAuthorize("#dynamicRule.getValue(#root)")
+    @CacheEvict(value = "usersWithAuthorities", allEntries = true)
     public void modifyUser(@ModelAttribute UserDto userDto){
-        Users users = userRepository.findById(userDto.getId())
+        Users users = userRepository.findByIdWithGroupsRolesAndPermissions(userDto.getId())
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + userDto.getId()));
 
-        users.setName(userDto.getUsername());
+        users.setName(userDto.getName());
+        users.setMfaEnabled(userDto.isMfaEnabled());
 
-        if (userDto.getPassword() != null && !userDto.getPassword().isEmpty()) {
+        if (StringUtils.hasText(userDto.getPassword())) {
             users.setPassword(passwordEncoder.encode(userDto.getPassword()));
         }
-        users.getUserGroups().clear();
 
-        if (userDto.getSelectedGroupIds() != null && !userDto.getSelectedGroupIds().isEmpty()) {
-            Set<UserGroup> newUserGroups = new HashSet<>();
-            for (Long groupId : userDto.getSelectedGroupIds()) {
-                Group group = groupRepository.findById(groupId)
-                        .orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + groupId));
-                newUserGroups.add(UserGroup.builder().user(users).group(group).build());
-            }
-            users.setUserGroups(newUserGroups);
-        }
-        userRepository.save(users);
+        // ========================= [오류 수정된 동기화 로직] =========================
+        Set<Long> desiredGroupIds = userDto.getSelectedGroupIds() != null ? new HashSet<>(userDto.getSelectedGroupIds()) : new HashSet<>();
+        Set<UserGroup> currentUserGroups = users.getUserGroups();
+
+        // 1. 제거할 그룹 처리: 현재 그룹 목록에는 있지만, 원하는 그룹 목록에는 없는 UserGroup 관계를 제거
+        currentUserGroups.removeIf(userGroup -> !desiredGroupIds.contains(userGroup.getGroup().getId()));
+
+        // 2. 추가할 그룹 처리: 원하는 그룹 목록에는 있지만, 현재 그룹 목록에는 없는 UserGroup 관계를 추가
+        Set<Long> currentGroupIds = currentUserGroups.stream()
+                .map(ug -> ug.getGroup().getId())
+                .collect(Collectors.toSet());
+
+        desiredGroupIds.stream()
+                .filter(desiredId -> !currentGroupIds.contains(desiredId))
+                .forEach(newGroupId -> {
+                    Group group = groupRepository.findById(newGroupId)
+                            .orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + newGroupId));
+                    currentUserGroups.add(UserGroup.builder().user(users).group(group).build());
+                });
+        // ====================================================================
+
         log.info("User {} (ID: {}) modified successfully.", users.getUsername(), users.getId());
     }
 
     @Transactional(readOnly = true)
-//    @PreAuthorize("#dynamicRule.getValue(#root)")
-//    @PreAuthorize("hasPermission(#id, 'Document', 'WRITE')")
     public UserDto getUser(Long id) {
         Users users = userRepository.findByIdWithGroupsRolesAndPermissions(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));
         UserDto userDto = modelMapper.map(users, UserDto.class);
-        List<String> roles = users.getUserGroups().stream()
-                .map(UserGroup::getGroup)
-                .filter(java.util.Objects::nonNull)
-                .flatMap(group -> group.getGroupRoles().stream())
-                .map(GroupRole::getRole)
-                .filter(java.util.Objects::nonNull)
-                .map(Role::getRoleName)
-                .distinct()
-                .collect(Collectors.toList());
-
-        List<String> permissions = users.getUserGroups().stream()
-                .map(UserGroup::getGroup)
-                .filter(java.util.Objects::nonNull)
-                .flatMap(group -> group.getGroupRoles().stream())
-                .map(GroupRole::getRole)
-                .filter(java.util.Objects::nonNull)
-                .flatMap(role -> role.getRolePermissions().stream())
-                .map(RolePermission::getPermission)
-                .filter(java.util.Objects::nonNull)
-                .map(Permission::getName)
-                .distinct()
-                .collect(Collectors.toList());
+        List<String> roles = users.getRoleNames();
+        List<String> permissions = users.getPermissionNames();
 
         userDto.setRoles(roles);
         userDto.setPermissions(permissions);
@@ -106,12 +91,13 @@ public class UserManagementServiceImpl implements UserManagementService {
 
 
     @Transactional(readOnly = true)
-//    @PreAuthorize("#dynamicRule.getValue(#root)")
     public List<UserListDto> getUsers() {
         return userRepository.findAllWithDetails().stream()
                 .map(user -> {
                     UserListDto dto = modelMapper.map(user, UserListDto.class);
                     dto.setGroupCount(user.getUserGroups() != null ? user.getUserGroups().size() : 0);
+                    long roleCount = user.getRoleNames().stream().distinct().count();
+                    dto.setRoleCount((int) roleCount);
                     return dto;
                 })
                 .toList();
@@ -119,8 +105,7 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     @Override
     @Transactional
-    @CacheEvict(value = "usersWithAuthorities", key = "#id")
-//    @PreAuthorize("#dynamicRule.getValue(#root)")
+    @CacheEvict(value = "usersWithAuthorities", allEntries = true)
     public void deleteUser(Long id) {
         userRepository.deleteById(id);
         log.info("User ID {} deleted.", id);

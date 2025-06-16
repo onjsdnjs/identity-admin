@@ -2,6 +2,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const wizardContainer = document.getElementById('granting-wizard-container');
     if (!wizardContainer) return;
 
+    // --- 유틸리티 함수 (오류 수정을 위해 상단으로 이동) ---
+    const debounce = (func, delay) => {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), delay);
+        };
+    };
+
     // --- DOM 요소 및 데이터 캐싱 ---
     const contextId = wizardContainer.dataset.contextId;
     const assignmentType = wizardContainer.dataset.assignmentType;
@@ -14,8 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const allCheckboxes = selectionPanel.querySelectorAll('.assignment-checkbox');
 
     let initialAssignmentIds = new Set();
+    const debouncedRunSimulation = debounce(runSimulation, 500); // 정상적으로 debounce 함수 사용
 
-    // --- 초기화 함수 (완성) ---
+    // --- 초기화 함수 ---
     const initialize = () => {
         allCheckboxes.forEach(cb => {
             if (cb.checked) {
@@ -25,37 +35,16 @@ document.addEventListener('DOMContentLoaded', () => {
         updateAssignmentPanel();
     };
 
-    // --- 유틸리티 함수 ---
-    const debounce = (func, delay) => {
-        let timeout;
-        return (...args) => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), delay);
-        };
-    };
-
-    // --- 핵심 로직 함수 ---
-    const runSimulation = async () => {
-        const currentAssignmentIds = new Set();
+    // --- 핵심 로직 함수 (Phase 3 구현 포함) ---
+    async function runSimulation() {
+        const addedAssignments = [];
         allCheckboxes.forEach(cb => {
-            if (cb.checked) currentAssignmentIds.add(cb.value);
+            if (cb.checked) {
+                addedAssignments.push({ targetId: Number(cb.value), targetType: assignmentType });
+            }
         });
 
-        const addedAssignments = [...currentAssignmentIds]
-            .filter(id => !initialAssignmentIds.has(id))
-            .map(id => ({ targetId: Number(id), targetType: assignmentType }));
-
-        const removedIds = [...initialAssignmentIds]
-            .filter(id => !currentAssignmentIds.has(id))
-            .map(id => Number(id));
-
-        const changes = {
-            added: addedAssignments,
-            // 현재 설계상으로는 added에 모든 최종 목록이 담겨 서버에서 처리하므로, removed는 향후 확장용
-            removedGroupIds: assignmentType === 'GROUP' ? removedIds : [],
-            removedRoleIds: assignmentType === 'ROLE' ? removedIds : []
-        };
-
+        const changes = { added: addedAssignments };
         simulationResultContainer.innerHTML = '<div class="flex items-center justify-center h-full"><i class="fas fa-spinner fa-spin text-3xl text-indigo-400"></i><p class="ml-3 text-slate-400">분석 중...</p></div>';
 
         try {
@@ -74,64 +63,92 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             simulationResultContainer.innerHTML = `<div class="p-4 text-red-400 bg-red-900/20 rounded-lg">${error.message}</div>`;
         }
-    };
+    }
 
     const handleSave = () => {
+        saveButton.disabled = true;
+        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>저장 중...';
+
         const form = document.createElement('form');
         form.method = 'POST';
         form.action = `/admin/granting-wizard/${contextId}/commit`;
+        form.style.display = 'none';
 
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = '_csrf'; // Thymeleaf가 처리하는 기본 이름
-        csrfInput.value = csrfToken;
-        form.appendChild(csrfInput);
+        form.appendChild(createHiddenInput('_csrf', csrfToken));
 
         let index = 0;
         allCheckboxes.forEach(cb => {
             if (cb.checked) {
-                const idInput = document.createElement('input');
-                idInput.type = 'hidden';
-                idInput.name = `assignments[${index}].targetId`;
-                idInput.value = cb.value;
-                form.appendChild(idInput);
-
-                const typeInput = document.createElement('input');
-                typeInput.type = 'hidden';
-                typeInput.name = `assignments[${index}].targetType`;
-                typeInput.value = assignmentType;
-                form.appendChild(typeInput);
+                form.appendChild(createHiddenInput(`added[${index}].targetId`, cb.value));
+                form.appendChild(createHiddenInput(`added[${index}].targetType`, assignmentType));
                 index++;
             }
         });
 
         document.body.appendChild(form);
-        saveButton.disabled = true;
-        saveButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>저장 중...';
         form.submit();
     };
+
+    const createHiddenInput = (name, value) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = value;
+        return input;
+    };
+
 
     // --- UI 렌더링 함수 ---
     const updateAssignmentPanel = () => {
         assignmentList.innerHTML = '';
+        let hasAssignments = false;
         allCheckboxes.forEach(cb => {
             if (cb.checked) {
+                hasAssignments = true;
                 const label = document.querySelector(`label[for="${cb.id}"]`).textContent;
                 const isInitial = initialAssignmentIds.has(cb.value);
                 const itemHtml = `
-                    <div class="p-3 rounded-md flex justify-between items-center transition-all ${isInitial ? 'bg-slate-700/50' : 'bg-green-500/20 animate-pulse'}">
-                        <span>${label}</span>
-                        <button type="button" data-id="${cb.id}" class="remove-assignment-btn text-slate-400 hover:text-white">×</button>
+                    <div class="p-3 rounded-md flex justify-between items-center transition-all ${isInitial ? 'bg-slate-700/50' : 'bg-green-800/30 border border-green-600'}">
+                        <span class="font-medium">${label} ${!isInitial ? '<span class="text-xs text-green-400">(추가됨)</span>' : ''}</span>
+                        <button type="button" data-id="${cb.id}" class="remove-assignment-btn text-slate-400 hover:text-white text-xl leading-none">×</button>
                     </div>`;
                 assignmentList.insertAdjacentHTML('beforeend', itemHtml);
             }
         });
+
+        initialAssignmentIds.forEach(id => {
+            const checkbox = document.getElementById('item-' + id);
+            if(checkbox && !checkbox.checked) {
+                const label = document.querySelector(`label[for="${checkbox.id}"]`).textContent;
+                const itemHtml = `
+                    <div class="p-3 rounded-md flex justify-between items-center transition-all bg-red-800/30 border border-red-600 opacity-60">
+                        <span class="font-medium line-through">${label} <span class="text-xs text-red-400">(제거됨)</span></span>
+                        <button type="button" data-id="${checkbox.id}" class="restore-assignment-btn text-slate-400 hover:text-white text-xl leading-none">+</button>
+                    </div>`;
+                assignmentList.insertAdjacentHTML('beforeend', itemHtml);
+                hasAssignments = true;
+            }
+        });
+
+        if (!hasAssignments) {
+            assignmentList.innerHTML = `<div class="text-center text-slate-500 p-8">할당된 항목이 없습니다.</div>`;
+        }
 
         document.querySelectorAll('.remove-assignment-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 const checkbox = document.getElementById(btn.dataset.id);
                 if(checkbox) {
                     checkbox.checked = false;
+                    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            });
+        });
+
+        document.querySelectorAll('.restore-assignment-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const checkbox = document.getElementById(btn.dataset.id);
+                if(checkbox) {
+                    checkbox.checked = true;
                     checkbox.dispatchEvent(new Event('change', { bubbles: true }));
                 }
             });
@@ -159,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lost.length > 0) {
             html += `<div class="mb-4">
                         <h4 class="font-bold text-red-400 mb-2"><i class="fas fa-minus-circle mr-2"></i>상실할 권한 (${lost.length})</h4>
-                        <ul class="space-y-1 text-sm list-disc list-inside text-slate-300">
+                        <ul class="space-y-1 text-sm list-inside text-slate-300">
                             ${lost.map(d => `<li>${d.permissionName}</li>`).join('')}
                         </ul>
                       </div>`;
@@ -175,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
     selectionPanel.addEventListener('change', (e) => {
         if (e.target.classList.contains('assignment-checkbox')) {
             updateAssignmentPanel();
-            debounce(runSimulation, 500)();
+            debouncedRunSimulation();
         }
     });
 

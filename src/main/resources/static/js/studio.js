@@ -18,20 +18,13 @@ class StudioState {
         };
     }
 
-    /**
-     * 아이템 선택 상태를 업데이트(토글)합니다.
-     * @param {string} type - 아이템 타입 (USER, GROUP 등)
-     * @param {object} item - 선택된 아이템 정보 {id, name, description, type}
-     */
     select(type, item) {
-        // 이미 선택된 아이템을 다시 클릭하면 선택 해제
         if (this.selected[type] && this.selected[type].id === item.id) {
             this.selected[type] = null;
         } else {
             this.selected[type] = item;
         }
 
-        // 주체(Subject)는 사용자 또는 그룹 중 하나만 선택되도록 보장합니다.
         if (type === 'USER' && this.selected.USER) {
             this.selected.GROUP = null;
         }
@@ -70,7 +63,7 @@ class StudioUI {
             theme: 'default',
             flowchart: {
                 useMaxWidth: true,
-                htmlLabels: false,  // HTML 비활성화
+                htmlLabels: false,
                 curve: 'basis'
             }
         });
@@ -116,46 +109,12 @@ class StudioUI {
         });
     }
 
-    renderAccessPath(subject, permission, data) {
-        const pathHtml = data.nodes.map((node, index) => `
-            <div class="path-node">
-                <div class="path-icon">${node.type.substring(0, 1)}</div>
-                <div class="path-details">
-                    <p class="path-type">${node.type}</p>
-                    <p class="path-name">${node.name}</p>
-                </div>
-            </div>
-            ${index < data.nodes.length - 1 ? '<div class="path-arrow"><i class="fas fa-arrow-down"></i></div>' : ''}
-        `).join('');
-        const resultColor = data.accessGranted ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-        const resultIcon = data.accessGranted ? 'fa-check-circle' : 'fa-times-circle';
-        this.elements.canvasContent.innerHTML = `
-            <h2 class="text-xl font-bold mb-2 text-center">접근 경로 분석</h2>
-            <p class="text-sm text-center text-slate-500 mb-6">'${subject.name}' <i class="fas fa-long-arrow-alt-right mx-2"></i> '${permission.name}'</p>
-            <div class="path-container">${pathHtml}</div>
-            <div class="mt-6 p-4 rounded-lg text-center ${resultColor}">
-                <h3 class="font-semibold">최종 결론</h3>
-                <p class="text-lg font-bold"><i class="fas ${resultIcon} mr-2"></i>${data.finalReason}</p>
-            </div>`;
-    }
-
-    renderEffectivePermissions(subject, data) {
-        const permsHtml = data.map(perm => `
-            <div class="p-3 border rounded-md mb-2 bg-white hover:shadow-md transition-shadow">
-                <p class="font-semibold text-gray-800">${perm.permissionDescription}</p>
-                <p class="text-sm text-slate-600 mt-1">획득 경로: <span class="font-mono text-xs bg-slate-100 p-1 rounded">${perm.origin}</span></p>
-            </div>`).join('');
-        this.elements.canvasContent.innerHTML = `
-            <h2 class="text-xl font-bold mb-4">'${subject.name}'의 유효 권한 목록</h2>
-            <div class="space-y-2">${permsHtml.length > 0 ? permsHtml : '<p class="text-slate-500 p-4 bg-slate-50 rounded-md text-center">부여된 권한이 없습니다.</p>'}</div>`;
-    }
-
     renderInspector(state, analysisData) {
         const subject = state.getSubject();
         const permission = state.getPermission();
         this.elements.inspectorContent.innerHTML = '';
 
-        let detailsHtml = '<h3 class="font-bold text-lg mb-2">선택된 항목</h3><div class="space-y-2">';
+        let detailsHtml = '<h3 class="font-bold text-lg mb-2 text-slate-200">선택된 항목</h3><div class="space-y-2">';
         let hasSelection = false;
         Object.values(state.selected).forEach(item => {
             if (item) {
@@ -168,16 +127,14 @@ class StudioUI {
         let actionsHtml = '<h3 class="font-bold text-lg mb-2 mt-4 border-t border-slate-700 pt-4 text-slate-200">실행 가능한 작업</h3>';
 
         if (subject && permission) {
-            // 주체와 권한이 모두 선택된 경우 (기존 로직 유지)
             let isAccessGranted = analysisData?.nodes?.find(n => n.type === 'PERMISSION')?.properties?.granted || false;
             if (isAccessGranted) {
                 actionsHtml += `<div class="p-3 text-center bg-green-900/50 text-green-400 rounded-lg text-sm font-semibold border border-green-500/30"><i class="fas fa-check-circle mr-2"></i>이미 권한을 보유하고 있습니다.</div>`;
             } else {
-                actionsHtml += `<button id="grant-btn" class="w-full dark-btn-primary text-sm py-2">권한 부여하기</button>`;
+                actionsHtml += `<button id="grant-btn" class="w-full dark-btn-primary text-sm py-2">정책 마법사로 권한 부여</button>`;
             }
         } else if (subject) {
-            // [핵심 추가] 주체만 선택된 경우
-            const title = `'${subject.name}'의 그룹/역할 할당을 관리합니다.`;
+            const title = `'${subject.name}'의 멤버십 및 권한 할당을 관리합니다.`;
             actionsHtml += `<button id="manage-membership-btn" class="w-full dark-btn-primary text-sm py-2" title="${title}"><i class='fas fa-edit mr-2'></i>멤버십 및 권한 관리</button>`;
         } else {
             actionsHtml += '<p class="text-sm text-slate-500">주체를 선택하면 관련 작업을 실행할 수 있습니다.</p>';
@@ -193,65 +150,48 @@ class StudioUI {
         }
     }
 
+    buildDetailHtml(item) {
+        const icon = { USER: 'fa-user', GROUP: 'fa-users', PERMISSION: 'fa-key', POLICY: 'fa-file-alt' }[item.type] || 'fa-question-circle';
+        return `
+            <div class="p-3 bg-slate-800 rounded-md border border-slate-700 text-sm">
+                <p class="text-xs font-semibold uppercase text-app-accent"><i class="fas ${icon} mr-2"></i>${item.type}</p>
+                <p class="font-bold text-md text-slate-200">${item.name}</p>
+                <p class="text-xs text-slate-400 truncate" title="${item.description}">${item.description}</p>
+            </div>`;
+    }
+
     async renderAccessGraph(subject, permission, data) {
         if (!data || !data.nodes || data.nodes.length === 0) {
             this.showError(this.elements.canvasContent, "그래프 데이터를 생성할 수 없습니다.");
             return;
         }
-
-        // Mermaid 초기화 확인
         if (typeof mermaid === 'undefined') {
             this.showError(this.elements.canvasContent, "Mermaid 라이브러리가 로드되지 않았습니다.");
             return;
         }
-
-        this.elements.canvasContent.innerHTML = `
-        <div id="mermaid-graph-wrapper">
-            <div class="mermaid" id="mermaid-graph-container"></div>
-        </div>`;
-
+        this.elements.canvasContent.innerHTML = `<div id="mermaid-graph-wrapper"><div class="mermaid" id="mermaid-graph-container"></div></div>`;
         const container = document.getElementById('mermaid-graph-container');
         if (!container) {
             this.showError(this.elements.canvasContent, "Mermaid 컨테이너를 생성할 수 없습니다.");
             return;
         }
-
-        // Mermaid 문법 생성
         let mermaidSyntax = 'graph TD\n';
-
-        // 스타일 정의
         mermaidSyntax += '    classDef userNode fill:#3b82f6,stroke:#2563eb,color:#fff,stroke-width:2px\n';
         mermaidSyntax += '    classDef groupNode fill:#10b981,stroke:#059669,color:#fff,stroke-width:2px\n';
         mermaidSyntax += '    classDef roleNode fill:#8b5cf6,stroke:#7c3aed,color:#fff,stroke-width:2px\n';
         mermaidSyntax += '    classDef permGrantedNode fill:#22c55e,stroke:#16a34a,color:#fff,stroke-width:3px\n';
         mermaidSyntax += '    classDef permDeniedNode fill:#ef4444,stroke:#dc2626,color:#fff,stroke-width:3px\n';
-
-        // 노드 ID 매핑 (특수문자 처리)
         const nodeIdMap = new Map();
-
-        // 노드 생성
         data.nodes.forEach((node, index) => {
             const safeId = `node_${index}`;
             nodeIdMap.set(node.id, safeId);
-
-            // 레이블 안전하게 처리
             const label = this.sanitizeMermaidLabel(node.label || 'N/A');
             const nodeText = `${node.type}|${label}`;
-
-            // 노드 정의
             mermaidSyntax += `    ${safeId}["${nodeText}"]\n`;
-
-            // 스타일 적용
             switch(node.type) {
-                case 'USER':
-                    mermaidSyntax += `    class ${safeId} userNode\n`;
-                    break;
-                case 'GROUP':
-                    mermaidSyntax += `    class ${safeId} groupNode\n`;
-                    break;
-                case 'ROLE':
-                    mermaidSyntax += `    class ${safeId} roleNode\n`;
-                    break;
+                case 'USER': mermaidSyntax += `    class ${safeId} userNode\n`; break;
+                case 'GROUP': mermaidSyntax += `    class ${safeId} groupNode\n`; break;
+                case 'ROLE': mermaidSyntax += `    class ${safeId} roleNode\n`; break;
                 case 'PERMISSION':
                     if (node.properties?.granted) {
                         mermaidSyntax += `    class ${safeId} permGrantedNode\n`;
@@ -261,53 +201,30 @@ class StudioUI {
                     break;
             }
         });
-
-        // 엣지 생성
         data.edges.forEach(edge => {
             const fromId = nodeIdMap.get(edge.from);
             const toId = nodeIdMap.get(edge.to);
             const edgeLabel = this.sanitizeMermaidLabel(edge.label || '');
-
             if (edgeLabel.includes('거부')) {
                 mermaidSyntax += `    ${fromId} -.-> |"${edgeLabel}"| ${toId}\n`;
             } else {
                 mermaidSyntax += `    ${fromId} --> |"${edgeLabel}"| ${toId}\n`;
             }
         });
-
-        // Mermaid 렌더링
         container.textContent = mermaidSyntax;
         container.removeAttribute('data-processed');
-
         try {
-            await mermaid.init(undefined, container);
-            // 또는 mermaid 버전에 따라
-            // mermaid.contentLoaded();
+            await mermaid.run({ nodes: [container] });
         } catch (error) {
             console.error('Mermaid 렌더링 오류:', error);
             this.showError(this.elements.canvasContent, "그래프 렌더링 중 오류가 발생했습니다.");
         }
-
         this.elements.canvasContent.classList.remove('hidden');
         this.elements.canvasGuide.classList.add('hidden');
     }
 
     sanitizeMermaidLabel(text) {
-        return text
-            .replace(/["`]/g, "'")     // 따옴표 처리
-            .replace(/\n/g, ' ')       // 줄바꿈 제거
-            .replace(/[<>{}]/g, '')    // 특수문자 제거
-            .replace(/\|/g, '\\|')     // 파이프 이스케이프
-            .trim();
-    }
-
-    buildDetailHtml(item) {
-        const icon = { USER: 'fa-user', GROUP: 'fa-users', PERMISSION: 'fa-key', POLICY: 'fa-file-alt' }[item.type] || 'fa-question-circle';
-        return `
-            <div class="p-3 bg-white rounded-md border text-sm">
-                <p class="text-xs font-semibold uppercase text-app-accent"><i class="fas ${icon} mr-2"></i>${item.type}</p>
-                <p class="font-bold text-md text-gray-800">${item.name}</p>
-            </div>`;
+        return text.replace(/["`]/g, "'").replace(/\n/g, ' ').replace(/[<>{}]/g, '').replace(/\|/g, '\\|').trim();
     }
 
     resetCanvas() {
@@ -321,10 +238,7 @@ class StudioUI {
     }
 
     showError(element, message) {
-        element.innerHTML = `<div class="p-8 text-center text-red-600 rounded-lg bg-red-50 border border-red-200">
-                                <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
-                                <p class="font-semibold">${message}</p>
-                             </div>`;
+        element.innerHTML = `<div class="p-8 text-center text-red-600 rounded-lg bg-red-50 border border-red-200"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><p class="font-semibold">${message}</p></div>`;
     }
 
     showGuide(htmlMessage) {
@@ -345,11 +259,7 @@ class StudioUI {
                 const content = header.nextElementSibling;
                 const isOpen = header.classList.toggle('open');
                 header.querySelector('.accordion-icon').classList.toggle('rotate-180', isOpen);
-                if (isOpen) {
-                    content.style.maxHeight = content.scrollHeight + "px";
-                } else {
-                    content.style.maxHeight = "0px";
-                }
+                content.style.maxHeight = isOpen ? content.scrollHeight + "px" : "0px";
             });
         });
     }
@@ -441,17 +351,13 @@ class StudioUI {
         }
     }
 }
-
 // 3. API 통신 클래스
 class StudioAPI {
     async fetchApi(url, options = {}) {
         try {
             const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
             const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
-            const fetchOptions = { ...options };
-            if (!fetchOptions.headers) {
-                fetchOptions.headers = {};
-            }
+            const fetchOptions = { ...options, headers: { ...options.headers } };
             if (options.body && !(options.body instanceof URLSearchParams)) {
                 fetchOptions.headers['Content-Type'] = 'application/json';
             }
@@ -475,18 +381,9 @@ class StudioAPI {
         }
     }
     getExplorerItems() { return this.fetchApi('/admin/studio/api/explorer-items'); }
-    getAccessPath(subjectId, subjectType, permissionId) { return this.fetchApi(`/admin/studio/api/access-path?subjectId=${subjectId}&subjectType=${subjectType}&permissionId=${permissionId}`); }
     getAccessPathAsGraph(subjectId, subjectType, permissionId) {
         return this.fetchApi(`/admin/studio/api/access-path-graph?subjectId=${subjectId}&subjectType=${subjectType}&permissionId=${permissionId}`);
     }
-    getEffectivePermissions(subjectId, subjectType) { return this.fetchApi(`/admin/studio/api/effective-permissions?subjectId=${subjectId}&subjectType=${subjectType}`); }
-    initiateGrant(grantRequest) {
-        return this.fetchApi('/admin/studio/api/initiate-grant', {
-            method: 'POST',
-            body: JSON.stringify(grantRequest)
-        });
-    }
-
 }
 
 // 4. 메인 애플리케이션 클래스
@@ -494,12 +391,9 @@ class StudioApp {
     constructor() {
         this.elements = {
             explorerListContainer: document.getElementById('explorer-list-container'),
-            loader: document.getElementById('explorer-loader'),
             search: document.getElementById('explorer-search'),
-            canvasPanel: document.getElementById('canvas-panel'),
             canvasGuide: document.getElementById('canvas-guide'),
             canvasContent: document.getElementById('canvas-content'),
-            inspectorPanel: document.getElementById('inspector-panel'),
             inspectorPlaceholder: document.getElementById('inspector-placeholder'),
             inspectorContent: document.getElementById('inspector-content'),
         };
@@ -514,52 +408,21 @@ class StudioApp {
     }
 
     async loadInitialData() {
-        this.ui.showLoading(this.ui.elements.explorerListContainer);
+        this.ui.showLoading(this.elements.explorerListContainer);
         this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg font-bold">1. 왼쪽 탐색기에서 분석할 \'주체\'를 선택하세요.</p>');
         try {
             const data = await this.api.getExplorerItems();
             this.ui.renderExplorer(data);
         } catch (error) {
-            this.ui.showError(this.ui.elements.explorerListContainer, '탐색기 목록 로딩 실패');
-        }
-    }
-
-    async handleManageMembershipClick() {
-        const subject = this.state.getSubject();
-        if (!subject) {
-            showToast("관리할 주체를 먼저 선택해주세요.", "error");
-            return;
-        }
-
-        const grantRequest = {
-            userIds: subject.type === 'USER' ? [subject.id] : [],
-            groupIds: subject.type === 'GROUP' ? [subject.id] : [],
-            permissionIds: [] // 특정 권한을 미리 선택하지 않으므로 비워둠
-        };
-
-        const manageBtn = document.getElementById('manage-membership-btn');
-        if (manageBtn) this.ui.setLoading(manageBtn, true, "<i class='fas fa-edit mr-2'></i>멤버십 및 권한 관리");
-
-        try {
-            // API 호출
-            const initiationData = await this.api.initiateGrant(grantRequest);
-            if (initiationData && initiationData.wizardUrl) {
-                // 성공 시, 반환된 URL로 페이지 이동
-                window.location.href = initiationData.wizardUrl;
-            } else {
-                throw new Error("서버에서 유효한 마법사 URL을 받지 못했습니다.");
-            }
-        } catch (error) {
-            showToast(error.message || "마법사 시작에 실패했습니다.", "error");
-            if(manageBtn) this.ui.setLoading(manageBtn, false, "<i class='fas fa-edit mr-2'></i>멤버십 및 권한 관리");
+            this.ui.showError(this.elements.explorerListContainer, '탐색기 목록 로딩 실패');
         }
     }
 
     bindEventListeners() {
         this.elements.explorerListContainer.addEventListener('click', e => this.handleExplorerClick(e));
-        this.elements.search.addEventListener('keyup', e => this.ui.filterExplorer(e.target.value.toLowerCase()));
-        this.elements.inspectorPanel.addEventListener('click', e => {
-            if (e.target.closest('#manage-membership-btn')) this.handleManageMembershipClick();
+        this.elements.inspectorContent.addEventListener('click', e => {
+            if (e.target.closest('#manage-membership-btn')) this.handleManageMembershipClick(e);
+            if (e.target.closest('#grant-btn')) this.handleGrantClick(e);
         });
     }
 
@@ -572,72 +435,87 @@ class StudioApp {
         this.updateCanvasAndInspector();
     }
 
-    async updateCanvasAndInspector() {
-        // renderInspector를 try 블록 안으로 이동시키고, API 결과(data)를 전달합니다.
+    handleManageMembershipClick(event) {
+        event.preventDefault();
         const subject = this.state.getSubject();
-        const permission = this.state.getPermission();
-
         if (!subject) {
-            this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg font-bold">1. 왼쪽 탐색기에서 분석할 \'주체\'를 선택하세요.</p><p class="text-sm text-slate-400">사용자 또는 그룹을 클릭할 수 있습니다.</p>');
-            this.ui.renderInspector(this.state, null); // 선택이 없을 때도 Inspector는 업데이트
-            return;
-        }
-        if (!permission) {
-            this.ui.showGuide(`<div class="text-center"><i class="fas fa-check-circle text-4xl text-green-500"></i><p class="mt-4 text-lg font-bold">'<strong>${subject.name}</strong>' 선택됨.</p><p class="mt-2 text-slate-500">2. 이제 분석하고 싶은 '권한'을 선택하여 접근 경로를 확인하세요.</p></div>`);
-            this.ui.renderInspector(this.state, null); // 선택이 없을 때도 Inspector는 업데이트
-            return;
-        }
-
-        this.ui.hideGuide();
-        this.ui.showLoading(this.ui.elements.canvasContent);
-
-        try {
-            const data = await this.api.getAccessPathAsGraph(subject.id, subject.type, permission.id);
-            await this.ui.renderAccessGraph(subject, permission, data);
-            // API 호출 성공 후, 그 결과를 renderInspector에 전달
-            this.ui.renderInspector(this.state, data);
-        } catch (error) {
-            this.ui.showError(this.ui.elements.canvasContent, '분석 데이터 로딩 실패');
-            // 에러 발생 시에도 Inspector는 현재 선택 상태만으로 업데이트
-            this.ui.renderInspector(this.state, null);
-        }
-    }
-
-    handleGrantClick() {
-        const grantData = this.state.getSelectedItemsForAction();
-        if(!grantData) {
-            showToast("권한을 부여할 주체와 권한을 모두 선택해주세요.", "error");
+            showToast("관리할 주체를 먼저 선택해주세요.", "error");
             return;
         }
 
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = '/admin/policy-wizard/start';
+        form.action = '/admin/granting-wizard/start';
+        form.style.display = 'none';
 
         const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
         const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
 
-        const dataForForm = { ...grantData };
+        form.appendChild(this.createHiddenInput('_csrf', csrfToken));
+        form.appendChild(this.createHiddenInput('subjectId', subject.id));
+        form.appendChild(this.createHiddenInput('subjectType', subject.type));
 
-        Object.entries(dataForForm).forEach(([key, value]) => {
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    handleGrantClick() {
+        // 기존 정책 마법사 로직 (Phase 1에서는 변경 없음)
+        const grantData = this.state.getSelectedItemsForAction();
+        if(!grantData) {
+            showToast("권한을 부여할 주체와 권한을 모두 선택해주세요.", "error");
+            return;
+        }
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/admin/policy-wizard/start'; // 기존 정책 마법사
+        const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+        this.createHiddenInput(form, '_csrf', csrfToken);
+        Object.entries(grantData).forEach(([key, value]) => {
             if (Array.isArray(value)) {
                 value.forEach(v => this.createHiddenInput(form, key, v));
             } else {
                 this.createHiddenInput(form, key, value);
             }
         });
-
-        this.createHiddenInput(form, csrfHeader, csrfToken);
         document.body.appendChild(form);
         form.submit();
     }
 
-    createHiddenInput(form, name, value) {
+    createHiddenInput(name, value) {
         const input = document.createElement('input');
         input.type = 'hidden';
         input.name = name;
         input.value = value;
-        form.appendChild(input);
+        return input;
+    }
+
+    async updateCanvasAndInspector() {
+        const subject = this.state.getSubject();
+        const permission = this.state.getPermission();
+
+        if (!subject) {
+            this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg font-bold">1. 왼쪽 탐색기에서 분석할 \'주체\'를 선택하세요.</p><p class="text-sm text-slate-400">사용자 또는 그룹을 클릭할 수 있습니다.</p>');
+            this.ui.renderInspector(this.state, null);
+            return;
+        }
+        if (!permission) {
+            this.ui.showGuide(`<div class="text-center"><i class="fas fa-check-circle text-4xl text-green-500"></i><p class="mt-4 text-lg font-bold">'<strong>${subject.name}</strong>' 선택됨.</p><p class="mt-2 text-slate-500">2. 이제 분석하고 싶은 '권한'을 선택하여 접근 경로를 확인하세요.</p></div>`);
+            this.ui.renderInspector(this.state, null);
+            return;
+        }
+
+        this.ui.hideGuide();
+        this.ui.showLoading(this.elements.canvasContent);
+
+        try {
+            const data = await this.api.getAccessPathAsGraph(subject.id, subject.type, permission.id);
+            await this.ui.renderAccessGraph(subject, permission, data);
+            this.ui.renderInspector(this.state, data);
+        } catch (error) {
+            this.ui.showError(this.elements.canvasContent, '분석 데이터 로딩 실패');
+            this.ui.renderInspector(this.state, null);
+        }
     }
 }
 

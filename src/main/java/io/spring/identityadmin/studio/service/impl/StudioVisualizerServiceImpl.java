@@ -178,7 +178,7 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
 
         log.debug("No access path found for user {} to permission {}", user.getUsername(), targetPermission.getName());
         path.add(new AccessPathNode("권한", targetPermission.getDescription(), targetPermission.getName()));
-        return new AccessPathDto(path, false, "접근 거부: 해당 권한을 부여하는 경로를 찾을 수 없습니다.");
+        return new AccessPathDto(path, false, "해당 권한을 부여하는 경로를 찾을 수 없습니다.");
     }
 
     private AccessPathDto analyzeGroupAccessPath(Long groupId, Permission targetPermission) {
@@ -199,7 +199,7 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
             }
         }
         path.add(new AccessPathNode("권한", targetPermission.getDescription(), targetPermission.getName()));
-        return new AccessPathDto(path, false, "접근 거부: 해당 권한을 부여하는 경로를 찾을 수 없습니다.");
+        return new AccessPathDto(path, false, "해당 권한을 부여하는 경로를 찾을 수 없습니다.");
     }
 
     @Override

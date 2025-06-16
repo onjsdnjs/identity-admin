@@ -18,64 +18,50 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class GroupServiceImpl implements GroupService {
     private final GroupRepository groupRepository;
-    private final RoleRepository roleRepository; // RoleRepository 주입
+    private final RoleRepository roleRepository;
 
-    /**
-     * 새로운 Group을 생성하고 저장합니다. Role 할당 로직 포함.
-     * `GroupRole` 조인 엔티티를 통해 `Role`과의 관계를 설정합니다.
-     */
     @Transactional
     @Caching(
             evict = {
-                    @CacheEvict(value = "usersWithAuthorities", allEntries = true), // 사용자 권한 캐시 무효화
-                    @CacheEvict(value = "groups", allEntries = true) // 모든 그룹 캐시 무효화
+                    @CacheEvict(value = "usersWithAuthorities", allEntries = true),
+                    @CacheEvict(value = "groups", allEntries = true)
             },
-            put = { @CachePut(value = "groups", key = "#result.id") } // 특정 그룹 캐시 갱신
+            put = { @CachePut(value = "groups", key = "#result.id") }
     )
     public Group createGroup(Group group, List<Long> selectedRoleIds) {
         if (groupRepository.findByName(group.getName()).isPresent()) {
             throw new IllegalArgumentException("Group with name " + group.getName() + " already exists.");
         }
 
-        Group savedGroup = groupRepository.save(group);
-
-        // GroupRole 조인 엔티티 생성 및 연결
         if (selectedRoleIds != null && !selectedRoleIds.isEmpty()) {
             Set<GroupRole> groupRoles = new HashSet<>();
             for (Long roleId : selectedRoleIds) {
                 Role role = roleRepository.findById(roleId)
                         .orElseThrow(() -> new IllegalArgumentException("Role not found with ID: " + roleId));
-                groupRoles.add(GroupRole.builder().group(savedGroup).role(role).build());
+                groupRoles.add(GroupRole.builder().group(group).role(role).build());
             }
-            savedGroup.setGroupRoles(groupRoles); // Group 엔티티에 조인 엔티티 설정
+            group.setGroupRoles(groupRoles);
         }
 
-        return groupRepository.save(savedGroup); // 다시 저장하여 관계 반영
+        return groupRepository.save(group);
     }
 
     public Optional<Group> getGroup(Long id) {
-        // Group 엔티티 로드 시 groupRoles 및 role 엔티티를 함께 fetch join
-        // GroupRepository에 findByIdWithRoles 쿼리 추가 필요
         return groupRepository.findByIdWithRoles(id);
     }
 
     @Cacheable(value = "groups", key = "'allGroups'")
     public List<Group> getAllGroups() {
-        // Group 엔티티 로드 시 groupRoles 및 role 엔티티를 함께 fetch join
-        // GroupRepository에 findAllWithRoles 쿼리 추가 필요
         return groupRepository.findAllWithRolesAndUsers();
     }
 
-    /**
-     * Group을 삭제합니다.
-     * 관련 캐시를 무효화합니다.
-     */
     @Transactional
     @Caching(
             evict = {
@@ -88,10 +74,6 @@ public class GroupServiceImpl implements GroupService {
         groupRepository.deleteById(id);
     }
 
-    /**
-     * 기존 Group을 업데이트하고 저장합니다. Role 할당 로직 포함.
-     * `GroupRole` 조인 엔티티를 통해 `Role`과의 관계를 업데이트합니다.
-     */
     @Transactional
     @Caching(
             evict = {
@@ -107,18 +89,25 @@ public class GroupServiceImpl implements GroupService {
         existingGroup.setName(group.getName());
         existingGroup.setDescription(group.getDescription());
 
-        // 기존 GroupRole 관계 제거 (orphanRemoval = true 덕분에 가능)
-        existingGroup.getGroupRoles().clear();
+        // ========================= [오류 수정된 동기화 로직] =========================
+        Set<Long> desiredRoleIds = selectedRoleIds != null ? new HashSet<>(selectedRoleIds) : new HashSet<>();
+        Set<GroupRole> currentGroupRoles = existingGroup.getGroupRoles();
 
-        // 새로운 GroupRole 조인 엔티티 생성 및 연결
-        if (selectedRoleIds != null && !selectedRoleIds.isEmpty()) {
-            for (Long roleId : selectedRoleIds) {
-                Role role = roleRepository.findById(roleId)
-                        .orElseThrow(() -> new IllegalArgumentException("Role not found with ID: " + roleId));
-                existingGroup.getGroupRoles().add(GroupRole.builder().group(existingGroup).role(role).build());
-            }
-        }
+        currentGroupRoles.removeIf(groupRole -> !desiredRoleIds.contains(groupRole.getRole().getId()));
 
-        return groupRepository.save(existingGroup);
+        Set<Long> currentRoleIds = currentGroupRoles.stream()
+                .map(gr -> gr.getRole().getId())
+                .collect(Collectors.toSet());
+
+        desiredRoleIds.stream()
+                .filter(desiredId -> !currentRoleIds.contains(desiredId))
+                .forEach(newRoleId -> {
+                    Role role = roleRepository.findById(newRoleId)
+                            .orElseThrow(() -> new IllegalArgumentException("Role not found with ID: " + newRoleId));
+                    currentGroupRoles.add(GroupRole.builder().group(existingGroup).role(role).build());
+                });
+        // ====================================================================
+
+        return existingGroup; // 변경 감지에 의해 DB에 반영됨
     }
 }
