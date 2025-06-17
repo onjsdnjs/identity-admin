@@ -22,6 +22,6 @@ public class GroupDto {
     private List<Long> selectedRoleIds;
     private int roleCount;
     private int userCount;
-    private Set<UserGroup> userGroups = new HashSet<>();
-    private Set<GroupRole> groupRoles = new HashSet<>();
+//    private Set<UserGroup> userGroups = new HashSet<>();
+//    private Set<GroupRole> groupRoles = new HashSet<>();
 }

@@ -244,7 +244,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const error = await response.json().catch(() => ({ message: `서버 오류: ${response.status}` }));
                     throw new Error(error.message);
                 }
-                return response.status === 204 ? null : await response.json();
+                const text = await response.text();
+                return text ? JSON.parse(text) : null;
             } catch (error) {
                 console.error(`API 오류: ${url}`, error);
                 if (typeof showToast === 'function') showToast(error.message, 'error');

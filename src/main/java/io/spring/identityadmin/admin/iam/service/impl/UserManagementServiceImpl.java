@@ -38,33 +38,34 @@ public class UserManagementServiceImpl implements UserManagementService {
 
         users.setName(userDto.getName());
         users.setMfaEnabled(userDto.isMfaEnabled());
-
         if (StringUtils.hasText(userDto.getPassword())) {
             users.setPassword(passwordEncoder.encode(userDto.getPassword()));
         }
 
-        // ========================= [오류 수정된 동기화 로직] =========================
-        Set<Long> desiredGroupIds = userDto.getSelectedGroupIds() != null ? new HashSet<>(userDto.getSelectedGroupIds()) : new HashSet<>();
-        Set<UserGroup> currentUserGroups = users.getUserGroups();
+        // ========================= [수정된 동기화 로직] =========================
+        Set<Long> desiredGroupIds = userDto.getSelectedGroupIds() != null
+                ? new HashSet<>(userDto.getSelectedGroupIds())
+                : new HashSet<>();
 
-        // 1. 제거할 그룹 처리: 현재 그룹 목록에는 있지만, 원하는 그룹 목록에는 없는 UserGroup 관계를 제거
-        currentUserGroups.removeIf(userGroup -> !desiredGroupIds.contains(userGroup.getGroup().getId()));
+        // 현재 UserGroup 관계를 모두 제거
+        users.getUserGroups().clear();
 
-        // 2. 추가할 그룹 처리: 원하는 그룹 목록에는 있지만, 현재 그룹 목록에는 없는 UserGroup 관계를 추가
-        Set<Long> currentGroupIds = currentUserGroups.stream()
-                .map(ug -> ug.getGroup().getId())
-                .collect(Collectors.toSet());
+        // 새로운 UserGroup 관계를 추가
+        for (Long groupId : desiredGroupIds) {
+            Group group = groupRepository.findById(groupId)
+                    .orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + groupId));
+            UserGroup userGroup = UserGroup.builder()
+                    .user(users)
+                    .group(group)
+                    .build();
+            users.getUserGroups().add(userGroup);
+        }
 
-        desiredGroupIds.stream()
-                .filter(desiredId -> !currentGroupIds.contains(desiredId))
-                .forEach(newGroupId -> {
-                    Group group = groupRepository.findById(newGroupId)
-                            .orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + newGroupId));
-                    currentUserGroups.add(UserGroup.builder().user(users).group(group).build());
-                });
-        // ====================================================================
+        // 명시적으로 저장
+        userRepository.save(users);
 
-        log.info("User {} (ID: {}) modified successfully.", users.getUsername(), users.getId());
+        log.info("User {} (ID: {}) modified successfully with {} groups.",
+                users.getUsername(), users.getId(), desiredGroupIds.size());
     }
 
     @Transactional(readOnly = true)

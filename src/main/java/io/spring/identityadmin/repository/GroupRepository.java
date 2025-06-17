@@ -10,7 +10,6 @@ import java.util.Optional;
 
 public interface GroupRepository extends JpaRepository<Group, Long> {
     Optional<Group> findByName(String name);
-
     @Query("SELECT g FROM Group g LEFT JOIN FETCH g.groupRoles gr LEFT JOIN FETCH gr.role WHERE g.id = :id")
     Optional<Group> findByIdWithRoles(@Param("id") Long id);
 

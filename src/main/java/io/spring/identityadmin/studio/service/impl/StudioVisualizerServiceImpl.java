@@ -256,7 +256,7 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
                 role.getRolePermissions().forEach(rp -> permissionOrigins.putIfAbsent(rp.getPermission().getName(), origin));
             });
         }
-        if(permissionOrigins.isEmpty()) return Collections.emptyList();
+        if (permissionOrigins.isEmpty()) return Collections.emptyList();
         return permissionRepository.findAllByNameIn(permissionOrigins.keySet()).stream()
                 .map(p -> new EffectivePermissionDto(p.getName(), p.getDescription(), permissionOrigins.get(p.getName())))
                 .sorted(Comparator.comparing(EffectivePermissionDto::permissionName))
