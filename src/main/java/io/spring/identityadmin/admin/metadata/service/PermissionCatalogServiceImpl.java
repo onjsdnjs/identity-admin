@@ -52,8 +52,7 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
     @Override
     @Transactional(readOnly = true)
     public List<PermissionDto> getAvailablePermissions() {
-        // isDefined=true인 리소스에서 생성된 권한만 가져오도록 쿼리 수정 필요 (예시)
-        return permissionRepository.findAll().stream() // TODO: 향후 findDefinedPermissions() 등으로 변경
+        return permissionRepository.findDefinedPermissionsWithDetails().stream()
                 .map(p -> modelMapper.map(p, PermissionDto.class))
                 .collect(Collectors.toList());
     }

@@ -74,28 +74,27 @@ class PolicyBuilderUI {
     }
 
     updatePreview(state) {
-        const subjects = Array.from(state.subjects.values()).map(s => `<strong>${s.name}</strong>`).join(', ');
-        const permissions = Array.from(state.permissions.values()).map(p => `<strong>${p.name}</strong>`).join(', ');
-        const conditions = Array.from(state.conditions.values()).map(c => `<strong>${c.name}</strong>`).join(' 그리고 ');
-        const effect = document.getElementById('policy-effect').value === 'ALLOW' ? '허용' : '거부';
+        const subjectsHtml = Array.from(state.subjects.values()).map(s => `<span class="policy-chip-preview">${s.name}</span>`).join('') || '<span class="text-gray-400">모든 주체</span>';
+        const permissionsHtml = Array.from(state.permissions.values()).map(p => `<span class="policy-chip-preview">${p.name}</span>`).join('') || '<span class="text-gray-400">모든 권한</span>';
 
-        let previewText = '';
-        if (subjects) {
-            previewText += `[${subjects}] 주체는 `;
-        } else {
-            previewText += `[모든 주체]는 `;
-        }
-        if (permissions) {
-            previewText += `[${permissions}] 권한에 대해 `;
-        } else {
-            previewText += `[모든 권한]에 대해 `;
-        }
-        if (conditions) {
-            previewText += `[${conditions}] 조건 하에 `;
-        }
-        previewText += `접근을 <strong class="<span class="math-inline">\{effect \=\=\= '허용' ? 'text\-green\-600' \: 'text\-red\-600'\}"\></span>{effect}</strong>합니다.`;
+        const effect = document.getElementById('policy-effect').value;
+        const effectHtml = `<span class="font-bold ${effect === 'ALLOW' ? 'text-green-400' : 'text-red-400'}">${effect}</span>`;
 
-        this.elements.policyPreview.innerHTML = previewText;
+// 최종 HTML 조합
+        this.elements.policyPreview.innerHTML = `
+    <div class="flex items-center gap-2">
+        <span class="font-bold text-gray-300 w-16">주체:</span>
+        <div class="flex flex-wrap gap-1">${subjectsHtml}</div>
+    </div>
+    <div class="flex items-center gap-2">
+        <span class="font-bold text-gray-300 w-16">권한:</span>
+        <div class="flex flex-wrap gap-1">${permissionsHtml}</div>
+    </div>
+    <div class="flex items-center gap-2">
+         <span class="font-bold text-gray-300 w-16">결과:</span>
+         <div>${effectHtml}</div>
+    </div>
+`;
     }
 
     setLoading(isLoading) {
