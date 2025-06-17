@@ -1,7 +1,9 @@
 package io.spring.identityadmin.workflow.wizard.service;
 
+import io.spring.identityadmin.admin.iam.service.RoleService;
 import io.spring.identityadmin.admin.support.context.service.UserContextService;
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
@@ -21,10 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,9 +32,7 @@ import java.util.stream.Collectors;
 public class PermissionWizardServiceImpl implements PermissionWizardService {
 
     private final UserContextService userContextService;
-    private final BusinessPolicyTranslator policyTranslator;
-    private final PolicyService policyService;
-    private final ModelMapper modelMapper;
+    private final RoleService roleService;
 
     @Override
     @Transactional
@@ -135,27 +132,35 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
 
     @Override
     @Transactional
-    public PolicyDto commitPolicy(String contextId) {
-        log.info("Committing policy for wizard context: {}", contextId);
+    public void commitPolicy(String contextId, List<Long> selectedRoleIds) { // [수정] 시그니처 변경
+        log.info("Committing permission-to-role assignment for wizard context: {}", contextId);
         WizardContext context = userContextService.getWizardProgress(contextId);
 
-        if (CollectionUtils.isEmpty(context.subjects()) || CollectionUtils.isEmpty(context.permissionIds())) {
-            throw new IllegalStateException("정책을 생성하려면 주체와 권한이 반드시 선택되어야 합니다.");
+        Set<Long> permissionIds = context.permissionIds();
+
+        if (CollectionUtils.isEmpty(selectedRoleIds) || CollectionUtils.isEmpty(permissionIds)) {
+            throw new IllegalStateException("역할과 권한이 반드시 선택되어야 합니다.");
         }
 
-        // 1. policyTranslator가 완전한 Policy 엔티티를 생성
-        Policy newPolicyEntity = policyTranslator.translate(context);
+        // 마법사는 단일 권한 할당을 전제로 함
+        Long permissionIdToAdd = permissionIds.iterator().next();
 
-        // 2. [신규] 생성된 엔티티를 안전하게 DTO로 변환
-        PolicyDto policyDto = convertEntityToDto(newPolicyEntity);
+        for (Long roleId : selectedRoleIds) {
+            Role role = roleService.getRole(roleId);
 
-        // 3. DTO를 사용하여 정책 생성 요청
-        Policy createdPolicy = policyService.createPolicy(policyDto);
+            List<Long> existingPermIds = role.getRolePermissions().stream()
+                    .map(rp -> rp.getPermission().getId())
+                    .toList();
 
-        log.info("Policy successfully created with ID: {}", createdPolicy.getId());
+            if (!existingPermIds.contains(permissionIdToAdd)) {
+                List<Long> newPermissionIds = new ArrayList<>(existingPermIds);
+                newPermissionIds.add(permissionIdToAdd);
+                // 역할 업데이트 -> 내부적으로 이벤트 발행 -> 정책 자동 동기화
+                roleService.updateRole(role, newPermissionIds);
+            }
+        }
 
         userContextService.clearWizardProgress(contextId);
-        return policyDto;
     }
 
     /**

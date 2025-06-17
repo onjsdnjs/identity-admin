@@ -11,6 +11,8 @@ import java.util.Optional;
 
 public interface PolicyRepository extends JpaRepository<Policy, Long> {
 
+    Optional<Policy> findByName(String name);
+
     @Query("SELECT DISTINCT p FROM Policy p " +
             "LEFT JOIN FETCH p.targets t " +
             "LEFT JOIN FETCH p.rules r " +

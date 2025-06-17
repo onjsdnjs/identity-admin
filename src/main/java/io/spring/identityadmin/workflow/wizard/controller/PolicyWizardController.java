@@ -2,6 +2,7 @@ package io.spring.identityadmin.workflow.wizard.controller;
 
 import io.spring.identityadmin.admin.iam.service.GroupService;
 import io.spring.identityadmin.admin.iam.service.PermissionService;
+import io.spring.identityadmin.admin.iam.service.RoleService;
 import io.spring.identityadmin.admin.iam.service.UserManagementService;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
 import io.spring.identityadmin.domain.dto.PermissionDto;
@@ -9,10 +10,7 @@ import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
-import io.spring.identityadmin.workflow.wizard.dto.CommitPolicyRequest;
-import io.spring.identityadmin.workflow.wizard.dto.SavePermissionsRequest;
-import io.spring.identityadmin.workflow.wizard.dto.SaveSubjectsRequest;
-import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
+import io.spring.identityadmin.workflow.wizard.dto.*;
 import io.spring.identityadmin.workflow.wizard.service.PermissionWizardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +22,8 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -40,8 +40,9 @@ public class PolicyWizardController {
     private final UserManagementService userManagementService;
     private final GroupService groupService;
     private final PermissionCatalogService permissionCatalogService;
-    private final PermissionService permissionService; // 의존성 주입
-    private final ModelMapper modelMapper;             // 의존성 주입
+    private final PermissionService permissionService;
+    private final RoleService roleService;
+    private final ModelMapper modelMapper;
 
     /**
      * Authorization Studio 등 외부에서 권한 부여 워크플로우를 시작하는 진입점입니다.
@@ -97,8 +98,9 @@ public class PolicyWizardController {
         }
 
         model.addAttribute("wizardContext", context);
-        model.addAttribute("allUsers", userManagementService.getUsers());
-        model.addAttribute("allGroups", groupService.getAllGroups());
+//        model.addAttribute("allUsers", userManagementService.getUsers());
+//        model.addAttribute("allGroups", groupService.getAllGroups());
+        model.addAttribute("allRoles", roleService.getRoles());
         model.addAttribute("allPermissions", permissionCatalogService.getAvailablePermissions());
         model.addAttribute("activePage", "policy-wizard");
         return "admin/policy-wizard";
@@ -128,12 +130,14 @@ public class PolicyWizardController {
      * API: Step 3(검토 및 생성)에서 최종 정책을 생성하고 저장합니다.
      */
     @PostMapping("/{contextId}/commit")
-    public ResponseEntity<PolicyDto> commitPolicy(@PathVariable String contextId, @RequestBody CommitPolicyRequest request) {
-        log.debug("API: Committing policy for contextId: {}", contextId);
-        wizardService.updatePolicyDetails(contextId, request.policyName(), request.policyDescription());
+    public ResponseEntity<Map<String, Object>> commitPolicy(
+            @PathVariable String contextId,
+            @RequestBody CommitWizardRequest request) {
 
-        PolicyDto policyDto = wizardService.commitPolicy(contextId);
+        wizardService.updatePolicyDetails(contextId, request.getPolicyName(), request.getPolicyDescription());
+        wizardService.commitPolicy(contextId, request.getSelectedRoleIds());
 
-        return ResponseEntity.ok(policyDto);
+        Map<String, Object> response = Map.of("success", true, "message", "권한이 역할에 성공적으로 할당되었습니다.");
+        return ResponseEntity.ok(response);
     }
 }

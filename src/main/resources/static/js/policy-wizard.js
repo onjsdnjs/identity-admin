@@ -1,6 +1,6 @@
 /**
  * [최종 수정본] 권한 부여 마법사 클라이언트 애플리케이션
- * DOM 요소 검색 시점을 init()으로 옮기고, null 체크를 강화하여 안정성을 확보합니다.
+ * 모든 UI 요소 검색 및 이벤트 바인딩 로직의 안정성을 확보하고, 보고된 모든 문법 오류를 수정했습니다.
  */
 
 // 1. 상태 관리 클래스
@@ -9,7 +9,8 @@ class PolicyWizardState {
         this.currentStep = 1;
         this.totalSteps = 3;
         this.contextId = contextId;
-        this.isPermissionPreselected = false;
+        // window.preselectedPermission은 HTML의 인라인 스크립트에서 설정됩니다.
+        this.isPermissionPreselected = !!window.preselectedPermission;
     }
 
     nextStep() {
@@ -36,10 +37,7 @@ class PolicyWizardState {
 // 2. UI 렌더링 클래스
 class PolicyWizardUI {
     constructor() {
-        this.elements = {
-            steps: null, indicators: null, prevBtn: null,
-            nextBtn: null, commitBtn: null
-        };
+        this.elements = {};
     }
 
     queryElements() {
@@ -54,7 +52,12 @@ class PolicyWizardUI {
         if (!this.elements.steps || !this.elements.indicators) return;
 
         this.elements.steps.forEach((stepEl, index) => {
-            stepEl.style.display = (index + 1) === state.currentStep ? 'block' : 'none';
+            const stepNum = index + 1;
+            if (stepNum === 2 && state.isPermissionPreselected) {
+                stepEl.style.display = 'none';
+            } else {
+                stepEl.style.display = stepNum === state.currentStep ? 'block' : 'none';
+            }
         });
 
         this.elements.indicators.forEach((indicatorEl, index) => {
@@ -78,45 +81,38 @@ class PolicyWizardUI {
 
     generateReviewSummary() {
         const summaryEl = document.getElementById('review-summary');
-        if(!summaryEl) return;
+        if (!summaryEl) return;
 
-        const users = Array.from(document.getElementById('subject-users').selectedOptions).map(opt => opt.text);
-        const groups = Array.from(document.getElementById('subject-groups').selectedOptions).map(opt => opt.text);
-        const subjectsText = [...users, ...groups].join(', ') || '선택된 주체 없음';
+        const selectedRoles = Array.from(document.querySelectorAll('input[name="selectedRoleIds"]:checked'))
+            .map(chk => {
+                const label = chk.parentElement.querySelector('p.font-semibold');
+                return label ? label.textContent : '';
+            });
+        const subjectsText = selectedRoles.length > 0 ? selectedRoles.join(', ') : '선택된 역할 없음';
 
         let permissionsText = '선택된 권한 없음';
         if (window.preselectedPermission) {
             permissionsText = window.preselectedPermission.friendlyName || window.preselectedPermission.name;
         } else {
             const selectedPerms = Array.from(document.querySelectorAll('input[name="permissions"]:checked')).map(chk => chk.parentElement.querySelector('p.font-semibold').textContent);
-            if(selectedPerms.length > 0) {
-                permissionsText = selectedPerms.join(', ');
-            }
+            if (selectedPerms.length > 0) permissionsText = selectedPerms.join(', ');
         }
 
-        // [수정] 올바른 템플릿 리터럴(${...}) 문법 사용 및 깨진 HTML 태그 수정
-        const summaryHtml = `
-        <div class="space-y-3">
-            <div>
-                <p class="font-semibold text-gray-400">주체 (Who):</p>
-                <p class="text-sm pl-2"><span class="math-inline">\{subjectsText\}</p\>
-                </div>
-                <div>
-                <p class="font-semibold text-gray-400">권한 (What):</p>
-                <p class="text-sm pl-2">{permissionsText}</p>
-                </div>
-                <div>
-                <p class="font-semibold text-gray-400">효과 (How):</p>
-                <p class="text-sm pl-2 text-green-400 font-bold">접근 허용 (ALLOW)</p>
-                </div>
-                </div>`;
-        summaryEl.innerHTML = summaryHtml;
+        summaryEl.innerHTML = `
+            <div class="space-y-3">
+                <div><p class="font-semibold text-gray-400">대상 역할 (To Roles):</p><p class="text-sm pl-2">${subjectsText}</p></div>
+                <div><p class="font-semibold text-gray-400">부여할 권한 (Permission):</p><p class="text-sm pl-2">${permissionsText}</p></div>
+                <div><p class="font-semibold text-gray-400">결과 (Effect):</p><p class="text-sm pl-2 text-green-400 font-bold">역할에 권한이 추가됩니다.</p></div>
+            </div>`;
     }
 
     setLoading(button, isLoading, originalText) {
         if (!button) return;
         button.disabled = isLoading;
-        button.innerHTML = isLoading ? '<i class="fas fa-spinner fa-spin mr-2"></i> 처리 중...' : originalText;
+        // [수정] 문자열을 작은따옴표(')로 감싸서 문법 오류를 원천적으로 방지합니다.
+        button.innerHTML = isLoading
+            ? '<i class="fas fa-spinner fa-spin mr-2"></i> 처리 중...'
+            : originalText;
     }
 }
 
@@ -141,8 +137,9 @@ class WizardApi {
             throw error;
         }
     }
-    saveSubjects(data) { return this.fetchApi('/subjects', { body: JSON.stringify(data) }); }
-    savePermissions(data) { return this.fetchApi('/permissions', { body: JSON.stringify(data) }); }
+    // 이 API는 더 이상 사용되지 않음. commit 시 모든 정보를 한번에 전달.
+    // saveSubjects(data) { return this.fetchApi('/subjects', { body: JSON.stringify(data) }); }
+    // savePermissions(data) { return this.fetchApi('/permissions', { body: JSON.stringify(data) }); }
     commitPolicy(data) { return this.fetchApi('/commit', { body: JSON.stringify(data) }); }
 }
 
@@ -154,7 +151,6 @@ class PolicyWizardApp {
         this.state = new PolicyWizardState(contextIdEl.value);
         this.ui = new PolicyWizardUI();
         this.api = new WizardApi(contextIdEl.value);
-        if (window.preselectedPermission) this.state.isPermissionPreselected = true;
     }
 
     init() {
@@ -169,49 +165,38 @@ class PolicyWizardApp {
         if (this.ui.elements.commitBtn) this.ui.elements.commitBtn.addEventListener('click', () => this.handleCommit());
     }
 
-    async handleNextStep() {
+    handleNextStep() {
         if (this.state.currentStep >= this.state.totalSteps) return;
-        this.ui.setLoading(this.ui.elements.nextBtn, true, '다음');
-        const success = await this.saveCurrentStepData();
-        this.ui.setLoading(this.ui.elements.nextBtn, false, '다음');
-        if (success) {
-            this.state.nextStep();
-            if (this.state.currentStep === this.state.totalSteps) this.ui.generateReviewSummary();
-            this.ui.updateView(this.state);
+
+        // Step 1에서 유효성 검사
+        if (this.state.currentStep === 1 && !this.state.isPermissionPreselected) {
+            const selectedRoleIds = document.querySelectorAll('input[name="selectedRoleIds"]:checked');
+            if (selectedRoleIds.length === 0) {
+                showToast('하나 이상의 역할을 선택해야 합니다.', 'error');
+                return;
+            }
         }
+        // Step 2에서 유효성 검사 (isPermissionPreselected가 false일 때만 실행됨)
+        else if (this.state.currentStep === 2) {
+            const permissionIds = document.querySelectorAll('input[name="permissions"]:checked');
+            if(permissionIds.length === 0) {
+                showToast('하나 이상의 권한을 선택해야 합니다.', 'error');
+                return;
+            }
+        }
+
+        // 유효성 검사 통과 후 단계 이동
+        this.state.nextStep();
+        if (this.state.currentStep === this.state.totalSteps) {
+            this.ui.generateReviewSummary();
+        }
+        this.ui.updateView(this.state);
     }
 
     handlePrevStep() {
         if (this.state.currentStep <= 1) return;
         this.state.prevStep();
         this.ui.updateView(this.state);
-    }
-
-    async saveCurrentStepData() {
-        try {
-            if (this.state.currentStep === 1) {
-                const userIds = Array.from(document.getElementById('subject-users').selectedOptions).map(opt => Number(opt.value));
-                const groupIds = Array.from(document.getElementById('subject-groups').selectedOptions).map(opt => Number(opt.value));
-                if (userIds.length === 0 && groupIds.length === 0) {
-                    showToast('하나 이상의 사용자 또는 그룹을 선택해야 합니다.', 'error');
-                    return false;
-                }
-                await this.api.saveSubjects({ userIds, groupIds });
-            } else if (this.state.currentStep === 2) {
-                if (this.state.isPermissionPreselected) return true;
-                const permissionIds = Array.from(document.querySelectorAll('input[name="permissions"]:checked')).map(chk => Number(chk.value));
-                if (permissionIds.length === 0) {
-                    showToast('하나 이상의 권한을 선택해야 합니다.', 'error');
-                    return false;
-                }
-                await this.api.savePermissions({ permissionIds });
-            }
-            return true;
-        } catch(error) {
-            showToast(`단계 저장 중 오류 발생: ${error.message}`, 'error');
-            console.log(`${error.message}`);
-            return false;
-        }
     }
 
     async handleCommit() {
@@ -221,14 +206,21 @@ class PolicyWizardApp {
             showToast('정책 이름은 필수입니다.', 'error');
             return;
         }
+
+        const selectedRoleIds = Array.from(document.querySelectorAll('input[name="selectedRoleIds"]:checked')).map(chk => Number(chk.value));
+        if (selectedRoleIds.length === 0) {
+            showToast('하나 이상의 역할을 선택해야 합니다.', 'error');
+            return;
+        }
+
         this.ui.setLoading(this.ui.elements.commitBtn, true, '정책 생성 및 적용');
         try {
-            const result = await this.api.commitPolicy({ policyName, policyDescription });
-            showToast(`정책(ID: ${result.id})이 성공적으로 생성되었습니다!`, 'success');
-            setTimeout(() => { window.location.href = '/admin/policies'; }, 1500);
+            const payload = { policyName, policyDescription, selectedRoleIds };
+            const result = await this.api.commitPolicy(payload);
+            showToast(result.message || '요청이 성공적으로 처리되었습니다.', 'success');
+            setTimeout(() => { window.location.href = '/admin/roles'; }, 1500);
         } catch (error) {
-            showToast(`정책 생성 실패: ${error.message}`, 'error');
-            console.log(`${error.message}`);
+            showToast(`처리 실패: ${error.message}`, 'error');
             this.ui.setLoading(this.ui.elements.commitBtn, false, '정책 생성 및 적용');
         }
     }
@@ -239,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         window.showToast = (message, type) => alert(`[${type.toUpperCase()}] ${message}`);
     }
     const app = new PolicyWizardApp();
-    if (app.state) { // app 객체가 정상적으로 생성되었는지 확인
+    if (app.state) {
         app.init();
     }
 });

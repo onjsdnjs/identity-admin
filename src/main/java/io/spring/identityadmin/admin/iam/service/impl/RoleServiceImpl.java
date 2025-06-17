@@ -6,6 +6,7 @@ import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.RolePermission;
 import io.spring.identityadmin.repository.PermissionRepository;
 import io.spring.identityadmin.repository.RoleRepository;
+import io.spring.identityadmin.security.xacml.pap.service.PolicySynchronizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -28,6 +29,7 @@ public class RoleServiceImpl implements RoleService {
 
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
+    private final PolicySynchronizationService policySyncService;
 
     @Transactional(readOnly = true)
     @Cacheable(value = "roles", key = "#id")
@@ -109,7 +111,9 @@ public class RoleServiceImpl implements RoleService {
                             .orElseThrow(() -> new IllegalArgumentException("Permission not found with ID: " + newPermId));
                     currentRolePermissions.add(RolePermission.builder().role(existingRole).permission(permission).build());
                 });
-        // ====================================================================
+
+        //역할 저장이 완료된 후, 정책 동기화 서비스 호출
+        policySyncService.synchronizePolicyForRole(existingRole.getId());
 
         return existingRole;
     }

@@ -2,10 +2,12 @@ package io.spring.identityadmin.security.xacml.pap.service;
 
 import io.spring.identityadmin.common.event.dto.PolicyChangedEvent;
 import io.spring.identityadmin.common.event.service.IntegrationEventBus;
+import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.domain.entity.policy.PolicyRule;
 import io.spring.identityadmin.domain.entity.policy.PolicyTarget;
+import io.spring.identityadmin.repository.PermissionRepository;
 import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.security.xacml.prp.PolicyRetrievalPoint;
 import io.spring.identityadmin.domain.dto.PolicyDto;
@@ -16,8 +18,11 @@ import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -32,6 +37,11 @@ public class DefaultPolicyService implements PolicyService {
     private final PolicyEnrichmentService policyEnrichmentService;
     private final ModelMapper modelMapper;
     private final IntegrationEventBus eventBus;
+    private final PermissionRepository permissionRepository;
+
+    //SpEL 에서 hasAuthority('PERMISSION_NAME') 형태의 권한 이름을 추출하기 위한 정규표현식
+    private static final Pattern AUTHORITY_PATTERN = Pattern.compile("hasAuthority\\('([^']*)'\\)");
+
 
     @Override
     @Transactional(readOnly = true)
@@ -47,11 +57,14 @@ public class DefaultPolicyService implements PolicyService {
     }
 
     @Override
-    public Policy createPolicy(PolicyDto policyDto) {
+    public Policy createPolicy(PolicyDto policyDto) { // DTO를 받는 시그니처 유지
         Policy policy = convertDtoToEntity(policyDto);
         policyEnrichmentService.enrichPolicyWithFriendlyDescription(policy);
         Policy savedPolicy = policyRepository.save(policy);
-        eventBus.publish(new PolicyChangedEvent(savedPolicy.getId()));
+
+        // [수정] 정책에 포함된 권한 ID를 추출하여 이벤트를 발행합니다.
+        publishPolicyChangedEvent(savedPolicy);
+
         reloadAuthorizationSystem();
         log.info("Policy created and authorization system reloaded. Policy Name: {}", savedPolicy.getName());
         return savedPolicy;
@@ -60,18 +73,42 @@ public class DefaultPolicyService implements PolicyService {
     @Override
     public void updatePolicy(PolicyDto policyDto) {
         Policy existingPolicy = findById(policyDto.getId());
+        updateEntityFromDto(existingPolicy, policyDto); // 친화적 설명 생성 로직은 updateEntityFromDto 내부 또는 이후 호출
         policyEnrichmentService.enrichPolicyWithFriendlyDescription(existingPolicy);
-        updateEntityFromDto(existingPolicy, policyDto);
         Policy updatedPolicy = policyRepository.save(existingPolicy);
-        eventBus.publish(new PolicyChangedEvent(policyDto.getId()));
+
+        // [수정] 정책에 포함된 권한 ID를 추출하여 이벤트를 발행합니다.
+        publishPolicyChangedEvent(updatedPolicy);
+
         reloadAuthorizationSystem();
         log.info("Policy updated and authorization system reloaded. Policy ID: {}", updatedPolicy.getId());
+    }
+
+    private void publishPolicyChangedEvent(Policy policy) {
+        Set<String> permissionNames = new HashSet<>();
+        policy.getRules().stream()
+                .flatMap(rule -> rule.getConditions().stream())
+                .map(PolicyCondition::getExpression)
+                .forEach(spel -> {
+                    Matcher matcher = AUTHORITY_PATTERN.matcher(spel);
+                    while (matcher.find()) {
+                        permissionNames.add(matcher.group(1));
+                    }
+                });
+
+        if (!permissionNames.isEmpty()) {
+            Set<Long> permissionIds = permissionRepository.findAllByNameIn(permissionNames).stream()
+                    .map(Permission::getId)
+                    .collect(Collectors.toSet());
+            eventBus.publish(new PolicyChangedEvent(policy.getId(), permissionIds));
+        }
     }
 
     @Override
     public void deletePolicy(Long id) {
         policyRepository.deleteById(id);
-        eventBus.publish(new PolicyChangedEvent(id));
+        // 삭제 시에는 빈 권한 ID 목록으로 이벤트를 발행하여, 관련된 연결이 없음을 알릴 수 있습니다.
+        eventBus.publish(new PolicyChangedEvent(id, new HashSet<>()));
         reloadAuthorizationSystem();
         log.info("Policy deleted and authorization system reloaded. Policy ID: {}", id);
     }

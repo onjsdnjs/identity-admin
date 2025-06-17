@@ -7,9 +7,12 @@
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5) !important;
 }
 
-/* 스텝 아이템 */
+/* 스텝 아이템 - @apply 대신 일반 CSS 속성 사용 */
 .step-item {
-    @apply flex flex-col items-center text-center;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
     position: relative !important;
     z-index: 1 !important;
 }

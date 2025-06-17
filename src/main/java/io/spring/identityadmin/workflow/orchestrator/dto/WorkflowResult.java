@@ -6,5 +6,5 @@ package io.spring.identityadmin.workflow.orchestrator.dto;
 public record WorkflowResult(
         String workflowId,
         String status, // "SUCCESS", "FAILURE"
-        Long createdPolicyId
+        Long createdPolicyId // [수정] RBAC 중심에서는 null일 수 있음
 ) {}
