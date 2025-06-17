@@ -89,15 +89,28 @@ class PolicyWizardUI {
             permissionsText = window.preselectedPermission.friendlyName || window.preselectedPermission.name;
         } else {
             const selectedPerms = Array.from(document.querySelectorAll('input[name="permissions"]:checked')).map(chk => chk.parentElement.querySelector('p.font-semibold').textContent);
-            if(selectedPerms.length > 0) permissionsText = selectedPerms.join(', ');
+            if(selectedPerms.length > 0) {
+                permissionsText = selectedPerms.join(', ');
+            }
         }
 
-        summaryEl.innerHTML = `
-            <div class="space-y-3">
-                <div><p class="font-semibold text-gray-400">주체 (Who):</p><p class="text-sm pl-2"><span class="math-inline">\{subjectsText\}</p\></div\>
-<div><p class="font-semibold text-gray-400">권한 (What):</p><p class="text-sm pl-2">{permissionsText}</p></div>
-<div><p class="font-semibold text-gray-400">효과 (How):</p><p class="text-sm pl-2 text-green-400 font-bold">접근 허용 (ALLOW)</p></div>
-</div>`;
+        // [수정] 올바른 템플릿 리터럴(${...}) 문법 사용 및 깨진 HTML 태그 수정
+        const summaryHtml = `
+        <div class="space-y-3">
+            <div>
+                <p class="font-semibold text-gray-400">주체 (Who):</p>
+                <p class="text-sm pl-2"><span class="math-inline">\{subjectsText\}</p\>
+                </div>
+                <div>
+                <p class="font-semibold text-gray-400">권한 (What):</p>
+                <p class="text-sm pl-2">{permissionsText}</p>
+                </div>
+                <div>
+                <p class="font-semibold text-gray-400">효과 (How):</p>
+                <p class="text-sm pl-2 text-green-400 font-bold">접근 허용 (ALLOW)</p>
+                </div>
+                </div>`;
+        summaryEl.innerHTML = summaryHtml;
     }
 
     setLoading(button, isLoading, originalText) {
@@ -215,6 +228,7 @@ class PolicyWizardApp {
             setTimeout(() => { window.location.href = '/admin/policies'; }, 1500);
         } catch (error) {
             showToast(`정책 생성 실패: ${error.message}`, 'error');
+            console.log(`${error.message}`);
             this.ui.setLoading(this.ui.elements.commitBtn, false, '정책 생성 및 적용');
         }
     }

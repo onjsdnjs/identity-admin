@@ -1,5 +1,6 @@
 package io.spring.identityadmin.workflow.wizard.service;
 
+import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
 import io.spring.identityadmin.studio.dto.WizardInitiationDto;
@@ -12,6 +13,6 @@ public interface PermissionWizardService {
     WizardContext updateSubjects(String contextId, SaveSubjectsRequest request);
     WizardContext updatePermissions(String contextId, SavePermissionsRequest request);
     WizardContext updatePolicyDetails(String contextId, String policyName, String policyDescription);
-    Policy commitPolicy(String contextId);
+    PolicyDto commitPolicy(String contextId);
     WizardContext getWizardProgress(String contextId);
 }

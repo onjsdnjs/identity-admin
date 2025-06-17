@@ -5,7 +5,9 @@ import io.spring.identityadmin.admin.iam.service.PermissionService;
 import io.spring.identityadmin.admin.iam.service.UserManagementService;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
 import io.spring.identityadmin.domain.dto.PermissionDto;
+import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
+import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
 import io.spring.identityadmin.workflow.wizard.dto.CommitPolicyRequest;
 import io.spring.identityadmin.workflow.wizard.dto.SavePermissionsRequest;
@@ -21,6 +23,8 @@ import org.springframework.ui.Model;
 import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+
+import java.util.stream.Collectors;
 
 /**
  * [최종 구현] 권한 부여 마법사의 전체 UI 흐름과 각 단계별 API 요청을 처리하는 컨트롤러입니다.
@@ -124,12 +128,48 @@ public class PolicyWizardController {
      * API: Step 3(검토 및 생성)에서 최종 정책을 생성하고 저장합니다.
      */
     @PostMapping("/{contextId}/commit")
-    public ResponseEntity<Policy> commitPolicy(@PathVariable String contextId, @RequestBody CommitPolicyRequest request) {
+    public ResponseEntity<PolicyDto> commitPolicy(@PathVariable String contextId, @RequestBody CommitPolicyRequest request) {
         log.debug("API: Committing policy for contextId: {}", contextId);
-        // 최종 단계에서 사용자가 입력한 정책 이름/설명을 컨텍스트에 반영
         wizardService.updatePolicyDetails(contextId, request.policyName(), request.policyDescription());
-        // 최종 정책 생성
-        Policy createdPolicy = wizardService.commitPolicy(contextId);
-        return ResponseEntity.ok(createdPolicy);
+
+        PolicyDto policyDto = wizardService.commitPolicy(contextId);
+
+        // [신규] 엔티티를 안전한 DTO로 변환하는 과정을 컨트롤러에 추가합니다.
+//        PolicyDto responseDto = toDto(createdPolicy);
+
+        return ResponseEntity.ok(policyDto);
+    }
+
+    /**
+     * [신규] Policy 엔티티를 PolicyDto로 안전하게 변환하는 private 헬퍼 메서드.
+     * 순환 참조 문제를 회피하고 필요한 데이터만 담습니다.
+     */
+    private PolicyDto toDto(Policy policy) {
+        PolicyDto dto = new PolicyDto();
+        dto.setId(policy.getId());
+        dto.setName(policy.getName());
+        dto.setDescription(policy.getDescription());
+        dto.setEffect(policy.getEffect());
+        dto.setPriority(policy.getPriority());
+
+        if (policy.getTargets() != null) {
+            dto.setTargets(policy.getTargets().stream().map(t ->
+                    new PolicyDto.TargetDto(t.getTargetType(), t.getTargetIdentifier(), t.getHttpMethod() == null ? "ALL" : t.getHttpMethod())
+            ).collect(Collectors.toList()));
+        }
+
+        if (policy.getRules() != null) {
+            dto.setRules(policy.getRules().stream().map(rule -> {
+                PolicyDto.RuleDto ruleDto = new PolicyDto.RuleDto();
+                ruleDto.setDescription(rule.getDescription());
+                if (rule.getConditions() != null) {
+                    ruleDto.setConditions(rule.getConditions().stream()
+                            .map(PolicyCondition::getExpression)
+                            .collect(Collectors.toList()));
+                }
+                return ruleDto;
+            }).collect(Collectors.toList()));
+        }
+        return dto;
     }
 }

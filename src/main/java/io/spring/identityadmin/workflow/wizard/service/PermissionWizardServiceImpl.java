@@ -1,8 +1,10 @@
 package io.spring.identityadmin.workflow.wizard.service;
 
 import io.spring.identityadmin.admin.support.context.service.UserContextService;
+import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.domain.entity.policy.Policy;
+import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.security.core.CustomUserDetails;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyService;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
@@ -20,8 +22,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -131,7 +135,7 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
 
     @Override
     @Transactional
-    public Policy commitPolicy(String contextId) {
+    public PolicyDto commitPolicy(String contextId) {
         log.info("Committing policy for wizard context: {}", contextId);
         WizardContext context = userContextService.getWizardProgress(contextId);
 
@@ -139,13 +143,59 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
             throw new IllegalStateException("정책을 생성하려면 주체와 권한이 반드시 선택되어야 합니다.");
         }
 
-        Policy newPolicy = policyTranslator.translate(context);
-        // PolicyService를 통해 정책 생성 (이벤트 발행 및 캐시 무효화 등 후속 처리 포함)
-        Policy createdPolicy = policyService.createPolicy(modelMapper.map(newPolicy, io.spring.identityadmin.domain.dto.PolicyDto.class));
+        // 1. policyTranslator가 완전한 Policy 엔티티를 생성
+        Policy newPolicyEntity = policyTranslator.translate(context);
+
+        // 2. [신규] 생성된 엔티티를 안전하게 DTO로 변환
+        PolicyDto policyDto = convertEntityToDto(newPolicyEntity);
+
+        // 3. DTO를 사용하여 정책 생성 요청
+        Policy createdPolicy = policyService.createPolicy(policyDto);
+
         log.info("Policy successfully created with ID: {}", createdPolicy.getId());
 
         userContextService.clearWizardProgress(contextId);
-        return createdPolicy;
+        return policyDto;
+    }
+
+    /**
+     * [신규] Policy 엔티티를 PolicyDto로 안전하게 변환하는 헬퍼 메서드.
+     * 중첩된 Target, Rule, Condition을 모두 명시적으로 변환하여 데이터 누락을 방지합니다.
+     * @param policy 변환할 Policy 엔티티
+     * @return 변환된 PolicyDto
+     */
+    private PolicyDto convertEntityToDto(Policy policy) {
+        if (policy == null) return null;
+
+        List<PolicyDto.TargetDto> targetDtos = policy.getTargets().stream()
+                .map(t -> PolicyDto.TargetDto.builder()
+                        .targetType(t.getTargetType())
+                        .targetIdentifier(t.getTargetIdentifier())
+                        .httpMethod(t.getHttpMethod())
+                        .build())
+                .collect(Collectors.toList());
+
+        List<PolicyDto.RuleDto> ruleDtos = policy.getRules().stream()
+                .map(r -> {
+                    List<String> conditionExpressions = r.getConditions().stream()
+                            .map(PolicyCondition::getExpression)
+                            .collect(Collectors.toList());
+                    return PolicyDto.RuleDto.builder()
+                            .description(r.getDescription())
+                            .conditions(conditionExpressions)
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        return PolicyDto.builder()
+                .id(policy.getId())
+                .name(policy.getName())
+                .description(policy.getDescription())
+                .effect(policy.getEffect())
+                .priority(policy.getPriority())
+                .targets(targetDtos)
+                .rules(ruleDtos)
+                .build();
     }
 
     private Long getCurrentUserId() {

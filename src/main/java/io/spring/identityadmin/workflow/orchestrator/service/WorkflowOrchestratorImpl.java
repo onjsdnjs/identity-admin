@@ -1,5 +1,6 @@
 package io.spring.identityadmin.workflow.orchestrator.service;
 
+import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.workflow.orchestrator.dto.WorkflowRequest;
 import io.spring.identityadmin.workflow.orchestrator.dto.WorkflowResult;
@@ -51,7 +52,7 @@ public class WorkflowOrchestratorImpl implements WorkflowOrchestrator {
         // permissionWizardService.applyConditions(contextId, request.getConditions());
 
         // 3. 모든 정보가 반영된 컨텍스트를 기반으로 최종 정책 생성 및 저장
-        Policy finalPolicy = permissionWizardService.commitPolicy(contextId);
+        PolicyDto finalPolicy = permissionWizardService.commitPolicy(contextId);
         log.info("Workflow completed. Final policy created with ID: {}", finalPolicy.getId());
 
         return new WorkflowResult(contextId, "SUCCESS", finalPolicy.getId());
