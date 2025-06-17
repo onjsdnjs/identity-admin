@@ -40,8 +40,8 @@
                         <td class="py-4 px-6" th:text="${group.id}">1</td>
                         <td class="py-4 px-6 font-medium" th:text="${group.name}">개발팀</td>
                         <td class="py-4 px-6" th:text="${group.description}" style="color: #cbd5e1;">소프트웨어 개발 담당</td>
-                        <td class="py-4 px-6" th:text="${group.groupRoles != null ? #sets.size(group.groupRoles) : 0}">0</td>
-                        <td class="py-4 px-6" th:text="${group.userGroups != null ? #sets.size(group.userGroups) : 0}">0</td>
+                        <td class="py-4 px-6" th:text="${group.roleCount}">0</td>
+                        <td class="py-4 px-6" th:text="${group.userCount}">0</td>
                         <td class="py-4 px-6">
                             <a th:href="@{/admin/groups/{id}(id=${group.id})}"
                                class="px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-300 inline-block mr-2"
