@@ -419,11 +419,22 @@
 }
 
 /* Mermaid 노드 스타일 오버라이드 */
-.node rect {
+/*.node rect {
     rx: 5;
     ry: 5;
+}*/
+
+/* 검색 결과 메시지 스타일 */
+.no-results-message {
+    color: #94a3b8;
+    padding: 2rem;
+    text-align: center;
 }
 
-/*.hidden {
-    display: none !important;
-}*/
+/* 아코디언 트랜지션 개선 */
+.accordion-content {
+    transition: max-height 0.3s ease-out;
+    overflow: hidden;
+}
+
+/* 검색 시 숨겨진 항목 - .hidden 클래스 대신 인라인 스타일 사용으로 충돌 방지 */

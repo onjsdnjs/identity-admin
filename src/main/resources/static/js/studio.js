@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const contentHtml = items?.length > 0
                 ? items.map(item => this.createItemHtml(item, type, icon)).join('')
                 : '<div class="p-2 text-xs text-slate-400">항목이 없습니다.</div>';
-            return `<div class="accordion"><div class="accordion-header"><span class="font-bold">${title}</span><i class="fas fa-chevron-down accordion-icon"></i></div><div class="accordion-content">${contentHtml}</div></div>`;
+            return `<div class="accordion" data-section-type="${type}"><div class="accordion-header"><span class="font-bold">${title}</span><i class="fas fa-chevron-down accordion-icon"></i></div><div class="accordion-content">${contentHtml}</div></div>`;
         }
         createItemHtml(item, type, icon) {
             return `<div class="explorer-item" data-id="${item.id}" data-type="${type}" data-name="${item.name}" data-description="${item.description || ''}"><div class="item-icon"><i class="fas ${icon}"></i></div><div class="item-text"><div class="item-name">${item.name}</div><div class="item-description" title="${item.description || ''}">${item.description || ''}</div></div></div>`;
@@ -152,14 +152,86 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         }
+        // filterExplorer 메서드에 디버깅 코드 추가
         filterExplorer(term) {
             const searchTerm = term.trim().toLowerCase();
-            this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
-                const name = (item.dataset.name || '').toLowerCase();
-                const description = (item.dataset.description || '').toLowerCase();
-                const isVisible = !searchTerm || name.includes(searchTerm) || description.includes(searchTerm);
-                item.classList.toggle('hidden', !isVisible);
+            console.log('검색어:', searchTerm);
+
+            // 기존 검색 결과 메시지 제거
+            const existingNoResultsMsg = this.elements.explorerListContainer.querySelector('.no-results-message');
+            if (existingNoResultsMsg) existingNoResultsMsg.remove();
+
+            // 검색어가 없을 때
+            if (!searchTerm) {
+                this.elements.explorerListContainer.querySelectorAll('.accordion').forEach(accordion => {
+                    accordion.style.display = '';
+                    accordion.querySelectorAll('.explorer-item').forEach(item => {
+                        item.style.display = '';
+                    });
+                });
+                return;
+            }
+
+            let totalVisibleSections = 0;
+
+            // 각 아코디언 섹션별로 처리
+            this.elements.explorerListContainer.querySelectorAll('.accordion').forEach(accordion => {
+                const accordionContent = accordion.querySelector('.accordion-content');
+                const accordionHeader = accordion.querySelector('.accordion-header');
+                const accordionIcon = accordion.querySelector('.accordion-icon');
+                const sectionTitle = accordionHeader.querySelector('span').textContent;
+
+                console.log(`\n=== ${sectionTitle} 섹션 검사 ===`);
+
+                let visibleItemCount = 0;
+
+                // 해당 아코디언 내의 모든 항목 검사
+                accordionContent.querySelectorAll('.explorer-item').forEach(item => {
+                    const name = (item.dataset.name || '').toLowerCase();
+                    const description = (item.dataset.description || '').toLowerCase();
+                    const isMatch = name.includes(searchTerm) || description.includes(searchTerm);
+
+                    console.log(`항목: ${item.dataset.name}`);
+                    console.log(`  - name: "${name}", description: "${description}"`);
+                    console.log(`  - 검색어 "${searchTerm}" 포함 여부: ${isMatch}`);
+
+                    if (isMatch) {
+                        item.style.display = '';
+                        visibleItemCount++;
+                    } else {
+                        item.style.display = 'none';
+                    }
+                });
+
+                console.log(`${sectionTitle} 섹션의 매칭 항목 수: ${visibleItemCount}`);
+
+                // 매칭되는 항목이 있는 경우에만 아코디언 표시
+                if (visibleItemCount > 0) {
+                    accordion.style.display = '';
+                    totalVisibleSections++;
+
+                    // 아코디언 자동 열기
+                    if (!accordionHeader.classList.contains('open')) {
+                        accordionHeader.classList.add('open');
+                        accordionIcon.classList.add('rotate-180');
+                        accordionContent.style.maxHeight = accordionContent.scrollHeight + 'px';
+                    } else {
+                        accordionContent.style.maxHeight = accordionContent.scrollHeight + 'px';
+                    }
+                } else {
+                    accordion.style.display = 'none';
+                }
             });
+
+            console.log(`\n전체 표시된 섹션 수: ${totalVisibleSections}`);
+
+            // 검색 결과가 하나도 없는 경우
+            if (totalVisibleSections === 0) {
+                const noResultsMsg = document.createElement('div');
+                noResultsMsg.className = 'no-results-message p-4 text-center text-slate-400';
+                noResultsMsg.innerHTML = `<i class="fas fa-search text-2xl mb-2"></i><p>"${searchTerm}"에 대한 검색 결과가 없습니다.</p>`;
+                this.elements.explorerListContainer.appendChild(noResultsMsg);
+            }
         }
     }
 

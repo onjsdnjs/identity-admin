@@ -5,9 +5,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <link rel="stylesheet" th:href="@{/css/studio.css}" />
-<!--    <style>
-        .hidden { display: none !important; }
-    </style>-->
 </head>
 <body class="h-screen flex flex-col bg-app-dark-bg-secondary font-sans">
 
@@ -21,9 +18,11 @@
 
         <div id="explorer-panel" class="w-full lg:w-3/12 bg-app-dark-bg-tertiary rounded-xl shadow-lg flex flex-col">
             <div class="p-3 border-b border-app-border">
-                <input type="search" id="explorer-search" placeholder="검색..."
-                       class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-app-accent bg-app-secondary border-app-border text-app-light-gray">
-                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 -ml-28 mt-4"></i>
+                <div class="relative">
+                    <input type="search" id="explorer-search" placeholder="검색..."
+                           class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-app-accent bg-app-secondary border-app-border text-app-light-gray">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
             </div>
             <div id="explorer-list-container" class="flex-1 p-2 overflow-y-auto">
             </div>
