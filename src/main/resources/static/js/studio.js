@@ -164,11 +164,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
         filterExplorer(term) {
             const searchTerm = term.trim().toLowerCase();
-            this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
+
+            // 모든 아코디언과 아이템을 한 번에 가져오기
+            const accordions = this.elements.explorerListContainer.querySelectorAll('.accordion');
+            const allItems = this.elements.explorerListContainer.querySelectorAll('.explorer-item');
+
+            // 검색어가 없으면 모두 표시
+            if (!searchTerm) {
+                accordions.forEach(acc => acc.style.display = '');
+                allItems.forEach(item => item.style.display = '');
+                const msg = this.elements.explorerListContainer.querySelector('.no-results-message');
+                if (msg) msg.remove();
+                return;
+            }
+
+            // 검색 실행
+            let hasResults = false;
+            const accordionVisibility = new Map();
+
+            // 각 아이템 검사
+            allItems.forEach(item => {
                 const name = (item.dataset.name || '').toLowerCase();
-                const isVisible = !searchTerm || name.includes(searchTerm);
-                item.classList.toggle('hidden', !isVisible);
+                const desc = (item.dataset.description || '').toLowerCase();
+                const matches = name.includes(searchTerm) || desc.includes(searchTerm);
+
+                item.style.display = matches ? '' : 'none';
+
+                if (matches) {
+                    hasResults = true;
+                    const parentAccordion = item.closest('.accordion');
+                    if (parentAccordion) {
+                        accordionVisibility.set(parentAccordion, true);
+                    }
+                }
             });
+
+            // 아코디언 표시/숨김
+            accordions.forEach(acc => {
+                acc.style.display = accordionVisibility.has(acc) ? '' : 'none';
+            });
+
+            // 결과 없음 메시지
+            let msg = this.elements.explorerListContainer.querySelector('.no-results-message');
+            if (!hasResults) {
+                if (!msg) {
+                    msg = document.createElement('div');
+                    msg.className = 'no-results-message';
+                    msg.textContent = '검색 결과가 없습니다.';
+                    this.elements.explorerListContainer.appendChild(msg);
+                }
+            } else if (msg) {
+                msg.remove();
+            }
         }
 
         bindAccordionEvents() {
@@ -243,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         bindEventListeners() {
             this.elements.explorerListContainer.addEventListener('click', e => this.handleExplorerClick(e));
-            this.elements.search.addEventListener('keyup', debounce(e => this.ui.filterExplorer(e.target.value), 250));
+            this.elements.search.addEventListener('input', e => this.ui.filterExplorer(e.target.value));
             this.elements.inspectorContent.addEventListener('click', e => {
                 const target = e.target;
                 if (target.closest('#edit-mode-btn')) this.handleModeChange('edit');
