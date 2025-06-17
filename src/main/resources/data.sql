@@ -86,3 +86,26 @@ SELECT setval('policy_id_seq', (SELECT MAX(id) FROM POLICY));
 SELECT setval('policy_target_id_seq', (SELECT MAX(id) FROM POLICY_TARGET));
 SELECT setval('policy_rule_id_seq', (SELECT MAX(id) FROM POLICY_RULE));
 SELECT setval('policy_condition_id_seq', (SELECT MAX(id) FROM POLICY_CONDITION));
+
+-- =====================================================================
+-- 비즈니스 정책 생성을 위한 메타데이터 (자원, 행위)
+-- =====================================================================
+
+-- 비즈니스 자원 (Resources)
+-- 사용자가 정책을 설정할 때 선택하는 '무엇을'에 해당하는 항목입니다.
+-- resource_type은 내부적으로 Permission의 target_type과 매핑될 수 있는 기술적인 타입명입니다.
+INSERT INTO BUSINESS_RESOURCE (id, name, resource_type, description) VALUES
+                                                                         (1, '인사 정보', 'HR_DATA', '임직원의 개인 정보 및 급여 정보를 포함합니다.'),
+                                                                         (2, '재무 보고서', 'FINANCE_REPORT', '회사의 월별, 분기별 재무 상태 보고서입니다.'),
+                                                                         (3, '서버 관리 콘솔', 'SYSTEM_INFRA', '운영 서버의 상태를 모니터링하고 관리하는 기능입니다.'),
+                                                                         (4, '영업 계약서', 'SALES_CONTRACT', '고객과의 영업 계약 관련 문서 일체입니다.');
+
+-- 비즈니스 행위 (Actions)
+-- 사용자가 정책을 설정할 때 선택하는 '어떻게'에 해당하는 항목입니다.
+-- action_type은 내부적으로 Permission의 action_type과 매핑될 기술적인 타입명입니다.
+INSERT INTO BUSINESS_ACTION (id, name, action_type, description) VALUES
+                                                                     (1, '조회하기', 'READ', '데이터나 리소스를 읽을 수 있는 권한입니다.'),
+                                                                     (2, '수정하기', 'WRITE', '데이터나 리소스를 생성하거나 수정할 수 있는 권한입니다.'),
+                                                                     (3, '삭제하기', 'DELETE', '데이터나 리소스를 삭제할 수 있는 권한입니다.'),
+                                                                     (4, '실행/접근', 'EXECUTE', '특정 기능이나 시스템에 접근하거나 실행할 수 있는 권한입니다.'),
+                                                                     (5, '승인하기', 'APPROVE', '요청 사항을 승인할 수 있는 권한입니다.');
