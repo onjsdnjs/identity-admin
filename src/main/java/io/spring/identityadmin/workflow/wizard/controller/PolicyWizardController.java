@@ -134,42 +134,6 @@ public class PolicyWizardController {
 
         PolicyDto policyDto = wizardService.commitPolicy(contextId);
 
-        // [신규] 엔티티를 안전한 DTO로 변환하는 과정을 컨트롤러에 추가합니다.
-//        PolicyDto responseDto = toDto(createdPolicy);
-
         return ResponseEntity.ok(policyDto);
-    }
-
-    /**
-     * [신규] Policy 엔티티를 PolicyDto로 안전하게 변환하는 private 헬퍼 메서드.
-     * 순환 참조 문제를 회피하고 필요한 데이터만 담습니다.
-     */
-    private PolicyDto toDto(Policy policy) {
-        PolicyDto dto = new PolicyDto();
-        dto.setId(policy.getId());
-        dto.setName(policy.getName());
-        dto.setDescription(policy.getDescription());
-        dto.setEffect(policy.getEffect());
-        dto.setPriority(policy.getPriority());
-
-        if (policy.getTargets() != null) {
-            dto.setTargets(policy.getTargets().stream().map(t ->
-                    new PolicyDto.TargetDto(t.getTargetType(), t.getTargetIdentifier(), t.getHttpMethod() == null ? "ALL" : t.getHttpMethod())
-            ).collect(Collectors.toList()));
-        }
-
-        if (policy.getRules() != null) {
-            dto.setRules(policy.getRules().stream().map(rule -> {
-                PolicyDto.RuleDto ruleDto = new PolicyDto.RuleDto();
-                ruleDto.setDescription(rule.getDescription());
-                if (rule.getConditions() != null) {
-                    ruleDto.setConditions(rule.getConditions().stream()
-                            .map(PolicyCondition::getExpression)
-                            .collect(Collectors.toList()));
-                }
-                return ruleDto;
-            }).collect(Collectors.toList()));
-        }
-        return dto;
     }
 }
