@@ -112,7 +112,10 @@ public class GrantingWizardServiceImpl implements GrantingWizardService {
             Users originalUser = userRepository.findByIdWithGroupsRolesAndPermissions(subject.id()).orElseThrow(() -> new IllegalArgumentException("User not found"));
             subjectName = originalUser.getName();
             Set<Long> afterGroupIds = changes.getAdded().stream().filter(a -> "GROUP".equalsIgnoreCase(a.getTargetType())).map(AssignmentChangeDto.Assignment::getTargetId).collect(Collectors.toSet());
-            Set<Group> virtualGroups = CollectionUtils.isEmpty(afterGroupIds) ? new HashSet<>() : new HashSet<>(groupRepository.findAllById(afterGroupIds));
+            Set<Group> virtualGroups = CollectionUtils.isEmpty(afterGroupIds)
+                    ? new HashSet<>()
+                    : new HashSet<>(groupRepository.findAllByIdWithRolesAndPermissions(afterGroupIds));
+
             afterPermissions = visualizerService.getEffectivePermissionsForSubject(new VirtualSubject(originalUser, virtualGroups));
         } else if ("GROUP".equalsIgnoreCase(subject.type())) {
             Group originalGroup = groupRepository.findById(subject.id()).orElseThrow(() -> new IllegalArgumentException("Group not found"));

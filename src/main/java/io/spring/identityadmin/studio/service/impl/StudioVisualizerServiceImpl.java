@@ -279,11 +279,8 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
     public List<EffectivePermissionDto> getEffectivePermissionsForSubject(VirtualSubject subject) {
         Map<String, String> permissionOrigins = new HashMap<>();
 
-        // [핵심 변경] DB 대신 VirtualSubject의 그룹 정보를 사용
         subject.getVirtualGroups().forEach(group -> {
-            // Lazy-loading을 위해 실제 Group 엔티티를 다시 조회해야 할 수 있음
-            Group groupWithRoles = groupRepository.findByIdWithRoles(group.getId()).orElse(group);
-            groupWithRoles.getGroupRoles().forEach(gr -> {
+            group.getGroupRoles().forEach(gr -> { // groupWithRoles -> group 으로 변경
                 Role role = gr.getRole();
                 String origin = "그룹: " + group.getName() + " / 역할: " + role.getRoleName();
                 role.getRolePermissions().forEach(rp ->

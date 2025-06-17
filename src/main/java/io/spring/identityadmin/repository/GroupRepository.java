@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,4 +28,12 @@ public interface GroupRepository extends JpaRepository<Group, Long> {
             "LEFT JOIN FETCH rp.permission " +
             "ORDER BY g.name ASC")
     List<Group> findAllWithRolesAndPermissions();
+
+    @Query("SELECT DISTINCT g FROM Group g " +
+            "LEFT JOIN FETCH g.groupRoles gr " +
+            "LEFT JOIN FETCH gr.role r " +
+            "LEFT JOIN FETCH r.rolePermissions rp " +
+            "LEFT JOIN FETCH rp.permission " +
+            "WHERE g.id IN :ids")
+    List<Group> findAllByIdWithRolesAndPermissions(@Param("ids") Collection<Long> ids);
 }
