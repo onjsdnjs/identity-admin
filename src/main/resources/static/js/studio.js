@@ -21,15 +21,12 @@ document.addEventListener('DOMContentLoaded', () => {
             this.selected = { subject: null };
             this.viewData = { assignments: [], effectivePermissions: [] };
             this.editData = { allAssignments: [], selectedAssignmentIds: new Set(), simulationResult: null };
+            this.wizardContextId = null;
         }
         setMode(newMode) { this.mode = newMode; }
-        // [오류 해결] selectSubject -> select로 함수명 수정, 로직 보강
+        // [오류 해결] selectSubject -> select 로 함수명 수정, 로직 보강
         select(subject) {
-            if (!subject) {
-                this.selected.subject = null;
-                return;
-            }
-            this.selected.subject = (this.selected.subject?.id === subject.id && this.selected.subject?.type === subject.type) ? null : subject;
+            this.selected.subject = (this.selected.subject?.id === subject?.id && this.selected.subject?.type === subject?.type) ? null : subject;
         }
         setViewData(assignments, effectivePermissions) { this.viewData = { assignments, effectivePermissions }; }
         setEditData(allAssignments, initialAssignmentIds) {
@@ -37,13 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
             this.editData.selectedAssignmentIds = new Set(initialAssignmentIds);
         }
         toggleAssignment(id) {
-            if (this.editData.selectedAssignmentIds.has(id)) {
-                this.editData.selectedAssignmentIds.delete(id);
-            } else {
-                this.editData.selectedAssignmentIds.add(id);
-            }
+            if (this.editData.selectedAssignmentIds.has(id)) this.editData.selectedAssignmentIds.delete(id);
+            else this.editData.selectedAssignmentIds.add(id);
         }
         setSimulationResult(result) { this.editData.simulationResult = result; }
+        setWizardContextId(id) { this.wizardContextId = id; }
         getSubject() { return this.selected.subject; }
     }
 
@@ -104,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderViewMode(state) {
             const subject = state.getSubject();
-            const { assignments, effectivePermissions } = state.viewData;
+            const { assignments = [], effectivePermissions = [] } = state.viewData;
             const assignmentType = subject.type === 'USER' ? '그룹' : '역할';
             const html = `
                 <div class="flex justify-between items-center mb-6">
@@ -155,11 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         renderSimulationResult(result) {
             if (!result) return '<div class="p-4 text-center text-slate-500">멤버십을 변경하여 권한 변동을 확인하세요.</div>';
+
             const gained = result.impactDetails?.filter(d => d.impactType === 'PERMISSION_GAINED') || [];
             const lost = result.impactDetails?.filter(d => d.impactType === 'PERMISSION_LOST') || [];
+
             let html = `<h4 class="font-semibold text-slate-300 mb-2">실시간 영향 분석</h4><div class="p-3 bg-slate-800 rounded-md text-center text-sm font-semibold mb-3">${result.summary}</div><div class="space-y-4 max-h-80 overflow-y-auto">`;
             if (gained.length) html += `<div><h5 class="font-bold text-green-400 mb-2"><i class="fas fa-plus-circle mr-2"></i>획득할 권한 (${gained.length})</h5><ul class="space-y-1 text-sm list-inside text-slate-300">${gained.map(d => `<li>${d.permissionDescription || 'N/A'}</li>`).join('')}</ul></div>`;
-            if (lost.length) html += `<div><h5 class="font-bold text-red-400 mb-2"><i class="fas fa-minus-circle mr-2"></i>상실할 권한 (${lost.length})</h5><ul class="space-y-1 text-sm list-inside text-slate-300">${lost.map(d => `<li>${d.permissionDescription || 'N/A'}</li>`).join('')}</ul></div>`;
+            if (lost.length) html += `<div class="mt-4"><h5 class="font-bold text-red-400 mb-2"><i class="fas fa-minus-circle mr-2"></i>상실할 권한 (${lost.length})</h5><ul class="space-y-1 text-sm list-inside text-slate-300">${lost.map(d => `<li>${d.permissionDescription || 'N/A'}</li>`).join('')}</ul></div>`;
             if (!gained.length && !lost.length) html += `<div class="text-center text-slate-500 text-sm p-4">권한 변경사항이 없습니다.</div>`;
             html += '</div>';
             return html;
@@ -209,15 +206,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         getExplorerItems() { return this.fetchApi('/api/workbench/metadata/subjects'); }
         getSubjectDetails(subjectId, subjectType) { return this.fetchApi(`/admin/studio/api/subject-details?subjectId=${subjectId}&subjectType=${subjectType}`); }
-        simulateChanges(subjectId, subjectType, assignmentIds) {
-            const body = { added: Array.from(assignmentIds).map(id => ({ targetId: id, targetType: subjectType === 'USER' ? 'GROUP' : 'ROLE' })) };
-            return this.fetchApi(`/admin/granting-wizard/${subjectId}/simulate?subjectType=${subjectType}`, { method: 'POST', body: JSON.stringify(body) });
-        }
-        commitChanges(subjectId, subjectType, assignmentIds) {
-            const body = { added: Array.from(assignmentIds).map(id => ({ targetId: id, targetType: subjectType === 'USER' ? 'GROUP' : 'ROLE' })) };
-            // [오류 해결] form submit 방식 대신 fetch API 사용으로 변경하여 CSRF 토큰 자동 포함
-            return this.fetchApi(`/admin/granting-wizard/${subjectId}/commit?subjectType=${subjectType}`, { method: 'POST', body: JSON.stringify(body) });
-        }
+        startEditSession(request) { return this.fetchApi('/admin/granting-wizard/start', { method: 'POST', body: JSON.stringify(request) }); }
+        simulateChanges(contextId, changes) { return this.fetchApi(`/admin/granting-wizard/${contextId}/simulate`, { method: 'POST', body: JSON.stringify(changes) }); }
+        commitChanges(contextId, changes) { return this.fetchApi(`/admin/granting-wizard/${contextId}/commit`, { method: 'POST', body: JSON.stringify(changes) }); }
     }
 
     // --- 애플리케이션 총괄 ---
@@ -258,7 +249,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (target.closest('#edit-mode-btn')) this.handleModeChange('edit');
                 if (target.closest('#cancel-edit-btn')) this.handleModeChange('view');
                 if (target.closest('#save-assignments-btn')) this.handleSaveAssignments();
-                if (target.classList.contains('assignment-checkbox')) {
+                const selectionList = target.closest('#assignment-selection-list');
+                if (selectionList && target.classList.contains('assignment-checkbox')) {
                     this.handleAssignmentChange(target);
                 }
             });
@@ -291,33 +283,41 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        handleModeChange(mode) {
+        async handleModeChange(mode) {
             const subject = this.state.getSubject();
             if (!subject) return;
 
-            this.state.setMode(mode);
-            if(mode === 'edit') {
-                const assignmentTypeKey = subject.type === 'USER' ? 'groups' : 'roles';
-                const allAssignments = this.fullData[assignmentTypeKey] || [];
-                const initialAssignmentIds = this.state.viewData.assignments.map(a => a.id);
-                this.state.setEditData(allAssignments, initialAssignmentIds);
-                this.state.setSimulationResult(null);
+            if (mode === 'edit') {
+                try {
+                    const initiation = await this.api.startEditSession({ subjectId: subject.id, subjectType: subject.type });
+                    this.state.setWizardContextId(initiation.wizardContextId);
+
+                    const assignmentTypeKey = subject.type === 'USER' ? 'groups' : 'roles';
+                    const allAssignments = this.fullData[assignmentTypeKey] || [];
+                    const initialAssignmentIds = this.state.viewData.assignments.map(a => a.id);
+                    this.state.setEditData(allAssignments, initialAssignmentIds);
+                    this.state.setSimulationResult(null);
+                } catch (error) {
+                    showToast('편집 모드 시작에 실패했습니다.', 'error');
+                    return; // 모드 전환 실패
+                }
             }
+            this.state.setMode(mode);
             this.ui.render(this.state);
         }
 
         handleAssignmentChange = debounce(async (checkbox) => {
-            const assignmentId = Number(checkbox.value);
-            this.state.toggleAssignment(assignmentId);
+            this.state.toggleAssignment(Number(checkbox.value));
             const subject = this.state.getSubject();
             try {
-                const result = await this.api.simulateChanges(subject.id, subject.type, this.state.editData.selectedAssignmentIds);
+                const changes = { added: Array.from(this.state.editData.selectedAssignmentIds).map(id => ({ targetId: Number(id), targetType: subject.type === 'USER' ? 'GROUP' : 'ROLE' })) };
+                const result = await this.api.simulateChanges(this.state.wizardContextId, changes);
                 this.state.setSimulationResult(result);
                 this.ui.render(this.state);
             } catch (error) {
                 console.error("시뮬레이션 실패", error);
             }
-        }, 300);
+        }, 400);
 
         async handleSaveAssignments() {
             const subject = this.state.getSubject();
@@ -328,12 +328,12 @@ document.addEventListener('DOMContentLoaded', () => {
             this.ui.setLoading(saveBtn, true, originalText);
 
             try {
-                await this.api.commitChanges(subject.id, subject.type, this.state.editData.selectedAssignmentIds);
+                const changes = { added: Array.from(this.state.editData.selectedAssignmentIds).map(id => ({ targetId: Number(id), targetType: subject.type === 'USER' ? 'GROUP' : 'ROLE' })) };
+                await this.api.commitChanges(this.state.wizardContextId, changes);
                 showToast("성공적으로 저장되었습니다.", "success");
                 this.state.setMode('view');
                 await this.updateInspectorView();
             } catch (error) {
-                showToast("저장 중 오류가 발생했습니다.", "error");
                 this.ui.setLoading(saveBtn, false, originalText);
             }
         }

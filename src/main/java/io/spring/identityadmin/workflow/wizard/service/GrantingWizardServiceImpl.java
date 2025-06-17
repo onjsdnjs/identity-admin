@@ -2,6 +2,7 @@ package io.spring.identityadmin.workflow.wizard.service;
 
 import io.spring.identityadmin.admin.iam.service.GroupService;
 import io.spring.identityadmin.admin.iam.service.UserManagementService;
+import io.spring.identityadmin.admin.support.context.service.UserContextService;
 import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.entity.Group;
 import io.spring.identityadmin.domain.entity.Permission;
@@ -35,7 +36,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GrantingWizardServiceImpl implements GrantingWizardService {
 
-    private final io.spring.identityadmin.admin.support.context.service.UserContextService userContextService;
+    private final UserContextService userContextService;
     private final UserManagementService userManagementService;
     private final GroupService groupService;
     private final RoleRepository roleRepository;
