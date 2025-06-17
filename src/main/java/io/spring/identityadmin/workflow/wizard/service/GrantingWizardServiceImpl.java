@@ -128,10 +128,29 @@ public class GrantingWizardServiceImpl implements GrantingWizardService {
         Map<String, EffectivePermissionDto> afterPermMap = afterPermissions.stream().collect(Collectors.toMap(EffectivePermissionDto::permissionName, p -> p, (p1, p2) -> p1));
         List<SimulationResultDto.ImpactDetail> impacts = new ArrayList<>();
         afterPermMap.forEach((name, perm) -> {
-            if (!beforePermMap.containsKey(name)) impacts.add(new SimulationResultDto.ImpactDetail(subjectName, subject.type(), perm.permissionDescription(), SimulationResultDto.ImpactType.PERMISSION_GAINED, perm.origin()));
+            if (!beforePermMap.containsKey(name)) {
+                impacts.add(new SimulationResultDto.ImpactDetail(
+                        subjectName,
+                        subject.type(),
+                        perm.permissionName(),        // 1. 기술 이름
+                        perm.permissionDescription(), // 2. 사용자 친화적 설명
+                        SimulationResultDto.ImpactType.PERMISSION_GAINED,
+                        perm.origin()
+                ));
+            }
         });
         beforePermMap.forEach((name, perm) -> {
-            if (!afterPermMap.containsKey(name)) impacts.add(new SimulationResultDto.ImpactDetail(subjectName, subject.type(), perm.permissionDescription(), SimulationResultDto.ImpactType.PERMISSION_LOST, "멤버십 변경으로 인한 권한 회수"));
+            if (!afterPermMap.containsKey(name)) {
+                // 'perm' 객체는 '변경 전'의 완전한 정보를 담고 있음
+                impacts.add(new SimulationResultDto.ImpactDetail(
+                        subjectName,
+                        subject.type(),
+                        perm.permissionName(), // 기술 이름
+                        perm.permissionDescription(), // 사용자 친화적 설명
+                        SimulationResultDto.ImpactType.PERMISSION_LOST,
+                        "멤버십 변경으로 인한 권한 회수"
+                ));
+            }
         });
         long gainedCount = impacts.stream().filter(i -> i.impactType() == SimulationResultDto.ImpactType.PERMISSION_GAINED).count();
         long lostCount = impacts.stream().filter(i -> i.impactType() == SimulationResultDto.ImpactType.PERMISSION_LOST).count();

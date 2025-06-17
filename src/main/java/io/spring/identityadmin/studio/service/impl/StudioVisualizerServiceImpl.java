@@ -152,7 +152,16 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
             UserDto userDto = userManagementService.getUser(subjectId);
             if (userDto.getSelectedGroupIds() != null && !userDto.getSelectedGroupIds().isEmpty()) {
                 List<Group> assignedGroups = groupRepository.findAllById(userDto.getSelectedGroupIds());
-                assignments.addAll(assignedGroups.stream().map(g -> modelMapper.map(g, GroupDto.class)).toList());
+                List<GroupDto> groupDtos = assignedGroups.stream().map(group -> {
+                    GroupDto groupDto = modelMapper.map(group, GroupDto.class);
+                    // 그룹이 가진 역할들을 RoleDto로 변환하여 리스트에 추가
+                    List<RoleDto> roleDtos = group.getGroupRoles().stream()
+                            .map(gr -> modelMapper.map(gr.getRole(), RoleDto.class))
+                            .collect(Collectors.toList());
+                    groupDto.setRoles(roleDtos);
+                    return groupDto;
+                }).toList();
+                assignments.addAll(groupDtos);
             }
         } else if ("GROUP".equalsIgnoreCase(subjectType)) {
             Group group = groupService.getGroup(subjectId).orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + subjectId));

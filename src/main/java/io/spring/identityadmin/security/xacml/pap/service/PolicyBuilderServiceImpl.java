@@ -133,15 +133,39 @@ public class PolicyBuilderServiceImpl implements PolicyBuilderService {
 
             Set<String> gained = new HashSet<>(afterPermissions);
             gained.removeAll(beforePermissions);
-            gained.forEach(perm -> allImpacts.add(new SimulationResultDto.ImpactDetail(
-                    user.getName(), "USER", perm, SimulationResultDto.ImpactType.PERMISSION_GAINED, policyToSimulate.getName()
-            )));
+            gained.forEach(permName -> {
+                // 권한 이름으로 Permission 엔티티를 조회하여 상세 정보 획득
+                Permission p = permissionRepository.findByName(permName).orElse(null);
+                String description = (p != null && p.getDescription() != null) ? p.getDescription() : permName;
+
+                allImpacts.add(new SimulationResultDto.ImpactDetail(
+                        user.getName(),
+                        "USER",
+                        permName,       // 기술 이름 전달
+                        description,    // 사용자 친화적 설명 전달
+                        SimulationResultDto.ImpactType.PERMISSION_GAINED,
+                        policyToSimulate.getName()
+                ));
+            });
 
             Set<String> lost = new HashSet<>(beforePermissions);
             lost.removeAll(afterPermissions);
-            lost.forEach(perm -> allImpacts.add(new SimulationResultDto.ImpactDetail(
-                    user.getName(), "USER", perm, SimulationResultDto.ImpactType.PERMISSION_LOST, policyToSimulate.getName()
-            )));
+
+            // [수정] 상실(LOST) 권한 처리 로직
+            lost.forEach(permName -> {
+                // 권한 이름으로 Permission 엔티티를 조회하여 상세 정보 획득
+                Permission p = permissionRepository.findByName(permName).orElse(null);
+                String description = (p != null && p.getDescription() != null) ? p.getDescription() : permName;
+
+                allImpacts.add(new SimulationResultDto.ImpactDetail(
+                        user.getName(),
+                        "USER",
+                        permName,       // 기술 이름 전달
+                        description,    // 사용자 친화적 설명 전달
+                        SimulationResultDto.ImpactType.PERMISSION_LOST,
+                        policyToSimulate.getName()
+                ));
+            });
         }
 
         String summary = String.format("총 %d명의 사용자에 대해 %d개의 권한 변경이 예상됩니다.", targetUsers.size(), allImpacts.size());

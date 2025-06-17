@@ -123,12 +123,53 @@ document.addEventListener('DOMContentLoaded', () => {
             simulationResultContainer.innerHTML = '';
             return;
         }
+
+        // [수정] 전체 HTML 구조를 명확하게 재구성하고, 올바른 문법을 사용합니다.
         let html = `<div class="p-2 bg-slate-800 rounded-md mb-4 text-center text-slate-300 font-semibold">${result.summary}</div>`;
+
         const gained = result.impactDetails.filter(d => d.impactType === 'PERMISSION_GAINED');
         const lost = result.impactDetails.filter(d => d.impactType === 'PERMISSION_LOST');
-        if (gained.length > 0) html += `<div><h4 class="font-bold text-green-400 mb-2"><i class="fas fa-plus-circle mr-2"></i>획득할 권한 (${gained.length})</h4><ul class="space-y-1 text-sm list-inside text-slate-300">${gained.map(d => `<li>${d.permissionName} <span class="text-xs text-slate-500">(${d.reason})</span></li>`).join('')}</ul></div>`;
-        if (lost.length > 0) html += `<div class="mt-4"><h4 class="font-bold text-red-400 mb-2"><i class="fas fa-minus-circle mr-2"></i>상실할 권한 (${lost.length})</h4><ul class="space-y-1 text-sm list-inside text-slate-300">${lost.map(d => `<li>${d.permissionName}</li>`).join('')}</ul></div>`;
-        if (gained.length === 0 && lost.length === 0) html += `<div class="text-center text-slate-500">권한 변경사항이 없습니다.</div>`;
+
+        if (gained.length > 0) {
+            // 획득할 권한 목록의 HTML 아이템들을 먼저 생성
+            const gainedItems = gained.map(d =>
+                `<li><span class="math-inline">\{d\.permissionDescription \|\| d\.permissionName\} <span class\="text\-xs text\-slate\-500"\>\(</span>{d.reason})</span></li>`
+            ).join('');
+
+            // 생성된 아이템들을 포함하여 전체 섹션의 HTML을 구성
+            html += `
+            <div>
+                <h4 class="font-bold text-green-400 mb-2">
+                    <i class="fas fa-plus-circle mr-2"></i>획득할 권한 (${gained.length})
+                </h4>
+                <ul class="space-y-1 text-sm list-inside text-slate-300">
+                    ${gainedItems}
+                </ul>
+            </div>`;
+        }
+
+        if (lost.length > 0) {
+            // 상실할 권한 목록의 HTML 아이템들을 먼저 생성
+            const lostItems = lost.map(d =>
+                `<li>${d.permissionDescription || d.permissionName}</li>`
+            ).join('');
+
+            // 생성된 아이템들을 포함하여 전체 섹션의 HTML을 구성
+            html += `
+            <div class="mt-4">
+                <h4 class="font-bold text-red-400 mb-2">
+                    <i class="fas fa-minus-circle mr-2"></i>상실할 권한 (${lost.length})
+                </h4>
+                <ul class="space-y-1 text-sm list-inside text-slate-300">
+                    ${lostItems}
+                </ul>
+            </div>`;
+        }
+
+        if (gained.length === 0 && lost.length === 0) {
+            html += `<div class="text-center text-slate-500">권한 변경사항이 없습니다.</div>`;
+        }
+
         simulationResultContainer.innerHTML = html;
     }
 
