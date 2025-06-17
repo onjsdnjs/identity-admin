@@ -1,6 +1,7 @@
 package io.spring.identityadmin.admin.metadata.controller;
 
 import io.spring.identityadmin.admin.metadata.service.BusinessMetadataService;
+import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
 import io.spring.identityadmin.domain.dto.BusinessActionDto;
 import io.spring.identityadmin.domain.dto.RoleMetadataDto;
 import io.spring.identityadmin.domain.entity.business.BusinessAction;
@@ -20,13 +21,16 @@ public class WorkbenchMetadataController {
 
     private final BusinessMetadataService businessMetadataService;
     private final ModelMapper modelMapper;
+    private final PermissionCatalogService permissionCatalogService;
 
     @GetMapping("/subjects")
-    public ResponseEntity<Map<String, List<?>>> getSubjects() {
-        return ResponseEntity.ok(Map.of(
-                "users", businessMetadataService.getAllUsersForPolicy(),
-                "groups", businessMetadataService.getAllGroupsForPolicy()
-        ));
+    public ResponseEntity<Map<String, Object>> getSubjectsForStudio() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("users", businessMetadataService.getAllUsersForPolicy());
+        response.put("groups", businessMetadataService.getAllGroupsForPolicy());
+        response.put("roles", businessMetadataService.getAllRoles()); // 역할 데이터 추가
+        response.put("permissions", permissionCatalogService.getAvailablePermissions()); // 권한 데이터 추가
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/actions")

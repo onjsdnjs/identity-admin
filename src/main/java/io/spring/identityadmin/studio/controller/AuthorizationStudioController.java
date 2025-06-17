@@ -31,6 +31,12 @@ public class AuthorizationStudioController {
         return "admin/studio";
     }
 
+    @GetMapping("/api/subject-details")
+    public ResponseEntity<Map<String, Object>> getSubjectDetails(@RequestParam Long subjectId, @RequestParam String subjectType) {
+        Map<String, Object> details = visualizerService.getSubjectDetails(subjectId, subjectType);
+        return ResponseEntity.ok(details);
+    }
+
     @GetMapping("/api/explorer-items")
     public ResponseEntity<Map<String, List<ExplorerItemDto>>> getExplorerItems() {
         return ResponseEntity.ok(explorerService.getExplorerItems());

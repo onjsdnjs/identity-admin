@@ -1,39 +1,68 @@
 document.addEventListener('DOMContentLoaded', () => {
-    if (typeof mermaid === 'undefined') {
-        console.error('Mermaid 라이브러리가 로드되지 않았습니다. 기능이 제한될 수 있습니다.');
-        // mermaid가 없어도 나머지 기능은 동작하도록 return하지 않습니다.
-    } else {
+    const debounce = (func, delay) => {
+        let timeout;
+        return (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), delay);
+        };
+    };
+/*
+    if (typeof mermaid !== 'undefined') {
         mermaid.initialize({ startOnLoad: false, theme: 'default' });
-    }
+    } else {
+        console.error('Mermaid 라이브러리가 로드되지 않았습니다.');
+    }*/
 
-    // --- 상태 관리 (State) ---
     class StudioState {
-        constructor() { this.selected = { USER: null, GROUP: null, PERMISSION: null, POLICY: null }; }
-        select(type, item) {
-            this.selected[type] = (this.selected[type]?.id === item.id) ? null : item;
-            if (type === 'USER' && this.selected.USER) this.selected.GROUP = null;
-            if (type === 'GROUP' && this.selected.GROUP) this.selected.USER = null;
+        constructor() {
+            this.mode = 'view';
+            this.selected = { subject: null };
+            this.viewData = { assignments: [], effectivePermissions: [] };
+            this.editData = { allAssignments: [], selectedAssignmentIds: new Set(), simulationResult: null };
+            this.wizardContextId = null;
         }
-        getSubject() { return this.selected.USER || this.selected.GROUP; }
-        getPermission() { return this.selected.PERMISSION; }
+        setMode(newMode) { this.mode = newMode; }
+        selectSubject(subject) { this.selected.subject = (this.selected.subject?.id === subject?.id && this.selected.subject?.type === subject?.type) ? null : subject; }
+        setViewData(assignments, effectivePermissions) { this.viewData = { assignments, effectivePermissions }; }
+        setEditData(allAssignments, initialAssignmentIds) {
+            this.editData.allAssignments = allAssignments;
+            this.editData.selectedAssignmentIds = new Set(initialAssignmentIds);
+        }
+        toggleAssignment(id) {
+            if (this.editData.selectedAssignmentIds.has(id)) this.editData.selectedAssignmentIds.delete(id);
+            else this.editData.selectedAssignmentIds.add(id);
+        }
+        setSimulationResult(result) { this.editData.simulationResult = result; }
+        setWizardContextId(id) { this.wizardContextId = id; }
+        getSubject() { return this.selected.subject; }
     }
 
-    // --- UI 렌더링 및 조작 ---
     class StudioUI {
         constructor(elements) { this.elements = elements; }
-
         setLoading(button, isLoading, originalText) {
             if (!button) return;
             button.disabled = isLoading;
             button.innerHTML = isLoading ? `<i class="fas fa-spinner fa-spin mr-2"></i> 처리 중...` : originalText;
         }
-
+        render(state) {
+            this.updateExplorerSelection(state);
+            if (state.getSubject()) {
+                this.elements.inspectorPlaceholder.classList.add('hidden');
+                this.elements.inspectorContent.classList.remove('hidden');
+                if (state.mode === 'view') this.renderViewMode(state);
+                else this.renderEditMode(state);
+            } else {
+                this.showPlaceholder();
+            }
+        }
+        showPlaceholder() {
+            this.elements.inspectorPlaceholder.classList.remove('hidden');
+            this.elements.inspectorContent.classList.add('hidden');
+        }
         renderExplorer(data) {
             const sections = {
                 '사용자': { items: data.users, type: 'USER', icon: 'fa-user' },
                 '그룹': { items: data.groups, type: 'GROUP', icon: 'fa-users' },
-                '권한': { items: data.permissions, type: 'PERMISSION', icon: 'fa-key' },
-                '정책': { items: data.policies, type: 'POLICY', icon: 'fa-file-alt' }
             };
             this.elements.explorerListContainer.innerHTML = Object.entries(sections)
                 .map(([title, { items, type, icon }]) => this.createAccordionSection(title, items, type, icon))
@@ -41,106 +70,59 @@ document.addEventListener('DOMContentLoaded', () => {
             this.bindAccordionEvents();
         }
         createAccordionSection(title, items, type, icon) {
-            const contentHtml = items?.length > 0
-                ? items.map(item => this.createItemHtml(item, type, icon)).join('')
-                : '<div class="p-2 text-xs text-slate-400">항목이 없습니다.</div>';
-            return `<div class="accordion" data-section-type="${type}"><div class="accordion-header"><span class="font-bold">${title}</span><i class="fas fa-chevron-down accordion-icon"></i></div><div class="accordion-content">${contentHtml}</div></div>`;
+            const contentHtml = items?.length ? items.map(item => this.createItemHtml(item, type, icon)).join('') : '<div class="p-2 text-xs text-slate-400">항목이 없습니다.</div>';
+            return `<div class="accordion"><div class="accordion-header"><span class="font-bold">${title}</span><i class="fas fa-chevron-down accordion-icon"></i></div><div class="accordion-content">${contentHtml}</div></div>`;
         }
         createItemHtml(item, type, icon) {
             return `<div class="explorer-item" data-id="${item.id}" data-type="${type}" data-name="${item.name}" data-description="${item.description || ''}"><div class="item-icon"><i class="fas ${icon}"></i></div><div class="item-text"><div class="item-name">${item.name}</div><div class="item-description" title="${item.description || ''}">${item.description || ''}</div></div></div>`;
         }
         updateExplorerSelection(state) {
             this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(el => {
-                const { id, type } = el.dataset;
-                el.classList.toggle('selected', state.selected[type]?.id == id);
+                el.classList.toggle('selected', state.getSubject()?.id == el.dataset.id && state.getSubject()?.type === el.dataset.type);
             });
         }
-        renderInspector(state) {
+        renderViewMode(state) {
             const subject = state.getSubject();
-            const hasSelection = Object.values(state.selected).some(v => v !== null);
-            let detailsHtml = '', actionsHtml = '';
-
-            if (hasSelection) {
-                detailsHtml = '<h3 class="font-bold text-lg mb-2 text-slate-200">선택된 항목</h3><div class="space-y-2">';
-                Object.values(state.selected).forEach(item => { if (item) detailsHtml += this.buildDetailHtml(item); });
-                detailsHtml += '</div>';
-            }
-
-            actionsHtml = '<h3 class="font-bold text-lg mb-2 mt-4 border-t border-slate-700 pt-4 text-slate-200">실행 가능한 작업</h3>';
-            if (subject) {
-                actionsHtml += `<button id="manage-membership-btn" class="w-full dark-btn-primary text-sm py-2" title="'${subject.name}'의 멤버십 관리"><i class='fas fa-edit mr-2'></i>멤버십 및 권한 관리</button>`;
-            } else {
-                actionsHtml += '<p class="text-sm text-slate-500">주체를 선택하면 관련 작업을 실행할 수 있습니다.</p>';
-            }
-
-            this.elements.inspectorContent.innerHTML = hasSelection ? detailsHtml + actionsHtml : '';
-            this.elements.inspectorPlaceholder.classList.toggle('hidden', hasSelection);
-            this.elements.inspectorContent.classList.toggle('hidden', !hasSelection);
+            const { assignments = [], effectivePermissions = [] } = state.viewData;
+            const assignmentType = subject.type === 'USER' ? '그룹' : '역할';
+            const html = `
+                <div class="flex justify-between items-center mb-6"><h3 class="font-bold text-xl text-slate-200">주체: ${subject.name} (조회)</h3><button id="edit-mode-btn" class="dark-btn-primary"><i class="fas fa-edit mr-2"></i>${assignmentType} 할당 변경</button></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><h4 class="font-semibold text-slate-300 mb-2">할당된 ${assignmentType} (${assignments.length})</h4><div class="space-y-2 p-2 rounded-md bg-slate-900/50 max-h-80 overflow-y-auto">${assignments.length ? assignments.map(a => `<div class="p-3 bg-slate-800 rounded-md text-sm">${a.name || a.roleName}</div>`).join('') : `<div class="p-3 text-slate-500 text-sm">할당된 ${assignmentType}이(가) 없습니다.</div>`}</div></div>
+                    <div><h4 class="font-semibold text-slate-300 mb-2">유효 권한 (${effectivePermissions.length})</h4><div class="space-y-2 p-2 rounded-md bg-slate-900/50 max-h-80 overflow-y-auto">${effectivePermissions.length ? effectivePermissions.map(p => `<div class="p-3 bg-slate-800 rounded-md text-sm"><p class="text-slate-200">${p.permissionDescription}</p><p class="text-xs text-slate-500 mt-1">획득 경로: ${p.origin}</p></div>`).join('') : '<div class="p-3 text-slate-500 text-sm">유효 권한이 없습니다.</div>'}</div></div>
+                </div>`;
+            this.elements.inspectorContent.innerHTML = html;
         }
-        buildDetailHtml(item) {
-            const iconMap = { USER: 'fa-user', GROUP: 'fa-users', PERMISSION: 'fa-key', POLICY: 'fa-file-alt' };
-            return `<div class="p-3 bg-slate-800 rounded-md border border-slate-700 text-sm"><p class="text-xs font-semibold uppercase text-app-accent"><i class="fas ${iconMap[item.type] || 'fa-question-circle'} mr-2"></i>${item.type}</p><p class="font-bold text-md text-slate-200">${item.name}</p><p class="text-xs text-slate-400 truncate" title="${item.description}">${item.description || ''}</p></div>`;
+        renderEditMode(state) {
+            const subject = state.getSubject();
+            const { allAssignments, selectedAssignmentIds, simulationResult } = state.editData;
+            const assignmentType = subject.type === 'USER' ? '그룹' : '역할';
+            const html = `
+                <div class="flex justify-between items-center mb-4"><h3 class="font-bold text-xl text-slate-200">주체: ${subject.name} (편집)</h3><div><button id="cancel-edit-btn" class="dark-btn-secondary mr-2">취소</button><button id="save-assignments-btn" class="dark-btn-primary"><i class="fas fa-save mr-2"></i>저장</button></div></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div><h4 class="font-semibold text-slate-300 mb-2">전체 ${assignmentType} 목록</h4><div id="assignment-selection-list" class="space-y-2 p-2 rounded-md bg-slate-900/50 max-h-96 overflow-y-auto">${allAssignments.map(a => `<div class="dark-checkbox-item"><input type="checkbox" id="assign-${a.id}" value="${a.id}" class="dark-checkbox assignment-checkbox" ${selectedAssignmentIds.has(a.id) ? 'checked' : ''}><label for="assign-${a.id}" class="text-slate-200">${a.name || a.roleName}</label></div>`).join('')}</div></div>
+                    <div id="simulation-result-container">${this.renderSimulationResult(simulationResult)}</div>
+                </div>`;
+            this.elements.inspectorContent.innerHTML = html;
         }
-        async renderAccessGraph(data) {
-            this.showGuide('<div class="flex items-center justify-center p-8 h-full"><i class="fas fa-spinner fa-spin text-3xl text-app-primary"></i><p class="ml-3">그래프 렌더링 중...</p></div>');
-            if (!data?.nodes?.length) {
-                return this.showError(this.elements.canvasGuide, "그래프 데이터를 생성할 수 없습니다.");
-            }
-            let mermaidSyntax = 'graph TD\n';
-            const nodeClasses = {
-                'USER': 'userNode', 'GROUP': 'groupNode', 'ROLE': 'roleNode',
-                'PERMISSION_GRANTED': 'permGrantedNode', 'PERMISSION_DENIED': 'permDeniedNode'
-            };
-            Object.entries(nodeClasses).forEach(([key, val]) => {
-                const styles = {
-                    userNode: 'fill:#3b82f6,stroke:#2563eb', groupNode: 'fill:#10b981,stroke:#059669',
-                    roleNode: 'fill:#8b5cf6,stroke:#7c3aed', permGrantedNode: 'fill:#22c55e,stroke:#16a34a',
-                    permDeniedNode: 'fill:#ef4444,stroke:#dc2626'
-                };
-                mermaidSyntax += ` classDef ${val} ${styles[val]},color:#fff,stroke-width:2px\n`;
+        renderSimulationResult(result) {
+            if (!result) return '<div class="p-4 text-center text-slate-500">멤버십을 변경하여 권한 변동을 확인하세요.</div>';
+            const gained = result.impactDetails?.filter(d => d.impactType === 'PERMISSION_GAINED') || [];
+            const lost = result.impactDetails?.filter(d => d.impactType === 'PERMISSION_LOST') || [];
+            let html = `<h4 class="font-semibold text-slate-300 mb-2">실시간 영향 분석</h4><div class="p-3 bg-slate-800 rounded-md text-center text-sm font-semibold mb-3">${result.summary}</div><div class="space-y-4 max-h-80 overflow-y-auto">`;
+            if (gained.length) html += `<div><h5 class="font-bold text-green-400 mb-2"><i class="fas fa-plus-circle mr-2"></i>획득할 권한 (${gained.length})</h5><ul class="space-y-1 text-sm list-inside text-slate-300">${gained.map(d => `<li>${d.permissionDescription || 'N/A'}</li>`).join('')}</ul></div>`;
+            if (lost.length) html += `<div class="mt-4"><h5 class="font-bold text-red-400 mb-2"><i class="fas fa-minus-circle mr-2"></i>상실할 권한 (${lost.length})</h5><ul class="space-y-1 text-sm list-inside text-slate-300">${lost.map(d => `<li>${d.permissionDescription || 'N/A'}</li>`).join('')}</ul></div>`;
+            if (!gained.length && !lost.length) html += `<div class="text-center text-slate-500 text-sm p-4">권한 변경사항이 없습니다.</div>`;
+            html += '</div>';
+            return html;
+        }
+        filterExplorer(term) {
+            const searchTerm = term.trim().toLowerCase();
+            this.elements.explorerListContainer.querySelectorAll('.explorer-item').forEach(item => {
+                const name = (item.dataset.name || '').toLowerCase();
+                const isVisible = !searchTerm || name.includes(searchTerm);
+                item.classList.toggle('hidden', !isVisible);
             });
-
-            const nodeIdMap = new Map(data.nodes.map((node, i) => [node.id, `node_${i}`]));
-            data.nodes.forEach(node => {
-                const safeId = nodeIdMap.get(node.id);
-                const label = (node.label || 'N/A').replace(/["`]/g, "'").trim();
-                mermaidSyntax += ` ${safeId}("${node.type}|${label}")\n`;
-                let nodeClass = nodeClasses[node.type];
-                if (node.type === 'PERMISSION') {
-                    nodeClass = node.properties?.granted ? nodeClasses.PERMISSION_GRANTED : nodeClasses.PERMISSION_DENIED;
-                }
-                if (nodeClass) mermaidSyntax += ` class ${safeId} ${nodeClass}\n`;
-            });
-
-            data.edges.forEach(edge => {
-                const fromId = nodeIdMap.get(edge.from), toId = nodeIdMap.get(edge.to);
-                const edgeLabel = (edge.label || '').replace(/["`]/g, "'").trim();
-                if (fromId && toId) mermaidSyntax += ` ${fromId} --> |"${edgeLabel}"| ${toId}\n`;
-            });
-
-            try {
-                // [오류 수정] 안정적인 Mermaid API 호출 방식 사용
-                const { svg } = await mermaid.render('mermaid-graph-container', mermaidSyntax);
-                this.elements.canvasContent.innerHTML = svg;
-                this.hideGuide(true);
-            } catch (e) {
-                console.error('Mermaid 렌더링 오류:', e);
-                this.showError(this.elements.canvasGuide, "그래프 렌더링 중 오류가 발생했습니다.");
-            }
-        }
-        showGuide(html) {
-            this.elements.canvasGuide.innerHTML = html;
-            this.elements.canvasGuide.classList.remove('hidden');
-            this.elements.canvasContent.classList.add('hidden');
-        }
-        hideGuide(isContentReady = false) {
-            this.elements.canvasGuide.classList.add('hidden');
-            if (isContentReady) this.elements.canvasContent.classList.remove('hidden');
-        }
-        showError(element, message) {
-            element.innerHTML = `<div class="p-8 text-center text-red-500"><i class="fas fa-exclamation-triangle text-2xl mb-2"></i><p class="font-semibold">${message}</p></div>`;
-            element.classList.remove('hidden');
-            this.elements.canvasContent.classList.add('hidden');
         }
         bindAccordionEvents() {
             this.elements.explorerListContainer.querySelectorAll('.accordion-header').forEach(header => {
@@ -152,185 +134,94 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
         }
-        // filterExplorer 메서드에 디버깅 코드 추가
-        filterExplorer(term) {
-            const searchTerm = term.trim().toLowerCase();
-            console.log('검색어:', searchTerm);
-
-            // 기존 검색 결과 메시지 제거
-            const existingNoResultsMsg = this.elements.explorerListContainer.querySelector('.no-results-message');
-            if (existingNoResultsMsg) existingNoResultsMsg.remove();
-
-            // 검색어가 없을 때
-            if (!searchTerm) {
-                this.elements.explorerListContainer.querySelectorAll('.accordion').forEach(accordion => {
-                    accordion.style.display = '';
-                    accordion.querySelectorAll('.explorer-item').forEach(item => {
-                        item.style.display = '';
-                    });
-                });
-                return;
-            }
-
-            let totalVisibleSections = 0;
-
-            // 각 아코디언 섹션별로 처리
-            this.elements.explorerListContainer.querySelectorAll('.accordion').forEach(accordion => {
-                const accordionContent = accordion.querySelector('.accordion-content');
-                const accordionHeader = accordion.querySelector('.accordion-header');
-                const accordionIcon = accordion.querySelector('.accordion-icon');
-                const sectionTitle = accordionHeader.querySelector('span').textContent;
-
-                console.log(`\n=== ${sectionTitle} 섹션 검사 ===`);
-
-                let visibleItemCount = 0;
-
-                // 해당 아코디언 내의 모든 항목 검사
-                accordionContent.querySelectorAll('.explorer-item').forEach(item => {
-                    const name = (item.dataset.name || '').toLowerCase();
-                    const description = (item.dataset.description || '').toLowerCase();
-                    const isMatch = name.includes(searchTerm) || description.includes(searchTerm);
-
-                    console.log(`항목: ${item.dataset.name}`);
-                    console.log(`  - name: "${name}", description: "${description}"`);
-                    console.log(`  - 검색어 "${searchTerm}" 포함 여부: ${isMatch}`);
-
-                    if (isMatch) {
-                        item.style.display = '';
-                        visibleItemCount++;
-                    } else {
-                        item.style.display = 'none';
-                    }
-                });
-
-                console.log(`${sectionTitle} 섹션의 매칭 항목 수: ${visibleItemCount}`);
-
-                // 매칭되는 항목이 있는 경우에만 아코디언 표시
-                if (visibleItemCount > 0) {
-                    accordion.style.display = '';
-                    totalVisibleSections++;
-
-                    // 아코디언 자동 열기
-                    if (!accordionHeader.classList.contains('open')) {
-                        accordionHeader.classList.add('open');
-                        accordionIcon.classList.add('rotate-180');
-                        accordionContent.style.maxHeight = accordionContent.scrollHeight + 'px';
-                    } else {
-                        accordionContent.style.maxHeight = accordionContent.scrollHeight + 'px';
-                    }
-                } else {
-                    accordion.style.display = 'none';
-                }
-            });
-
-            console.log(`\n전체 표시된 섹션 수: ${totalVisibleSections}`);
-
-            // 검색 결과가 하나도 없는 경우
-            if (totalVisibleSections === 0) {
-                const noResultsMsg = document.createElement('div');
-                noResultsMsg.className = 'no-results-message p-4 text-center text-slate-400';
-                noResultsMsg.innerHTML = `<i class="fas fa-search text-2xl mb-2"></i><p>"${searchTerm}"에 대한 검색 결과가 없습니다.</p>`;
-                this.elements.explorerListContainer.appendChild(noResultsMsg);
-            }
-        }
     }
 
-    // --- API 통신 ---
     class StudioAPI {
         async fetchApi(url, options = {}) {
             try {
                 const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
                 const csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
                 const fetchOptions = { ...options, headers: { ...options.headers } };
-                if (csrfToken && csrfHeader && options.method?.toUpperCase() !== 'GET') {
-                    fetchOptions.headers[csrfHeader] = csrfToken;
-                }
-                if (options.body && ! (options.body instanceof URLSearchParams)) {
-                    fetchOptions.headers['Content-Type'] = 'application/json';
-                }
+                if (csrfToken && csrfHeader && options.method?.toUpperCase() !== 'GET') fetchOptions.headers[csrfHeader] = csrfToken;
+                if (options.body) fetchOptions.headers['Content-Type'] = 'application/json';
                 const response = await fetch(url, fetchOptions);
-                if (!response.ok) throw new Error(`서버 오류: ${response.status}`);
-                if (response.redirected) { window.location.href = response.url; return null; }
-                return response.status === 204 ? null : response.json();
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ message: `서버 오류: ${response.status}` }));
+                    throw new Error(error.message);
+                }
+                // [오류 해결] 응답 본문이 없을 수 있는 경우를 처리
+                const text = await response.text();
+                return text ? JSON.parse(text) : null;
             } catch (error) {
                 console.error(`API 오류: ${url}`, error);
                 if (typeof showToast === 'function') showToast(error.message, 'error');
                 throw error;
             }
         }
-        getExplorerItems() { return this.fetchApi('/admin/studio/api/explorer-items'); }
-        getAccessPathAsGraph(subjectId, subjectType, permissionId) {
-            return this.fetchApi(`/admin/studio/api/access-path-graph?subjectId=${subjectId}&subjectType=${subjectType}&permissionId=${permissionId}`);
+        getExplorerItems() { return this.fetchApi('/api/workbench/metadata/subjects'); }
+        getSubjectDetails(subjectId, subjectType) { return this.fetchApi(`/admin/studio/api/subject-details?subjectId=${subjectId}&subjectType=${subjectType}`); }
+        startEditSession(request) { return this.fetchApi('/admin/granting-wizard/start', { method: 'POST', body: JSON.stringify(request) }); }
+        simulateChanges(contextId, subjectType, assignmentIds) {
+            const body = { added: Array.from(assignmentIds).map(id => ({ targetId: id, targetType: subjectType === 'USER' ? 'GROUP' : 'ROLE' })) };
+            return this.fetchApi(`/admin/granting-wizard/${contextId}/simulate`, { method: 'POST', body: JSON.stringify(body) });
+        }
+        commitChanges(contextId, changes) {
+            return this.fetchApi(`/admin/granting-wizard/${contextId}/commit`, { method: 'POST', body: JSON.stringify(changes) });
         }
     }
 
-    // --- 애플리케이션 총괄 ---
     class StudioApp {
         constructor() {
             this.elements = {
                 explorerListContainer: document.getElementById('explorer-list-container'),
                 search: document.getElementById('explorer-search'),
-                canvasGuide: document.getElementById('canvas-guide'),
-                canvasContent: document.getElementById('canvas-content'),
-                inspectorPanel: document.getElementById('inspector-panel'),
                 inspectorPlaceholder: document.getElementById('inspector-placeholder'),
                 inspectorContent: document.getElementById('inspector-content'),
             };
             this.state = new StudioState();
             this.ui = new StudioUI(this.elements);
             this.api = new StudioAPI();
+            this.fullData = {};
         }
-
-        init() {
+        async init() {
             this.bindEventListeners();
-            this.loadInitialData();
+            await this.loadInitialData();
         }
-
         async loadInitialData() {
-            this.ui.showGuide('<div class="flex items-center justify-center h-full"><i class="fas fa-spinner fa-spin text-3xl text-app-primary"></i></div>');
             try {
-                const data = await this.api.getExplorerItems();
-                this.ui.renderExplorer(data);
-                this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg">왼쪽 탐색기에서 분석할 주체를 선택하세요.</p>');
-            } catch (error) {
-                this.ui.showError(this.elements.explorerListContainer, '탐색기 목록 로딩 실패');
-            }
+                this.fullData = await this.api.getExplorerItems();
+                this.ui.renderExplorer(this.fullData);
+                this.ui.showPlaceholder();
+            } catch (error) { console.error('초기 데이터 로딩 실패:', error); }
         }
-
         bindEventListeners() {
             this.elements.explorerListContainer.addEventListener('click', e => this.handleExplorerClick(e));
-            this.elements.search.addEventListener('keyup', e => this.ui.filterExplorer(e.target.value));
+            this.elements.search.addEventListener('keyup', debounce(e => this.ui.filterExplorer(e.target.value), 250));
             this.elements.inspectorContent.addEventListener('click', e => {
-                if (e.target.closest('#manage-membership-btn')) this.handleManageMembershipClick(e);
+                // [수정] handleManageMembershipClick 호출 방식을 Form 제출로 변경
+                if (e.target.closest('#manage-membership-btn')) {
+                    this.handleStartWizard();
+                }
             });
         }
 
-        handleExplorerClick(e) {
-            const itemEl = e.target.closest('.explorer-item');
-            if (!itemEl) return;
-            const { id, type, name, description } = itemEl.dataset;
-            this.state.select(type, { id: Number(id), name, description, type });
-            this.ui.updateExplorerSelection(this.state);
-            this.updateCanvasAndInspector();
-        }
-
-        handleManageMembershipClick(event) {
-            event.preventDefault();
+        handleStartWizard() {
             const subject = this.state.getSubject();
-            if (!subject) return;
-
-            const manageBtn = document.getElementById('manage-membership-btn');
-            const originalBtnText = manageBtn ? manageBtn.innerHTML : '';
-            if (manageBtn) this.ui.setLoading(manageBtn, true, originalBtnText);
+            if (!subject) {
+                showToast("관리할 주체를 먼저 선택해주세요.", "error");
+                return;
+            }
 
             const form = document.createElement('form');
             form.method = 'POST';
-            form.action = '/admin/granting-wizard/start';
+            form.action = '/admin/granting-wizard/start-session';
             form.style.display = 'none';
+
             const csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
             form.appendChild(this.createHiddenInput('_csrf', csrfToken));
             form.appendChild(this.createHiddenInput('subjectId', subject.id));
             form.appendChild(this.createHiddenInput('subjectType', subject.type));
+
             document.body.appendChild(form);
             form.submit();
         }
@@ -343,25 +234,75 @@ document.addEventListener('DOMContentLoaded', () => {
             return input;
         }
 
-        async updateCanvasAndInspector() {
-            this.ui.renderInspector(this.state);
+        async handleExplorerClick(e) {
+            const itemEl = e.target.closest('.explorer-item');
+            if (!itemEl) return;
+            const { id, type, name } = itemEl.dataset;
+            this.state.selectSubject({ id: Number(id), type, name });
+            this.state.setMode('view');
+            await this.updateInspectorView();
+        }
+        async updateInspectorView() {
             const subject = this.state.getSubject();
-            const permission = this.state.getPermission();
-
-            if (subject && permission) {
+            if (!subject) {
+                this.ui.showPlaceholder();
+                return;
+            }
+            this.ui.updateExplorerSelection(this.state);
+            try {
+                const details = await this.api.getSubjectDetails(subject.id, subject.type);
+                this.state.setViewData(details.assignments, details.effectivePermissions);
+                this.ui.render(this.state);
+            } catch (error) {
+                this.ui.showPlaceholder();
+            }
+        }
+        async handleModeChange(mode) {
+            const subject = this.state.getSubject();
+            if (!subject) return;
+            this.state.setMode(mode);
+            if (mode === 'edit') {
                 try {
-                    const data = await this.api.getAccessPathAsGraph(subject.id, subject.type, permission.id);
-                    await this.ui.renderAccessGraph(data);
+                    const initiation = await this.api.startEditSession({ subjectId: subject.id, subjectType: subject.type });
+                    this.state.setWizardContextId(initiation.wizardContextId);
+                    const assignmentTypeKey = subject.type === 'USER' ? 'groups' : 'roles';
+                    const allAssignments = this.fullData[assignmentTypeKey] || [];
+                    const initialAssignmentIds = this.state.viewData.assignments.map(a => a.id);
+                    this.state.setEditData(allAssignments, initialAssignmentIds);
+                    this.state.setSimulationResult(null);
                 } catch (error) {
-                    this.ui.showError(this.elements.canvasGuide, '분석 데이터 로딩 실패');
+                    showToast('편집 모드 시작에 실패했습니다.', 'error');
+                    this.state.setMode('view');
                 }
-            } else if (subject) {
-                this.ui.showGuide(`<div class="text-center"><i class="fas fa-check-circle text-4xl text-green-500"></i><p class="mt-4 text-lg font-bold">'<strong>${subject.name}</strong>' 선택됨.</p><p class="mt-2 text-slate-500">2. 이제 분석하고 싶은 '권한'을 선택하여 접근 경로를 확인하세요.</p></div>`);
-            } else {
-                this.ui.showGuide('<i class="fas fa-mouse-pointer text-6xl text-slate-300"></i><p class="mt-4 text-lg">왼쪽 탐색기에서 분석할 주체를 선택하세요.</p>');
+            }
+            this.ui.render(this.state);
+        }
+        handleAssignmentChange = debounce(async (checkbox) => {
+            this.state.toggleAssignment(Number(checkbox.value));
+            const subject = this.state.getSubject();
+            try {
+                const result = await this.api.simulateChanges(this.state.wizardContextId, getChanges());
+                this.state.setSimulationResult(result);
+                this.ui.render(this.state);
+            } catch (error) { console.error("시뮬레이션 실패", error); }
+        }, 400);
+
+        async handleSaveAssignments() {
+            const subject = this.state.getSubject();
+            if (!subject) return;
+            const saveBtn = document.getElementById('save-assignments-btn');
+            const originalText = saveBtn.innerHTML;
+            this.ui.setLoading(saveBtn, true, originalText);
+            try {
+                await this.api.commitChanges(this.state.wizardContextId, getChanges());
+                showToast("성공적으로 저장되었습니다.", "success");
+                this.state.setMode('view');
+                await this.updateInspectorView();
+            } catch (error) {
+                showToast("저장 중 오류가 발생했습니다.", "error");
+                this.ui.setLoading(saveBtn, false, originalText);
             }
         }
     }
-
     new StudioApp().init();
 });

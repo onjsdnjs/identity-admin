@@ -3,7 +3,9 @@ package io.spring.identityadmin.repository;
 import io.spring.identityadmin.domain.entity.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,4 +27,7 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
      */
     @Query("SELECT DISTINCT r FROM Role r LEFT JOIN FETCH r.rolePermissions")
     List<Role> findAllWithPermissions();
+
+    @Query("SELECT DISTINCT r FROM Role r LEFT JOIN FETCH r.rolePermissions rp LEFT JOIN FETCH rp.permission WHERE r.id IN :ids")
+    List<Role> findAllByIdWithPermissions(@Param("ids") Collection<Long> ids);
 }

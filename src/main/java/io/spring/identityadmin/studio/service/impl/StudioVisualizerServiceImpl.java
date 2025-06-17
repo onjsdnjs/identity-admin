@@ -1,6 +1,11 @@
 package io.spring.identityadmin.studio.service.impl;
 
+import io.spring.identityadmin.admin.iam.service.GroupService;
+import io.spring.identityadmin.admin.iam.service.UserManagementService;
 import io.spring.identityadmin.admin.support.visualization.dto.GraphDataDto;
+import io.spring.identityadmin.domain.dto.GroupDto;
+import io.spring.identityadmin.domain.dto.RoleDto;
+import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.entity.*;
 import io.spring.identityadmin.repository.GroupRepository;
 import io.spring.identityadmin.repository.PermissionRepository;
@@ -12,6 +17,7 @@ import io.spring.identityadmin.studio.service.StudioVisualizerService;
 import io.spring.identityadmin.workflow.wizard.dto.VirtualSubject;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -28,6 +34,9 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
     private final UserRepository userRepository;
     private final GroupRepository groupRepository;
     private final PermissionRepository permissionRepository;
+    private final UserManagementService userManagementService;
+    private final GroupService groupService;
+    private final ModelMapper modelMapper;
 
     @Override
     public GraphDataDto analyzeAccessPathAsGraph(Long subjectId, String subjectType, Long permissionId) {
@@ -134,6 +143,28 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
         );
     }
 
+    @Override
+    public Map<String, Object> getSubjectDetails(Long subjectId, String subjectType) {
+        Map<String, Object> details = new HashMap<>();
+        List<Object> assignments = new ArrayList<>();
+
+        if ("USER".equalsIgnoreCase(subjectType)) {
+            UserDto userDto = userManagementService.getUser(subjectId);
+            if (userDto.getSelectedGroupIds() != null && !userDto.getSelectedGroupIds().isEmpty()) {
+                List<Group> assignedGroups = groupRepository.findAllById(userDto.getSelectedGroupIds());
+                assignments.addAll(assignedGroups.stream().map(g -> modelMapper.map(g, GroupDto.class)).toList());
+            }
+        } else if ("GROUP".equalsIgnoreCase(subjectType)) {
+            Group group = groupService.getGroup(subjectId).orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + subjectId));
+            List<Role> assignedRoles = group.getGroupRoles().stream().map(GroupRole::getRole).toList();
+            assignments.addAll(assignedRoles.stream().map(r -> modelMapper.map(r, RoleDto.class)).toList());
+        }
+
+        details.put("assignments", assignments);
+        details.put("effectivePermissions", getEffectivePermissionsForSubject(subjectId, subjectType));
+        return details;
+    }
+
     // =================================================================
     //                    기존 메서드 (하위 호환성을 위해 유지)
     // =================================================================
@@ -205,11 +236,9 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
     @Override
     public List<EffectivePermissionDto> getEffectivePermissionsForSubject(Long subjectId, String subjectType) {
         Map<String, String> permissionOrigins = new HashMap<>();
-
         if ("USER".equalsIgnoreCase(subjectType)) {
             Users user = userRepository.findByIdWithGroupsRolesAndPermissions(subjectId)
                     .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + subjectId));
-
             user.getUserGroups().forEach(ug -> {
                 Group group = ug.getGroup();
                 group.getGroupRoles().forEach(gr -> {
@@ -218,27 +247,19 @@ public class StudioVisualizerServiceImpl implements StudioVisualizerService {
                     role.getRolePermissions().forEach(rp -> permissionOrigins.putIfAbsent(rp.getPermission().getName(), origin));
                 });
             });
-
         } else if ("GROUP".equalsIgnoreCase(subjectType)) {
             Group group = groupRepository.findByIdWithRoles(subjectId)
                     .orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + subjectId));
-
             group.getGroupRoles().forEach(gr -> {
                 Role role = gr.getRole();
                 String origin = "역할: " + role.getRoleName();
                 role.getRolePermissions().forEach(rp -> permissionOrigins.putIfAbsent(rp.getPermission().getName(), origin));
             });
-        } else {
-            return Collections.emptyList();
         }
-
-        if(permissionOrigins.isEmpty()) {
-            return Collections.emptyList();
-        }
-
+        if(permissionOrigins.isEmpty()) return Collections.emptyList();
         return permissionRepository.findAllByNameIn(permissionOrigins.keySet()).stream()
                 .map(p -> new EffectivePermissionDto(p.getName(), p.getDescription(), permissionOrigins.get(p.getName())))
-                .sorted(Comparator.comparing(EffectivePermissionDto::permissionDescription))
+                .sorted(Comparator.comparing(EffectivePermissionDto::permissionName))
                 .collect(Collectors.toList());
     }
 

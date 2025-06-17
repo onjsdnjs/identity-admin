@@ -3,8 +3,6 @@ package io.spring.identityadmin.workflow.wizard.controller;
 import io.spring.identityadmin.admin.iam.service.GroupService;
 import io.spring.identityadmin.admin.iam.service.RoleService;
 import io.spring.identityadmin.admin.iam.service.UserManagementService;
-import io.spring.identityadmin.domain.dto.UserDto;
-import io.spring.identityadmin.domain.entity.Group;
 import io.spring.identityadmin.studio.dto.SimulationResultDto;
 import io.spring.identityadmin.workflow.wizard.dto.AssignmentChangeDto;
 import io.spring.identityadmin.workflow.wizard.dto.InitiateManagementRequestDto;
@@ -18,8 +16,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import java.util.Collections;
-import java.util.stream.Collectors;
+import java.util.Map;
 
 @Slf4j
 @Controller
@@ -32,7 +29,7 @@ public class GrantingWizardController {
     private final GroupService groupService;
     private final RoleService roleService;
 
-    @PostMapping("/start")
+    @PostMapping("/start-session")
     public String startManagementSession(@ModelAttribute InitiateManagementRequestDto request, RedirectAttributes ra) {
         try {
             var initiation = grantingWizardService.beginManagementSession(request);
@@ -47,61 +44,35 @@ public class GrantingWizardController {
     public String getWizardPage(@PathVariable String contextId, Model model, RedirectAttributes ra) {
         try {
             WizardContext context = grantingWizardService.getWizardProgress(contextId);
-            if (context == null) {
-                throw new IllegalStateException("유효하지 않거나 만료된 마법사 세션입니다.");
-            }
             WizardContext.Subject subject = context.targetSubject();
 
-            String subjectName = "알 수 없음";
-            String assignmentType = "UNKNOWN";
-            Object allAssignments = Collections.emptyList();
-            Object selectedAssignmentIds = Collections.emptyList();
+            String assignmentType;
+            Object allAssignments;
 
-            if (subject != null) {
-                if ("USER".equalsIgnoreCase(subject.type())) {
-                    UserDto user = userManagementService.getUser(subject.id());
-                    subjectName = user.getName();
-                    allAssignments = groupService.getAllGroups();
-                    selectedAssignmentIds = user.getSelectedGroupIds();
-                    assignmentType = "GROUP";
-                } else if ("GROUP".equalsIgnoreCase(subject.type())) {
-                    Group group = groupService.getGroup(subject.id()).orElseThrow();
-                    subjectName = group.getName();
-                    allAssignments = roleService.getRoles();
-                    selectedAssignmentIds = group.getGroupRoles().stream().map(gr -> gr.getRole().getId()).collect(Collectors.toSet());
-                    assignmentType = "ROLE";
-                }
+            if ("USER".equalsIgnoreCase(subject.type())) {
+                assignmentType = "GROUP";
+                allAssignments = groupService.getAllGroups();
+            } else if ("GROUP".equalsIgnoreCase(subject.type())) {
+                assignmentType = "ROLE";
+                allAssignments = roleService.getRoles();
+            } else {
+                throw new IllegalArgumentException("지원되지 않는 주체 타입입니다: " + subject.type());
             }
 
-            model.addAttribute("contextId", contextId);
-            model.addAttribute("subjectName", subjectName);
+            model.addAttribute("contextId", context.contextId());
+            model.addAttribute("subjectName", context.sessionTitle().replace("'님의 멤버십 관리", ""));
             model.addAttribute("subjectType", subject.type());
-            model.addAttribute("allAssignments", allAssignments);
-            model.addAttribute("selectedAssignmentIds", selectedAssignmentIds);
             model.addAttribute("assignmentType", assignmentType);
+            model.addAttribute("allAssignments", allAssignments);
+            model.addAttribute("selectedAssignmentIds", context.initialAssignmentIds());
 
             return "admin/granting-wizard";
-        } catch(Exception e) {
+
+        } catch (Exception e) {
             log.error("Error loading wizard page for context {}", contextId, e);
             ra.addFlashAttribute("errorMessage", "마법사 페이지 로딩 중 오류 발생: " + e.getMessage());
             return "redirect:/admin/studio";
         }
-    }
-
-    @PostMapping("/{contextId}/commit")
-    public String commitAssignments(@PathVariable String contextId,
-                                    @ModelAttribute AssignmentChangeDto finalAssignments,
-                                    RedirectAttributes ra) {
-        try {
-            grantingWizardService.commitAssignments(contextId, finalAssignments);
-            ra.addFlashAttribute("message", "멤버십 할당이 성공적으로 저장되었습니다.");
-        } catch (Exception e) {
-            log.error("Error committing assignments for context {}", contextId, e);
-            ra.addFlashAttribute("errorMessage", "저장 중 오류 발생: " + e.getMessage());
-        }
-
-        // 저장이 완료되면 Studio 페이지로 리다이렉트
-        return "redirect:/admin/studio";
     }
 
     @PostMapping("/{contextId}/simulate")
@@ -111,5 +82,15 @@ public class GrantingWizardController {
             @RequestBody AssignmentChangeDto changes) {
         SimulationResultDto result = grantingWizardService.simulateAssignmentChanges(contextId, changes);
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/{contextId}/commit")
+    public ResponseEntity<Map<String, String>> commitAssignments(
+            @PathVariable String contextId,
+            @RequestBody AssignmentChangeDto finalAssignments,
+            RedirectAttributes ra) {
+        grantingWizardService.commitAssignments(contextId, finalAssignments);
+        ra.addFlashAttribute("message", "성공적으로 저장되었습니다.");
+        return ResponseEntity.ok(Map.of("redirectUrl", "/admin/studio"));
     }
 }

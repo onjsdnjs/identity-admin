@@ -5,6 +5,7 @@ import io.spring.identityadmin.studio.dto.*;
 import io.spring.identityadmin.workflow.wizard.dto.VirtualSubject;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Authorization Studio의 'Canvas' 패널을 위한 시각화 데이터를 생성하고,
@@ -46,5 +47,15 @@ public interface StudioVisualizerService {
      * @return 계산된 유효 권한 및 그 근거를 담은 DTO 목록
      */
     List<EffectivePermissionDto> getEffectivePermissionsForSubject(VirtualSubject subject);
+
+    /**
+     * [신규] 특정 주체의 상세 정보(현재 할당된 내역, 유효 권한 목록)를 조회합니다.
+     * 통합된 Studio의 인스펙터 '조회 모드'에서 사용됩니다.
+     *
+     * @param subjectId   분석할 주체(사용자/그룹)의 ID
+     * @param subjectType 주체의 타입 ("USER" 또는 "GROUP")
+     * @return 주체의 상세 정보를 담은 Map
+     */
+    Map<String, Object> getSubjectDetails(Long subjectId, String subjectType);
 
 }

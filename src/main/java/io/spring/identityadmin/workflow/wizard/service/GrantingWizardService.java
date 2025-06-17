@@ -37,7 +37,6 @@ public interface GrantingWizardService {
     /**
      * 최종 확정된 멤버십 할당 정보를 DB에 저장합니다.
      * User/Group의 멤버십을 실제로 변경합니다.
-     * @param contextId 관리 세션 ID
      * @param finalAssignments 최종 확정된 모든 할당 정보
      */
     void commitAssignments(String contextId, AssignmentChangeDto finalAssignments);
