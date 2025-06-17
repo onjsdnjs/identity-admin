@@ -4,6 +4,7 @@ import io.spring.identityadmin.admin.iam.service.GroupService;
 import io.spring.identityadmin.admin.iam.service.RoleService;
 import io.spring.identityadmin.admin.iam.service.UserManagementService;
 import io.spring.identityadmin.studio.dto.SimulationResultDto;
+import io.spring.identityadmin.studio.dto.WizardInitiationDto;
 import io.spring.identityadmin.workflow.wizard.dto.AssignmentChangeDto;
 import io.spring.identityadmin.workflow.wizard.dto.InitiateManagementRequestDto;
 import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
@@ -29,15 +30,10 @@ public class GrantingWizardController {
     private final GroupService groupService;
     private final RoleService roleService;
 
-    @PostMapping("/start-session")
-    public String startManagementSession(@ModelAttribute InitiateManagementRequestDto request, RedirectAttributes ra) {
-        try {
-            var initiation = grantingWizardService.beginManagementSession(request);
-            return "redirect:" + initiation.wizardUrl();
-        } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", "권한 관리 세션 시작 중 오류 발생: " + e.getMessage());
-            return "redirect:/admin/studio";
-        }
+    @PostMapping("/start")
+    @ResponseBody
+    public ResponseEntity<WizardInitiationDto> startManagementSession(@RequestBody InitiateManagementRequestDto request) {
+        return ResponseEntity.ok(grantingWizardService.beginManagementSession(request));
     }
 
     @GetMapping("/{contextId}")
