@@ -32,7 +32,7 @@ public class WorkflowOrchestratorImpl implements WorkflowOrchestrator {
                 request.getPolicyName(),
                 request.getPolicyDescription()
         );
-        String contextId = initiationDto.wizardContextId();
+        String contextId = initiationDto.contextId();
         log.info("Workflow context created with ID: {}", contextId);
 
         // 2. 워크플로우의 각 단계를 순차적으로 실행

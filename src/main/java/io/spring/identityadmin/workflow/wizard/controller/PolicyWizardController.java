@@ -1,8 +1,10 @@
 package io.spring.identityadmin.workflow.wizard.controller;
 
 import io.spring.identityadmin.admin.iam.service.GroupService;
+import io.spring.identityadmin.admin.iam.service.PermissionService;
 import io.spring.identityadmin.admin.iam.service.UserManagementService;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
+import io.spring.identityadmin.domain.dto.PermissionDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
 import io.spring.identityadmin.workflow.wizard.dto.CommitPolicyRequest;
@@ -12,9 +14,11 @@ import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 import io.spring.identityadmin.workflow.wizard.service.PermissionWizardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.CollectionUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -32,6 +36,8 @@ public class PolicyWizardController {
     private final UserManagementService userManagementService;
     private final GroupService groupService;
     private final PermissionCatalogService permissionCatalogService;
+    private final PermissionService permissionService; // 의존성 주입
+    private final ModelMapper modelMapper;             // 의존성 주입
 
     /**
      * Authorization Studio 등 외부에서 권한 부여 워크플로우를 시작하는 진입점입니다.
@@ -39,17 +45,11 @@ public class PolicyWizardController {
      */
     @PostMapping("/start")
     public String startWizard(@ModelAttribute InitiateGrantRequestDto request, RedirectAttributes ra) {
-        try {
-            String policyName = "마법사 생성 정책 - " + System.currentTimeMillis();
-            String policyDescription = "권한 부여 마법사를 통해 생성된 정책입니다.";
-            var initiation = wizardService.beginCreation(request, policyName, policyDescription);
-            log.info("Redirecting to wizard page with contextId: {}", initiation.wizardContextId());
-            return "redirect:/admin/policy-wizard/" + initiation.wizardContextId();
-        } catch (Exception e) {
-            log.error("Error starting policy wizard", e);
-            ra.addFlashAttribute("errorMessage", "마법사 시작 중 오류가 발생했습니다: " + e.getMessage());
-            return "redirect:/admin/studio"; // 오류 발생 시 Studio로 복귀
-        }
+        String policyName = "마법사 생성 정책 - " + System.currentTimeMillis();
+        String policyDescription = "권한 부여 마법사를 통해 생성된 정책입니다.";
+        var initiation = wizardService.beginCreation(request, policyName, policyDescription);
+        log.info("Redirecting to wizard page with contextId: {}", initiation.contextId());
+        return "redirect:/admin/policy-wizard/" + initiation.contextId();
     }
 
     /**
@@ -59,33 +59,45 @@ public class PolicyWizardController {
      */
     @GetMapping("/{contextId}")
     public String getWizardPage(
-            @PathVariable String contextId,
-            @RequestParam(required = false) String from,
-            @RequestParam(required = false) String permName,
-            Model model,
-            RedirectAttributes ra) {
-        try {
-            WizardContext context = wizardService.getWizardProgress(contextId);
-            if (context == null) {
-                throw new IllegalStateException("유효하지 않거나 만료된 마법사 세션입니다.");
-            }
+        @PathVariable String contextId,
+        @RequestParam(required = false) String from,
+        @RequestParam(required = false) String permName,
+        Model model,
+        RedirectAttributes ra) {
 
-            // [핵심 수정] 워크벤치에서 넘어온 경우, 성공 메시지를 Model에 추가
-            if ("workbench".equals(from) && permName != null) {
-                model.addAttribute("message", "리소스가 권한 '" + permName + "'으로 정의되었습니다. 이제 이 권한을 역할에 할당하세요.");
-            }
-
-            model.addAttribute("wizardContext", context);
-            model.addAttribute("allUsers", userManagementService.getUsers());
-            model.addAttribute("allGroups", groupService.getAllGroups());
-            model.addAttribute("allPermissions", permissionCatalogService.getAvailablePermissions());
-            model.addAttribute("activePage", "policy-wizard");
-            return "admin/policy-wizard";
-        } catch (IllegalStateException e) {
-            log.warn("Failed to get wizard progress for contextId {}: {}", contextId, e.getMessage());
-            ra.addFlashAttribute("errorMessage", e.getMessage());
-            return "redirect:/admin/studio"; // 오류 발생 시 안전한 스튜디오 페이지로 이동
+        WizardContext context;
+        // 1. 모델에 Flash Attribute로 전달된 wizardContext가 있는지 확인
+        if (model.containsAttribute("wizardContext")) {
+            context = (WizardContext) model.asMap().get("wizardContext");
+            log.info("Retrieved WizardContext from Flash Attributes for ID: {}", contextId);
+        } else {
+            // 2. 없다면(예: 페이지 새로고침) DB에서 조회
+            log.info("No Flash Attribute found. Retrieving WizardContext from DB for ID: {}", contextId);
+            context = wizardService.getWizardProgress(contextId);
         }
+
+        if (context == null) {
+            throw new IllegalStateException("유효하지 않거나 만료된 마법사 세션입니다.");
+        }
+
+        // 워크벤치에서 넘어온 경우, 권한 정보 처리
+        if (model.containsAttribute("fromWorkbench") && !CollectionUtils.isEmpty(context.permissionIds())) {
+            Long preselectedPermissionId = context.permissionIds().iterator().next();
+            permissionService.getPermission(preselectedPermissionId)
+                    .ifPresent(permission -> {
+                        PermissionDto permissionDto = modelMapper.map(permission, PermissionDto.class);
+                        model.addAttribute("preselectedPermission", permissionDto);
+                        String friendlyName = permission.getFriendlyName() != null ? permission.getFriendlyName() : permission.getName();
+                        model.addAttribute("message", "권한 '" + friendlyName + "'이(가) 생성되었습니다. 이제 이 권한을 부여할 주체(역할/그룹)를 선택하세요.");
+                    });
+        }
+
+        model.addAttribute("wizardContext", context);
+        model.addAttribute("allUsers", userManagementService.getUsers());
+        model.addAttribute("allGroups", groupService.getAllGroups());
+        model.addAttribute("allPermissions", permissionCatalogService.getAvailablePermissions());
+        model.addAttribute("activePage", "policy-wizard");
+        return "admin/policy-wizard";
     }
 
     /**

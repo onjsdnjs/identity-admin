@@ -38,11 +38,11 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
 
     @Override
     @Transactional
-    public WizardInitiationDto beginCreation(InitiateGrantRequestDto request, String policyName, String policyDescription) {
+    public WizardContext  beginCreation(InitiateGrantRequestDto request, String policyName, String policyDescription) {
         String contextId = UUID.randomUUID().toString();
         log.info("Beginning new permission grant wizard. Context ID: {}", contextId);
 
-        Set<WizardContext.Subject> subjects = new HashSet<>();
+        /*Set<WizardContext.Subject> subjects = new HashSet<>();
         if (!CollectionUtils.isEmpty(request.getUserIds())) {
             request.getUserIds().stream()
                     .map(id -> new WizardContext.Subject(id, "USER"))
@@ -52,14 +52,23 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
             request.getGroupIds().stream()
                     .map(id -> new WizardContext.Subject(id, "GROUP"))
                     .forEach(subjects::add);
-        }
+        }*/
 
         /*WizardContext initialContext = new WizardContext(contextId, policyName, policyDescription, subjects, request.permissionIds(), null);*/
 
-        Long currentUserId = getCurrentUserId();
-        userContextService.saveWizardProgress(contextId, currentUserId, null);
+        WizardContext initialContext = WizardContext.builder()
+                .contextId(contextId)
+                .sessionTitle(policyName)
+                .sessionDescription(policyDescription)
+                .subjects(new HashSet<>()) // 초기화
+                .permissionIds(request.getPermissionIds())
+                .build();
 
-        return new WizardInitiationDto(contextId, "/admin/policy-wizard/" + contextId);
+        Long currentUserId = getCurrentUserId();
+        userContextService.saveWizardProgress(contextId, currentUserId, initialContext);
+
+        // DTO 대신 생성된 컨텍스트 객체 자체를 반환
+        return initialContext;
     }
 
     @Override

@@ -7,6 +7,7 @@ import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.resource.ResourceRegistryService;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
+import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 import io.spring.identityadmin.workflow.wizard.service.PermissionWizardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,25 +70,22 @@ public class ResourceAdminController {
 
     @PostMapping("/{id}/define-and-grant")
     public String defineAndGrantPermission(@PathVariable Long id, @ModelAttribute ResourceMetadataDto metadataDto, RedirectAttributes ra) {
-        try {
-            Permission newPermission = resourceRegistryService.defineResourceAsPermission(id, metadataDto);
-            log.info("Resource defined as permission '{}'. Initiating grant wizard.", newPermission.getName());
+        Permission newPermission = resourceRegistryService.defineResourceAsPermission(id, metadataDto);
+        log.info("Resource defined as permission '{}'. Initiating grant wizard.", newPermission.getName());
 
-            InitiateGrantRequestDto grantRequest = new InitiateGrantRequestDto();
-            grantRequest.setPermissionIds(Set.of(newPermission.getId()));
+        InitiateGrantRequestDto grantRequest = new InitiateGrantRequestDto();
+        grantRequest.setPermissionIds(Set.of(newPermission.getId()));
 
-            var initiation = permissionWizardService.beginCreation(grantRequest,
-                    "신규 권한 할당: " + newPermission.getFriendlyName(),
-                    "리소스 워크벤치에서 생성된 신규 권한을 역할에 할당합니다.");
+        WizardContext createdContext = permissionWizardService.beginCreation(grantRequest,
+                "신규 권한 할당: " + newPermission.getFriendlyName(),
+                "리소스 워크벤치에서 생성된 신규 권한을 역할에 할당합니다.");
 
-            // [핵심 수정] RedirectAttributes에 메시지를 담지 않고, 마법사 페이지 URL에 쿼리 파라미터로 성공 여부를 전달
-            return "redirect:" + initiation.wizardUrl() + "?from=workbench&permName=" + newPermission.getName();
+        // [수정] RedirectAttributes에 컨텍스트 객체를 flash attribute로 추가
+        ra.addFlashAttribute("wizardContext", createdContext);
+        ra.addFlashAttribute("fromWorkbench", true); // 워크벤치에서 왔다는 플래그 추가
 
-        } catch (Exception e) {
-            log.error("Error during define and grant process for resource ID: {}", id, e);
-            ra.addFlashAttribute("errorMessage", "권한 정의 및 연결 중 오류 발생: " + e.getMessage());
-            return "redirect:/admin/workbench/resources";
-        }
+        // [수정] 리다이렉트 URL 수정
+        return "redirect:/admin/policy-wizard/" + createdContext.contextId();
     }
 
     @PostMapping("/{id}/exclude")

@@ -8,7 +8,7 @@ import io.spring.identityadmin.workflow.wizard.dto.SaveSubjectsRequest;
 import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 
 public interface PermissionWizardService {
-    WizardInitiationDto beginCreation(InitiateGrantRequestDto request, String policyName, String policyDescription);
+    WizardContext  beginCreation(InitiateGrantRequestDto request, String policyName, String policyDescription);
     WizardContext updateSubjects(String contextId, SaveSubjectsRequest request);
     WizardContext updatePermissions(String contextId, SavePermissionsRequest request);
     WizardContext updatePolicyDetails(String contextId, String policyName, String policyDescription);

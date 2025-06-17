@@ -8,6 +8,7 @@ import io.spring.identityadmin.studio.dto.SimulationRequestDto;
 import io.spring.identityadmin.studio.dto.SimulationResultDto;
 import io.spring.identityadmin.studio.dto.WizardInitiationDto;
 import io.spring.identityadmin.studio.service.StudioActionService;
+import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 import io.spring.identityadmin.workflow.wizard.service.PermissionWizardService; // 의존성 추가
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +47,7 @@ public class StudioActionServiceImpl implements StudioActionService {
      * PermissionWizardService에 작업을 위임하여 마법사를 시작합니다.
      */
     @Override
-    public WizardInitiationDto initiateGrantWorkflow(InitiateGrantRequestDto grantRequest) {
+    public WizardContext initiateGrantWorkflow(InitiateGrantRequestDto grantRequest) {
         log.info("Initiating membership management workflow from Studio for users: {}, groups: {}.",
                 grantRequest.getUserIds(), grantRequest.getGroupIds());
 
