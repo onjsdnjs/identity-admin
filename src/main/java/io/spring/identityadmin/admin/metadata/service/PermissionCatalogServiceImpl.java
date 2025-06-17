@@ -42,6 +42,7 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
             actionType = resource.getHttpMethod().name();
         }
         permission.setActionType(actionType);
+        permission.setManagedResource(resource);
 
         Permission savedPermission = permissionRepository.save(permission);
         log.info("Permission '{}' has been synchronized for resource '{}'.", savedPermission.getName(), resource.getResourceIdentifier());

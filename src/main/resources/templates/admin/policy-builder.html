@@ -75,8 +75,9 @@
                                class="w-full my-2 p-2 rounded"
                                style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;">
                         <div id="permissions-palette" class="max-h-60 overflow-y-auto">
-                            <div th:each="perm : ${allPermissions}" class="palette-item p-2 rounded" data-type="permission" th:data-info="${perm.id + ':' + perm.description}">
-                                <i class="fas fa-key mr-2" style="color: #94a3b8;"></i> <span th:text="${perm.description}" style="color: #e2e8f0;"></span>
+                            <div th:each="perm : ${allPermissions}" class="palette-item p-2 rounded" data-type="permission" th:data-info="${perm.id + ':' + perm.friendlyName}">
+                                <i class="fas fa-key mr-2" style="color: #94a3b8;"></i>
+                                <span th:text="${perm.friendlyName}" style="color: #e2e8f0;"></span>
                             </div>
                         </div>
                     </div>

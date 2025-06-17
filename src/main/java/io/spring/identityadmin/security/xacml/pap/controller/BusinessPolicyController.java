@@ -23,11 +23,19 @@ public class BusinessPolicyController {
 
     @GetMapping("/policy-workbench")
     public String getPolicyAuthoringWorkbench(Model model) {
+        model.addAttribute("allUsers", businessMetadataService.getAllUsersForPolicy());
+        model.addAttribute("allGroups", businessMetadataService.getAllGroupsForPolicy());
+        model.addAttribute("allResources", businessMetadataService.getAllBusinessResources());
+        model.addAttribute("allActions", businessMetadataService.getAllBusinessActions());
+        model.addAttribute("allConditions", businessMetadataService.getAllConditionTemplates());
+        model.addAttribute("businessPolicyDto", new BusinessPolicyDto());
+
         return "admin/policy-authoring-workbench";
     }
 
     @PostMapping("/policy-workbench")
-    public String createBusinessPolicy(@ModelAttribute BusinessPolicyDto businessPolicyDto, RedirectAttributes ra) {
+    public String createBusinessPolicy(@ModelAttribute("businessPolicyDto") BusinessPolicyDto businessPolicyDto, RedirectAttributes ra) {
+        // [수정] 모델 어트리뷰트 이름 일치
         Policy newPolicy = businessPolicyService.createPolicyFromBusinessRule(businessPolicyDto);
         ra.addFlashAttribute("message", "비즈니스 정책 '" + newPolicy.getName() + "' 이(가) 성공적으로 생성되었습니다.");
         return "redirect:/admin/policies";

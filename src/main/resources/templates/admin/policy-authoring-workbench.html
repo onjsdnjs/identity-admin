@@ -219,11 +219,16 @@
                     <h3 class="text-lg font-semibold" style="color: #e2e8f0; border-bottom: 1px solid rgba(71, 85, 105, 0.3); padding-bottom: 0.5rem;">2. 주체 (누가?)</h3>
                     <div>
                         <label for="subjectUserIds" class="block text-sm font-medium" style="color: #cbd5e1;">사용자 선택:</label>
-                        <select id="subjectUserIds" name="subjectUserIds" multiple="multiple" class="mt-1 block w-full"></select>
+                        <select id="subjectUserIds" th:field="*{businessPolicyDto.subjectUserIds}" multiple="multiple" class="mt-1 block w-full">
+                            <option th:each="user : ${allUsers}" th:value="${user.id}" th:text="${user.name + ' (' + user.username + ')'}"></option>
+                        </select>
                     </div>
+
                     <div>
                         <label for="subjectGroupIds" class="block text-sm font-medium" style="color: #cbd5e1;">그룹 선택:</label>
-                        <select id="subjectGroupIds" name="subjectGroupIds" multiple="multiple" class="mt-1 block w-full"></select>
+                        <select id="subjectGroupIds" th:field="*{businessPolicyDto.subjectGroupIds}" multiple="multiple" class="mt-1 block w-full">
+                            <option th:each="group : ${allGroups}" th:value="${group.id}" th:text="${group.name}"></option>
+                        </select>
                     </div>
                 </div>
 
@@ -231,12 +236,16 @@
                     <h3 class="text-lg font-semibold" style="color: #e2e8f0; border-bottom: 1px solid rgba(71, 85, 105, 0.3); padding-bottom: 0.5rem;">3. 접근 대상 (무엇을 어떻게?)</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label for="businessResourceId" class="block text-sm font-medium" style="color: #cbd5e1;">자원:</label>
-                            <select id="businessResourceId" name="businessResourceId" class="mt-1 block w-full"></select>
+                            <label for="businessResourceIds" class="block text-sm font-medium" style="color: #cbd5e1;">자원:</label>
+                            <select id="businessResourceIds" th:field="*{businessResourceIds}" multiple="multiple" class="mt-1 block w-full">
+                                <option th:each="resource : ${allResources}" th:value="${resource.id}" th:text="${resource.name}"></option>
+                            </select>
                         </div>
                         <div>
-                            <label for="businessActionId" class="block text-sm font-medium" style="color: #cbd5e1;">행위:</label>
-                            <select id="businessActionId" name="businessActionId" class="mt-1 block w-full"></select>
+                            <label for="businessActionIds" class="block text-sm font-medium" style="color: #cbd5e1;">행위:</label>
+                            <select id="businessActionIds" th:field="*{businessActionIds}" multiple="multiple" class="mt-1 block w-full">
+                                <option th:each="action : ${allActions}" th:value="${action.id}" th:text="${action.name}"></option>
+                            </select>
                         </div>
                     </div>
                 </div>
