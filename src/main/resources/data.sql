@@ -115,6 +115,43 @@ INSERT INTO DOCUMENT (document_id, title, content, owner_username) VALUES
                                                                        (3, '재무팀 전용 감사 보고서', '외부 감사법인 최종 보고서입니다.', 'finance@example.com')
 ON CONFLICT (document_id) DO NOTHING;
 
+-- status='PERMISSION_CREATED'인 리소스(ID: 102)에 대한 권한
+INSERT INTO PERMISSION (permission_id, permission_name, friendly_name, description, target_type, action_type, managed_resource_id) VALUES
+    (102, 'METHOD_IOSPRINGIDENTITYADMIN_COMMON_DOCUMENTSERVICE_GETDOCUMENTBYID_JAVALANGLONG', '특정 문서 조회', 'ID로 특정 문서를 조회하는 핵심 서비스 메서드', 'METHOD', 'EXECUTE', 102)
+ON CONFLICT (permission_id) DO UPDATE SET
+                                          permission_name = EXCLUDED.permission_name,
+                                          friendly_name = EXCLUDED.friendly_name,
+                                          description = EXCLUDED.description,
+                                          target_type = EXCLUDED.target_type,
+                                          action_type = EXCLUDED.action_type,
+                                          managed_resource_id = EXCLUDED.managed_resource_id;
+
+-- status='POLICY_CONNECTED'인 리소스(ID: 103)에 대한 권한
+INSERT INTO PERMISSION (permission_id, permission_name, friendly_name, description, target_type, action_type, managed_resource_id) VALUES
+    (103, 'URL_ADMIN', '관리자 페이지 접근', '모든 관리자 페이지 접근', 'URL', 'ANY', 103)
+ON CONFLICT (permission_id) DO UPDATE SET
+                                          permission_name = EXCLUDED.permission_name,
+                                          friendly_name = EXCLUDED.friendly_name,
+                                          description = EXCLUDED.description,
+                                          target_type = EXCLUDED.target_type,
+                                          action_type = EXCLUDED.action_type,
+                                          managed_resource_id = EXCLUDED.managed_resource_id;
+
+-- Pre/Post 인가 테스트용 메서드에 대한 권한 (리소스 ID: 201, 가상)
+INSERT INTO MANAGED_RESOURCE (id, resource_identifier, resource_type, friendly_name, description, status) VALUES
+    (201, 'io.spring.identityadmin.common.DocumentService.updateDocument(java.lang.Long,java.lang.String)', 'METHOD', '문서 업데이트', 'ID와 새로운 내용으로 문서를 업데이트하는 기능', 'POLICY_CONNECTED')
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO PERMISSION (permission_id, permission_name, friendly_name, description, target_type, action_type, managed_resource_id) VALUES
+    (201, 'METHOD_DOCUMENTSERVICE_UPDATEDOCUMENT', '문서 업데이트', '문서 내용을 수정하는 권한', 'METHOD', 'EXECUTE', 201)
+ON CONFLICT (permission_id) DO UPDATE SET
+                                          permission_name = EXCLUDED.permission_name,
+                                          friendly_name = EXCLUDED.friendly_name,
+                                          description = EXCLUDED.description,
+                                          target_type = EXCLUDED.target_type,
+                                          action_type = EXCLUDED.action_type,
+                                          managed_resource_id = EXCLUDED.managed_resource_id;
+
 
 -- ID 시퀀스 수동 업데이트 (PostgreSQL 기준)
 SELECT setval('users_id_seq', (SELECT MAX(id) FROM USERS), true);
@@ -130,3 +167,4 @@ SELECT setval('business_resource_id_seq', (SELECT MAX(id) FROM BUSINESS_RESOURCE
 SELECT setval('business_action_id_seq', (SELECT MAX(id) FROM BUSINESS_ACTION), true);
 SELECT setval('condition_template_id_seq', (SELECT MAX(id) FROM CONDITION_TEMPLATE), true);
 SELECT setval('document_document_id_seq', (SELECT MAX(document_id) FROM DOCUMENT), true);
+
