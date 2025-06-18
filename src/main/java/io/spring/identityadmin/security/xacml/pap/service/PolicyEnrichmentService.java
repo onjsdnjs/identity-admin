@@ -21,7 +21,7 @@ public class PolicyEnrichmentService {
      * @param policy 정보를 채울 Policy 엔티티
      */
     public void enrichPolicyWithFriendlyDescription(Policy policy) {
-        if (policy == null) {
+       /* if (policy == null) {
             return;
         }
 
@@ -31,6 +31,13 @@ public class PolicyEnrichmentService {
         // 파싱된 노드에서 사람이 읽을 수 있는 설명 전체를 가져옴
         String description = rootNode.getConditionDescription();
 
+        policy.setFriendlyDescription(description);*/
+
+        if (policy == null) {
+            return;
+        }
+        // [수정] 새로운 번역 메서드 호출
+        String description = policyTranslator.translatePolicyToString(policy);
         policy.setFriendlyDescription(description);
     }
 }

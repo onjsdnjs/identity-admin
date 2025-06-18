@@ -39,6 +39,100 @@ public class PolicyTranslator {
 
     private record AnalysisResult(List<String> subjectDescriptions, String subjectType, List<String> actionDescriptions, List<String> conditionDescriptions) {}
 
+
+    /**
+     * Policy 전체를 받아, 최종 설명문을 생성하는 진입점입니다.
+     * PolicyEnrichmentService에 의해 호출됩니다.
+     */
+    public String translatePolicyToString(Policy policy) {
+        if (policy == null || policy.getRules() == null || policy.getRules().isEmpty()) {
+            return "정의된 규칙이 없는 정책입니다.";
+        }
+
+        // 각 Rule은 AND로, Rule끼리는 OR로 연결됨을 가정하고 설명문을 생성합니다.
+        String rulesDescription = policy.getRules().stream()
+                .map(this::translateRuleToString)
+                .collect(Collectors.joining(" 또는 "));
+
+        return rulesDescription;
+    }
+
+    /**
+     * 단일 PolicyRule을 분석하여 설명문으로 번역합니다.
+     */
+    private String translateRuleToString(PolicyRule rule) {
+        if (rule.getConditions() == null || rule.getConditions().isEmpty()) {
+            return "(정의된 조건 없음)";
+        }
+
+        // Rule 내의 Condition들은 AND로 연결됩니다.
+        String conditionsDescription = rule.getConditions().stream()
+                .map(this::translateConditionToString)
+                .collect(Collectors.joining(" 그리고 "));
+
+        return "(" + conditionsDescription + ")";
+    }
+
+    /**
+     * 단일 PolicyCondition의 SpEL 표현식을 분석하여 설명문으로 번역합니다.
+     */
+    private String translateConditionToString(PolicyCondition condition) {
+        try {
+            Expression expression = expressionParser.parseExpression(condition.getExpression());
+            SpelNode ast = ((SpelExpression) expression).getAST();
+            return walkAndDescribe(ast);
+        } catch (Exception e) {
+            log.warn("SpEL 번역 중 오류 발생: {}. 원본 표현식을 그대로 반환합니다.", condition.getExpression(), e);
+            return condition.getExpression(); // 파싱 실패 시 원본 문자열 반환
+        }
+    }
+
+    /**
+     * [핵심] AST를 재귀적으로 탐색하며 설명문을 생성하는 메서드
+     */
+    private String walkAndDescribe(SpelNode node) {
+        // 1. 논리 연산자 처리
+        if (node instanceof OpAnd) {
+            return String.format("(%s 그리고 %s)", walkAndDescribe(node.getChild(0)), walkAndDescribe(node.getChild(1)));
+        }
+        if (node instanceof OpOr) {
+            return String.format("(%s 또는 %s)", walkAndDescribe(node.getChild(0)), walkAndDescribe(node.getChild(1)));
+        }
+        if (node instanceof OperatorNot) {
+            return String.format("NOT (%s)", walkAndDescribe(node.getChild(0)));
+        }
+
+        // 2. 비교 연산자 처리
+        if (node instanceof OpEQ) return String.format("%s가 %s와(과) 같음", walkAndDescribe(node.getChild(0)), walkAndDescribe(node.getChild(1)));
+        if (node instanceof OpNE) return String.format("%s가 %s와(과) 다름", walkAndDescribe(node.getChild(0)), walkAndDescribe(node.getChild(1)));
+        if (node instanceof OpGT) return String.format("%s가 %s보다 큼", walkAndDescribe(node.getChild(0)), walkAndDescribe(node.getChild(1)));
+        if (node instanceof OpGE) return String.format("%s가 %s보다 크거나 같음", walkAndDescribe(node.getChild(0)), walkAndDescribe(node.getChild(1)));
+        if (node instanceof OpLT) return String.format("%s가 %s보다 작음", walkAndDescribe(node.getChild(0)), walkAndDescribe(node.getChild(1)));
+        if (node instanceof OpLE) return String.format("%s가 %s보다 작거나 같음", walkAndDescribe(node.getChild(0)), walkAndDescribe(node.getChild(1)));
+
+        // 3. 메서드 호출 처리 (hasRole, hasAuthority 등)
+        if (node instanceof MethodReference) {
+            MethodReference methodRef = (MethodReference) node;
+            String methodName = methodRef.getName();
+            for (SpelFunctionTranslator translator : translators) {
+                if (translator.supports(methodName)) {
+                    // 각 translator가 반환하는 ExpressionNode의 설명을 사용
+                    return translator.translate(methodName, methodRef).getConditionDescription();
+                }
+            }
+        }
+
+        // 4. 식별자 처리 (permitAll, denyAll 등)
+        if (node instanceof Identifier) {
+            String identifier = ((Identifier) node).toString();
+            if ("permitAll".equalsIgnoreCase(identifier)) return "모든 접근";
+            if ("denyAll".equalsIgnoreCase(identifier)) return "모든 접근 거부";
+        }
+
+        // 5. 리터럴 및 기타 처리 (SpEL 코드 자체를 반환)
+        return node.toStringAST();
+    }
+
     /**
      * Policy 객체 하나를 EntitlementDto 스트림으로 번역합니다.
      * 하나의 정책은 여러 규칙(OR)을, 하나의 규칙은 여러 조건(AND)을 가질 수 있습니다.
@@ -140,11 +234,14 @@ public class PolicyTranslator {
      * Rule 내의 Condition들은 AND로 연결됩니다.
      */
     private ExpressionNode parseRule(PolicyRule rule) {
+        if (rule.getConditions() == null || rule.getConditions().isEmpty()) {
+            return new TerminalNode("정의된 조건 없음");
+        }
         List<ExpressionNode> conditionNodes = rule.getConditions().stream()
                 .map(this::parseCondition)
                 .collect(Collectors.toList());
 
-        return (conditionNodes.size() == 1) ? conditionNodes.get(0) : new LogicalNode("AND", conditionNodes);
+        return (conditionNodes.size() == 1) ? conditionNodes.getFirst() : new LogicalNode("AND", conditionNodes);
     }
 
     private ExpressionNode walk(SpelNode node) {

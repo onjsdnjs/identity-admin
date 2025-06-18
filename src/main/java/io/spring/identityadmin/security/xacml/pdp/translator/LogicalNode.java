@@ -38,7 +38,7 @@ public class LogicalNode implements ExpressionNode {
     @Override
     public String getConditionDescription() {
         if ("NOT".equals(operator)) {
-            return "NOT (" + children.get(0).getConditionDescription() + ")";
+            return "NOT (" + children.getFirst().getConditionDescription() + ")";
         }
         return "(" + children.stream()
                 .map(ExpressionNode::getConditionDescription)

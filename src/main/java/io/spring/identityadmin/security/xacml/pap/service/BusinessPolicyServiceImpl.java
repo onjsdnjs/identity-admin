@@ -121,6 +121,14 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
             dto.getConditions().forEach((templateId, params) -> {
                 ConditionTemplate template = conditionTemplateRepository.findById(templateId)
                         .orElseThrow(() -> new IllegalArgumentException("Invalid ConditionTemplate ID: " + templateId));
+
+                if (template.getParameterCount() != params.size()) {
+                    throw new IllegalArgumentException(
+                            String.format("Condition '%s' requires %d parameter(s), but %d were provided.",
+                                    template.getName(), template.getParameterCount(), params.size())
+                    );
+                }
+
                 String spel = String.format(template.getSpelTemplate().replace("?", "'%s'"), params.toArray());
                 contextualConditions.add(spel);
             });
