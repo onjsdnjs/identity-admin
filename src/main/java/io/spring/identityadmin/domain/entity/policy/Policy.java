@@ -40,4 +40,16 @@ public class Policy implements Serializable {
     private String friendlyDescription;
 
     public enum Effect { ALLOW, DENY }
+
+    // [신규] 양방향 관계 설정을 위한 편의 메서드 추가
+    public void addTarget(PolicyTarget target) {
+        this.targets.add(target);
+        target.setPolicy(this);
+    }
+
+    // [신규] 양방향 관계 설정을 위한 편의 메서드 추가
+    public void addRule(PolicyRule rule) {
+        this.rules.add(rule);
+        rule.setPolicy(this);
+    }
 }
