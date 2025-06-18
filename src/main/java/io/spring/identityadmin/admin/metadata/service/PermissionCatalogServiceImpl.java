@@ -59,13 +59,15 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
     }
 
     private String generatePermissionName(ManagedResource resource) {
-        // PERM_리소스ID_리소스식별자(일부) 로 고유하고 예측 가능한 이름 생성
+        String typePrefix = resource.getResourceType().name(); // URL 또는 METHOD
         String identifierPart = resource.getResourceIdentifier()
-                .replaceAll("[^a-zA-Z0-9]", "_")
+                .replaceAll("[^a-zA-Z0-9_.-]", "_") // 허용 문자 확대
+                .replace('.', '_')
                 .toUpperCase();
-        if (identifierPart.length() > 50) {
-            identifierPart = identifierPart.substring(identifierPart.length() - 50);
+
+        if (identifierPart.length() > 100) { // 길이 제한 조정
+            identifierPart = identifierPart.substring(0, 100);
         }
-        return String.format("PERM_%d_%s", resource.getId(), identifierPart);
+        return String.format("%s_%s", typePrefix, identifierPart);
     }
 }

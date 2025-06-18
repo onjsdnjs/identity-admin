@@ -72,8 +72,6 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Transactional(readOnly = true)
-//    @PreAuthorize("hasRole('USER')")
-    @Protectable(name="사용자 정보 조회", description = "사용자 정보를 조회 합니다.")
     public UserDto getUser(Long id) {
         Users users = userRepository.findByIdWithGroupsRolesAndPermissions(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));

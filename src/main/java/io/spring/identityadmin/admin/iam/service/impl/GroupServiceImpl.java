@@ -6,6 +6,7 @@ import io.spring.identityadmin.domain.entity.GroupRole;
 import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.repository.GroupRepository;
 import io.spring.identityadmin.repository.RoleRepository;
+import io.spring.identityadmin.resource.Protectable;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -53,6 +54,7 @@ public class GroupServiceImpl implements GroupService {
         return groupRepository.save(group);
     }
 
+    @Protectable(name = "그룹 조회", description = "그룹을 조회 합니다.")
     public Optional<Group> getGroup(Long id) {
         return groupRepository.findByIdWithRoles(id);
     }
