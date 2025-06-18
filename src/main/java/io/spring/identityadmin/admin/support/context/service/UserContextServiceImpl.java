@@ -25,9 +25,6 @@ public class UserContextServiceImpl implements UserContextService {
     private final WizardSessionRepository wizardSessionRepository;
     private final ObjectMapper objectMapper;
 
-    /**
-     * [최종 구현] 인메모리 맵 대신, WizardContext를 JSON으로 직렬화하여 DB에 영속적으로 저장합니다.
-     */
     @Override
     @Transactional
     public void saveWizardProgress(String userSessionId, Long ownerUserId, WizardContext context) {
