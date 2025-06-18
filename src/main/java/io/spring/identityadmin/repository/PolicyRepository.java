@@ -1,6 +1,7 @@
 package io.spring.identityadmin.repository;
 
 import io.spring.identityadmin.domain.entity.policy.Policy;
+import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -44,11 +45,16 @@ public interface PolicyRepository extends JpaRepository<Policy, Long> {
     @Query("SELECT p FROM Policy p JOIN FETCH p.targets t WHERE t.targetType = 'URL'")
     List<Policy> findAllUrlPoliciesWithDetails();
 
-    /**
-     * [신규] ID를 기준으로 내림차순 정렬하여 최근 5개의 정책을 조회합니다.
-     * 감사 로그(Audit Log)가 구현되기 전까지 대시보드의 '최근 활동'에 사용됩니다.
-     * @return 최근 생성된 Policy 5개 리스트
-     */
+    @Query("SELECT p FROM Policy p JOIN p.targets t " +
+            "LEFT JOIN FETCH p.rules r " +
+            "LEFT JOIN FETCH r.conditions c " +
+            "WHERE t.targetType = 'METHOD' AND t.targetIdentifier = :methodIdentifier " +
+            "AND c.authorizationPhase = :phase " + // [신규] phase 조건 추가
+            "ORDER BY p.priority ASC")
+    List<Policy> findByMethodIdentifierAndPhase(@Param("methodIdentifier") String methodIdentifier,
+                                                @Param("phase") PolicyCondition.AuthorizationPhase phase);
+
+
     @Query("SELECT DISTINCT p FROM Policy p " +
             "LEFT JOIN FETCH p.rules r " +
             "LEFT JOIN FETCH r.conditions " +

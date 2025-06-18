@@ -6,10 +6,13 @@ import io.spring.identityadmin.repository.GroupRepository;
 import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.dto.UserListDto;
 import io.spring.identityadmin.repository.UserRepository;
+import io.spring.identityadmin.resource.Protectable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.authorization.method.HandleAuthorizationDenied;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,6 +72,8 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Transactional(readOnly = true)
+//    @PreAuthorize("hasRole('USER')")
+    @Protectable(name="사용자 정보 조회", description = "사용자 정보를 조회 합니다.")
     public UserDto getUser(Long id) {
         Users users = userRepository.findByIdWithGroupsRolesAndPermissions(id)
                 .orElseThrow(() -> new IllegalArgumentException("User not found with ID: " + id));

@@ -23,5 +23,15 @@ public class PolicyCondition implements Serializable {
     @Column(name = "condition_expression", length = 2048, nullable = false)
     private String expression; // 예: "hasRole('ADMIN')", "#risk.score < 70"
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "authorization_phase", nullable = false)
+    @Builder.Default
+    private AuthorizationPhase authorizationPhase = AuthorizationPhase.PRE_AUTHORIZE;
+
     private String description;
+
+    public enum AuthorizationPhase {
+        PRE_AUTHORIZE,
+        POST_AUTHORIZE
+    }
 }

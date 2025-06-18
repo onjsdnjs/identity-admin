@@ -1,13 +1,8 @@
 package io.spring.identityadmin.security.xacml.pap.service;
 
 import io.spring.identityadmin.domain.dto.PolicyDto;
-import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.Role;
-import io.spring.identityadmin.domain.entity.RolePermission;
 import io.spring.identityadmin.domain.entity.policy.Policy;
-import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
-import io.spring.identityadmin.domain.entity.policy.PolicyRule;
-import io.spring.identityadmin.domain.entity.policy.PolicyTarget;
 import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
@@ -16,11 +11,9 @@ import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.ui.Model;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j

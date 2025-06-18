@@ -61,7 +61,7 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
      * 정책 객체로부터 최종 인가 표현식 문자열을 생성합니다.
      * 여러 조건은 OR로 결합되며, 순수 권한 문자열은 hasAnyAuthority()로 묶어 효율을 높입니다.
      */
-    private String getExpressionFromPolicy(Policy policy) {
+    public String getExpressionFromPolicy(Policy policy) {
         List<String> conditionExpressions = policy.getRules().stream()
                 .flatMap(rule -> rule.getConditions().stream())
                 .map(PolicyCondition::getExpression)
@@ -98,6 +98,22 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
             return "!(" + finalExpression + ")";
         }
         return finalExpression;
+    }
+
+    /**
+     * 여러 정책을 받아 최종 SpEL 표현식으로 조합합니다.
+     * 각 정책의 표현식은 OR로 결합됩니다.
+     * 동적 메서드 인가(ProtectableMethodAuthorizationManager)에서 사용됩니다.
+     */
+    public String getExpressionFromPolicies(List<Policy> policies) {
+        if (policies == null || policies.isEmpty()) {
+            return "denyAll"; // 적용할 정책이 없으면 기본적으로 거부
+        }
+
+        return policies.stream()
+                .map(this::getExpressionFromPolicy) // 기존 단일 정책 변환 로직 재사용
+                .map(expr -> "(" + expr + ")")
+                .collect(Collectors.joining(" or ")); // 여러 정책은 OR로 결합
     }
 
     @Override

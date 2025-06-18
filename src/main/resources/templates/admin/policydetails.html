@@ -85,29 +85,29 @@
                 </div>
 
                 <div class="space-y-4">
-                    <label class="block text-sm font-medium" style="color: #cbd5e1;">규칙 (Rules - 각 규칙은 OR 로 결합)</label>
+                    <label class="block text-sm font-medium" style="color: #cbd5e1;">규칙 (Rules)</label>
                     <div id="rules-container" class="space-y-4">
-                        <div th:each="rule, stat : *{rules}" class="rule-block p-4 rounded-lg space-y-3 relative"
-                             style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(71, 85, 105, 0.3);">
-                            <button type="button" onclick="removeRule(this)"
-                                    class="absolute top-2 right-2 hover:text-red-400" style="color: #94a3b8;">&times;</button>
-                            <h3 class="font-semibold" style="color: #e2e8f0;" th:text="'규칙(Rule) #' + (${stat.index} + 1)"></h3>
-                            <div>
-                                <label th:for="|ruleDesc${stat.index}|" class="block text-sm font-medium" style="color: #cbd5e1;">규칙 설명:</label>
-                                <input type="text" th:id="|ruleDesc${stat.index}|" th:field="*{rules[__${stat.index}__].description}"
-                                       class="mt-1 block w-full px-4 py-2 rounded-md shadow-sm sm:text-sm"
-                                       style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;" />
+                        <div th:each="rule, ruleStat : *{rules}" class="rule-block p-4 rounded-lg space-y-3 relative" style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(71, 85, 105, 0.3);">
+                            <label class="block text-sm font-medium" style="color: #cbd5e1;">조건 (Conditions - AND 결합):</label>
+                            <div class="conditions-list space-y-2">
+                                <div th:each="cond, condStat : ${rule.conditions}" class="condition-block grid grid-cols-12 gap-2 items-center">
+                                    <div class="col-span-3">
+                                        <select th:field="*{rules[__${ruleStat.index}__].conditions[__${condStat.index}__].authorizationPhase}" class="dark-input">
+                                            <option th:value="PRE_AUTHORIZE">사전 인가 (Pre)</option>
+                                            <option th:value="POST_AUTHORIZE">사후 인가 (Post)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-span-8">
+                                        <input type="text" th:field="*{rules[__${ruleStat.index}__].conditions[__${condStat.index}__].expression}" class="dark-input font-mono" placeholder="SpEL 표현식 입력">
+                                    </div>
+                                    <div class="col-span-1 text-center">
+                                        <button type="button" onclick="removeElement(this, '.condition-block')" class="hover:text-red-400">&times;</button>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <label th:for="|conditions${stat.index}|" class="block text-sm font-medium" style="color: #cbd5e1;">조건 (Conditions - Rule 내부에서는 AND 결합):</label>
-                                <textarea th:id="|conditions${stat.index}|" th:field="*{rules[__${stat.index}__].conditions}" rows="3"
-                                          class="mt-1 block w-full px-4 py-2 font-mono text-sm rounded-md shadow-sm"
-                                          style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0; resize: vertical;"
-                                          placeholder="한 줄에 하나씩 SpEL 표현식 입력"></textarea>
-                            </div>
+                            <button type="button" onclick="addCondition(this)" class="text-xs font-medium hover:underline" style="color: #818cf8;">+ 조건 추가</button>
                         </div>
                     </div>
-                    <button type="button" id="add-rule-btn" class="text-sm font-medium hover:underline" style="color: #818cf8;">+ 규칙 추가</button>
                 </div>
 
                 <div class="pt-2">
@@ -184,6 +184,34 @@
             block.querySelector('textarea[id^="conditions"]').id = `conditions${i}`;
             block.querySelector('textarea[id^="conditions"]').name = `rules[${i}].conditions`;
         }
+    }
+
+    function addCondition(button) {
+        const ruleBlock = button.closest('.rule-block');
+        const conditionsList = ruleBlock.querySelector('.conditions-list');
+        const ruleIndex = Array.from(document.querySelectorAll('.rule-block')).indexOf(ruleBlock);
+        const conditionIndex = conditionsList.children.length;
+
+        const newCondition = document.createElement('div');
+        newCondition.className = 'condition-block grid grid-cols-12 gap-2 items-center';
+        newCondition.innerHTML = `
+        <div class="col-span-3">
+            <select name="rules[<span class="math-inline">\{ruleIndex\}\]\.conditions\[</span>{conditionIndex}].authorizationPhase" class="dark-input">
+                <option value="PRE_AUTHORIZE">사전 인가 (Pre)</option>
+                <option value="POST_AUTHORIZE">사후 인가 (Post)</option>
+            </select>
+        </div>
+        <div class="col-span-8">
+            <input type="text" name="rules[<span class="math-inline">\{ruleIndex\}\]\.conditions\[</span>{conditionIndex}].expression" class="dark-input font-mono" placeholder="SpEL 표현식 입력">
+        </div>
+        <div class="col-span-1 text-center">
+            <button type="button" onclick="removeElement(this, '.condition-block')" class="hover:text-red-400">&times;</button>
+        </div>
+    `;
+        conditionsList.appendChild(newCondition);
+    }
+    function removeElement(button, selector) {
+        button.closest(selector).remove();
     }
 </script>
 

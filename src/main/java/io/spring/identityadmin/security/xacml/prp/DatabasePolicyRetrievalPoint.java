@@ -1,6 +1,7 @@
 package io.spring.identityadmin.security.xacml.prp;
 
 import io.spring.identityadmin.domain.entity.policy.Policy;
+import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,13 @@ public class DatabasePolicyRetrievalPoint implements PolicyRetrievalPoint {
     public List<Policy> findMethodPolicies(String methodIdentifier) {
         log.debug("Fetching method policies for identifier: {}", methodIdentifier);
         return policyRepository.findByMethodIdentifier(methodIdentifier);
+    }
+
+    @Override
+    public List<Policy> findMethodPolicies(String methodIdentifier, String phase) { // [수정] phase 파라미터 추가
+        log.debug("Fetching method policies for identifier: {} and phase: {}", methodIdentifier, phase);
+        PolicyCondition.AuthorizationPhase authPhase = PolicyCondition.AuthorizationPhase.valueOf(phase);
+        return policyRepository.findByMethodIdentifierAndPhase(methodIdentifier, authPhase); // [수정] 새 쿼리 호출
     }
 
     @Override
