@@ -76,6 +76,7 @@ CREATE TABLE PERMISSION (
                             description VARCHAR(1024),
                             target_type VARCHAR(255),
                             action_type VARCHAR(255),
+                            condition_expression VARCHAR(255),
                             managed_resource_id BIGINT UNIQUE REFERENCES MANAGED_RESOURCE(id) ON DELETE SET NULL
 );
 
