@@ -8,12 +8,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.LocalDateTime;
 
-/**
- * [수정됨]
- * 사유: 워크벤치의 명확한 상태 관리를 위해 기존의 isManaged, isDefined boolean 필드를
- *      하나의 Status Enum 타입으로 통합합니다. 이를 통해 '정의 필요', '권한 생성됨', '정책 연결됨' 등
- *      리소스의 생명주기를 더 명확하게 표현하고 관리할 수 있습니다.
- */
 @Entity
 @Table(name = "MANAGED_RESOURCE")
 @Getter @Setter @Builder
@@ -24,8 +18,6 @@ public class ManagedResource {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    // ... 기존 필드들 (resourceIdentifier, resourceType, httpMethod 등) ...
     @Column(nullable = false, length = 512)
     private String resourceIdentifier;
     @Enumerated(EnumType.STRING)
