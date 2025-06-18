@@ -60,6 +60,7 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Cacheable(value = "groups", key = "'allGroups'")
+    @Protectable(name = "그룹 목록 조회", description = "그룹 목록을 조회 합니다.")
     public List<Group> getAllGroups() {
         return groupRepository.findAllWithRolesAndUsers();
     }

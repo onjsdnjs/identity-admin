@@ -147,13 +147,15 @@ public class DefaultPolicyService implements PolicyService {
         // 여러 규칙(Rule)을 처리하는 로직
         if (dto.getRules() != null) {
             Set<PolicyRule> policyRules = dto.getRules().stream().map(ruleDto -> {
-                PolicyRule rule = PolicyRule.builder()
-                        .policy(policy)
-                        .description(ruleDto.getDescription())
-                        .build();
+                PolicyRule rule = PolicyRule.builder().policy(policy).description(ruleDto.getDescription()).build();
 
+                // [수정] ConditionDto를 순회하며 PolicyCondition 엔티티 생성
                 Set<PolicyCondition> conditions = ruleDto.getConditions().stream()
-                        .map(conditionStr -> PolicyCondition.builder().rule(rule).expression(conditionStr).build())
+                        .map(condDto -> PolicyCondition.builder()
+                                .rule(rule)
+                                .expression(condDto.getExpression())
+                                .authorizationPhase(condDto.getAuthorizationPhase()) // phase 정보 추가
+                                .build())
                         .collect(Collectors.toSet());
 
                 rule.setConditions(conditions);
@@ -196,7 +198,7 @@ public class DefaultPolicyService implements PolicyService {
                         .build();
 
                 Set<PolicyCondition> conditions = ruleDto.getConditions().stream()
-                        .map(conditionStr -> PolicyCondition.builder().rule(rule).expression(conditionStr).build())
+                        .map(condition -> PolicyCondition.builder().rule(rule).expression(condition.getExpression()).build())
                         .collect(Collectors.toSet());
 
                 rule.setConditions(conditions);

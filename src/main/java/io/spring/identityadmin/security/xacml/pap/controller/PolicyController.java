@@ -83,11 +83,15 @@ public class PolicyController {
         dto.setRules(policy.getRules().stream().map(rule -> {
             PolicyDto.RuleDto ruleDto = new PolicyDto.RuleDto();
             ruleDto.setDescription(rule.getDescription());
-            ruleDto.setConditions(rule.getConditions().stream()
-                    .map(PolicyCondition::getExpression)
-                    .collect(Collectors.toList()));
+
+            // PolicyCondition 엔티티를 ConditionDto로 변환
+            List<PolicyDto.ConditionDto> conditionDtos = rule.getConditions().stream()
+                    .map(condition -> new PolicyDto.ConditionDto(condition.getExpression(), condition.getAuthorizationPhase()))
+                    .collect(Collectors.toList());
+            ruleDto.setConditions(conditionDtos);
+
             return ruleDto;
-        }).collect(Collectors.toList()));
+        }).toList());
 
         return dto;
     }

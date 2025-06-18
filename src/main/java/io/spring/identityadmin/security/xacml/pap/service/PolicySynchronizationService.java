@@ -3,6 +3,7 @@ package io.spring.identityadmin.security.xacml.pap.service;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.policy.Policy;
+import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
@@ -46,9 +47,20 @@ public class PolicySynchronizationService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        // 규칙(Rule) DTO 생성
+        // [최종 수정] ConditionDto를 사용하여 RuleDto를 생성합니다.
         String conditionSpel = String.format("hasAuthority('%s')", role.getRoleName());
-        PolicyDto.RuleDto ruleDto = new PolicyDto.RuleDto("Auto-generated rule for " + role.getRoleName(), List.of(conditionSpel));
+
+        // 1. 개별 ConditionDto 생성 (기본값으로 PRE_AUTHORIZE)
+        PolicyDto.ConditionDto conditionDto = PolicyDto.ConditionDto.builder()
+                .expression(conditionSpel)
+                .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE)
+                .build();
+
+        // 2. ConditionDto 리스트를 포함하여 RuleDto 생성
+        PolicyDto.RuleDto ruleDto = PolicyDto.RuleDto.builder()
+                .description("Auto-generated rule for " + role.getRoleName())
+                .conditions(List.of(conditionDto))
+                .build();
 
         // 최종 PolicyDto 생성
         PolicyDto policyDto = PolicyDto.builder()
@@ -60,11 +72,11 @@ public class PolicySynchronizationService {
                 .rules(List.of(ruleDto))
                 .build();
 
-        // 2. 기존에 자동 생성된 정책이 있는지 확인하여 ID를 설정 (업데이트를 위함)
+        // 기존 정책이 있는지 확인하여 ID 설정 (업데이트를 위함)
         policyRepository.findByName(policyName)
                 .ifPresent(existingPolicy -> policyDto.setId(existingPolicy.getId()));
 
-        // 3. PolicyService에 DTO를 전달하여 정책 생성 또는 업데이트를 '요청'합니다.
+        // PolicyService의 DTO 기반 메서드를 호출
         if(policyDto.getId() != null) {
             policyService.updatePolicy(policyDto);
         } else {

@@ -90,26 +90,31 @@ public class PolicyOptimizationServiceImpl implements PolicyOptimizationService 
         String commonTargetSignature = createTargetSignature(firstPolicy);
         Policy.Effect commonEffect = firstPolicy.getEffect();
 
-        // 모든 정책이 동일한 대상과 효과를 갖는지 확인
         for (Policy policy : policiesToMerge) {
             if (!commonEffect.equals(policy.getEffect()) || !commonTargetSignature.equals(createTargetSignature(policy))) {
                 throw new IllegalArgumentException("대상 또는 효과가 다른 정책들은 병합할 수 없습니다.");
             }
         }
 
-        // 각 정책의 조건들을 'or'로 결합
         String mergedCondition = policiesToMerge.stream()
                 .flatMap(p -> p.getRules().stream())
                 .flatMap(r -> r.getConditions().stream())
                 .map(PolicyCondition::getExpression)
                 .map(expr -> "(" + expr + ")")
-                .distinct() // 중복 조건 제거
+                .distinct()
                 .collect(Collectors.joining(" or "));
 
-        // 병합된 새로운 규칙 DTO 생성
+        // [수정] ConditionDto를 사용하여 RuleDto를 생성하도록 변경
+        // 1. 병합된 조건을 담을 ConditionDto 생성 (기본값 PRE_AUTHORIZE)
+        PolicyDto.ConditionDto mergedConditionDto = PolicyDto.ConditionDto.builder()
+                .expression(mergedCondition)
+                .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE)
+                .build();
+
+        // 2. ConditionDto 리스트를 사용하여 RuleDto 생성
         PolicyDto.RuleDto mergedRule = PolicyDto.RuleDto.builder()
                 .description("ID " + policyIds + " 정책들로부터 병합됨")
-                .conditions(List.of(mergedCondition))
+                .conditions(List.of(mergedConditionDto))
                 .build();
 
         // 병합된 최종 정책 DTO 생성
@@ -117,7 +122,7 @@ public class PolicyOptimizationServiceImpl implements PolicyOptimizationService 
                 .name("Merged-Policy-" + String.join("-", policyIds.stream().map(String::valueOf).toList()))
                 .description("여러 정책이 하나로 병합되었습니다.")
                 .effect(commonEffect)
-                .priority(firstPolicy.getPriority()) // 우선순위는 첫 정책 기준
+                .priority(firstPolicy.getPriority())
                 .targets(firstPolicy.getTargets().stream().map(t -> modelMapper.map(t, PolicyDto.TargetDto.class)).toList())
                 .rules(List.of(mergedRule))
                 .build();

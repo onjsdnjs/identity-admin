@@ -2,21 +2,15 @@ package io.spring.identityadmin.workflow.wizard.service;
 
 import io.spring.identityadmin.admin.iam.service.RoleService;
 import io.spring.identityadmin.admin.support.context.service.UserContextService;
-import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.Users;
-import io.spring.identityadmin.domain.entity.policy.Policy;
-import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.security.core.CustomUserDetails;
-import io.spring.identityadmin.security.xacml.pap.service.PolicyService;
 import io.spring.identityadmin.studio.dto.InitiateGrantRequestDto;
-import io.spring.identityadmin.workflow.translator.BusinessPolicyTranslator;
 import io.spring.identityadmin.workflow.wizard.dto.SavePermissionsRequest;
 import io.spring.identityadmin.workflow.wizard.dto.SaveSubjectsRequest;
 import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.modelmapper.ModelMapper;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -26,6 +20,11 @@ import org.springframework.util.CollectionUtils;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * [최종 수정 및 완성]
+ * RBAC 중심의 아키텍처에 맞춰, 권한 부여 마법사의 역할을 '권한을 역할에 할당'하는 것으로 명확히 하고
+ * 관련 모든 메서드를 최종 구현합니다.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -40,24 +39,15 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         String contextId = UUID.randomUUID().toString();
         log.info("Beginning new permission grant wizard. Context ID: {}", contextId);
 
-        Set<WizardContext.Subject> subjects = new HashSet<>();
-        if (!CollectionUtils.isEmpty(request.getUserIds())) {
-            request.getUserIds().stream().map(id -> new WizardContext.Subject(id, "USER")).forEach(subjects::add);
-        }
-        if (!CollectionUtils.isEmpty(request.getGroupIds())) {
-            request.getGroupIds().stream().map(id -> new WizardContext.Subject(id, "GROUP")).forEach(subjects::add);
-        }
-
         WizardContext initialContext = WizardContext.builder()
                 .contextId(contextId)
                 .sessionTitle(policyName)
                 .sessionDescription(policyDescription)
-                .subjects(subjects)
-                .permissionIds(request.getPermissionIds())
+                .subjects(new HashSet<>()) // 초기 주체(역할)는 비어있음
+                .permissionIds(request.getPermissionIds()) // 워크벤치에서 전달된 권한 ID 설정
                 .build();
 
-        Long currentUserId = getCurrentUserId();
-        userContextService.saveWizardProgress(contextId, currentUserId, initialContext);
+        userContextService.saveWizardProgress(contextId, getCurrentUserId(), initialContext);
         return initialContext;
     }
 
@@ -66,24 +56,28 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         return userContextService.getWizardProgress(contextId);
     }
 
+    /**
+     * [최종 구현] 마법사의 '역할 선택' 단계를 저장합니다.
+     * 이제 주체(Subject)는 역할(Role)을 의미합니다.
+     */
     @Override
     @Transactional
     public WizardContext updateSubjects(String contextId, SaveSubjectsRequest request) {
         WizardContext currentContext = userContextService.getWizardProgress(contextId);
-        log.info("Updating subjects for wizard context: {}", contextId);
+        log.info("Updating selected roles for wizard context: {}", contextId);
 
-        Set<WizardContext.Subject> newSubjects = new HashSet<>();
-        if (request.userIds() != null) request.userIds().forEach(id -> newSubjects.add(new WizardContext.Subject(id, "USER")));
-        if (request.groupIds() != null) request.groupIds().forEach(id -> newSubjects.add(new WizardContext.Subject(id, "GROUP")));
+        // request의 userIds가 실제로는 roleId를 담고 있다고 가정하고 로직을 수정합니다.
+        // DTO 이름을 명확하게 바꾸는 것이 장기적으로 좋습니다. (예: SaveRolesRequest)
+        Set<WizardContext.Subject> selectedRoles = request.userIds().stream()
+                .map(roleId -> new WizardContext.Subject(roleId, "ROLE"))
+                .collect(Collectors.toSet());
 
         WizardContext updatedContext = WizardContext.builder()
                 .contextId(currentContext.contextId())
                 .sessionTitle(currentContext.sessionTitle())
                 .sessionDescription(currentContext.sessionDescription())
-                .subjects(newSubjects) // 새로운 주체 정보로 교체
-                .permissionIds(currentContext.permissionIds()) // 기존 권한 정보는 유지
-                .targetSubject(currentContext.targetSubject())
-                .initialAssignmentIds(currentContext.initialAssignmentIds())
+                .subjects(selectedRoles) // 새로운 역할 정보로 교체
+                .permissionIds(currentContext.permissionIds())
                 .build();
 
         userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);
@@ -100,10 +94,8 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
                 .contextId(currentContext.contextId())
                 .sessionTitle(currentContext.sessionTitle())
                 .sessionDescription(currentContext.sessionDescription())
-                .subjects(currentContext.subjects()) // 기존 주체 정보는 유지
+                .subjects(currentContext.subjects())
                 .permissionIds(request.permissionIds()) // 새로운 권한 정보로 교체
-                .targetSubject(currentContext.targetSubject())
-                .initialAssignmentIds(currentContext.initialAssignmentIds())
                 .build();
 
         userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);
@@ -112,27 +104,28 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
 
     @Override
     @Transactional
-    public WizardContext updatePolicyDetails(String contextId, String policyName, String policyDescription) {
+    public void updatePolicyDetails(String contextId, String policyName, String policyDescription) {
         WizardContext currentContext = userContextService.getWizardProgress(contextId);
         log.info("Updating policy details for wizard context: {}", contextId);
 
         WizardContext updatedContext = WizardContext.builder()
                 .contextId(currentContext.contextId())
-                .sessionTitle(policyName) // 새로운 정책 이름으로 교체
-                .sessionDescription(policyDescription) // 새로운 정책 설명으로 교체
+                .sessionTitle(policyName)
+                .sessionDescription(policyDescription)
                 .subjects(currentContext.subjects())
                 .permissionIds(currentContext.permissionIds())
-                .targetSubject(currentContext.targetSubject())
-                .initialAssignmentIds(currentContext.initialAssignmentIds())
                 .build();
 
         userContextService.saveWizardProgress(contextId, getCurrentUserId(), updatedContext);
-        return updatedContext;
     }
 
+    /**
+     * [최종 구현] 마법사의 최종 '적용' 단계입니다.
+     * 선택된 역할(들)에 선택된 권한을 할당하는 작업을 RoleService에 위임합니다.
+     */
     @Override
     @Transactional
-    public void commitPolicy(String contextId, List<Long> selectedRoleIds) { // [수정] 시그니처 변경
+    public void commitPolicy(String contextId, List<Long> selectedRoleIds) {
         log.info("Committing permission-to-role assignment for wizard context: {}", contextId);
         WizardContext context = userContextService.getWizardProgress(contextId);
 
@@ -142,7 +135,7 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
             throw new IllegalStateException("역할과 권한이 반드시 선택되어야 합니다.");
         }
 
-        // 마법사는 단일 권한 할당을 전제로 함
+        // 마법사는 현재 단일 권한 할당을 전제로 동작
         Long permissionIdToAdd = permissionIds.iterator().next();
 
         for (Long roleId : selectedRoleIds) {
@@ -155,7 +148,7 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
             if (!existingPermIds.contains(permissionIdToAdd)) {
                 List<Long> newPermissionIds = new ArrayList<>(existingPermIds);
                 newPermissionIds.add(permissionIdToAdd);
-                // 역할 업데이트 -> 내부적으로 이벤트 발행 -> 정책 자동 동기화
+                // 역할 업데이트 -> 이 메서드 내부에서 정책 동기화 이벤트가 발생해야 함
                 roleService.updateRole(role, newPermissionIds);
             }
         }
@@ -163,63 +156,24 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
         userContextService.clearWizardProgress(contextId);
     }
 
-    /**
-     * [신규] Policy 엔티티를 PolicyDto로 안전하게 변환하는 헬퍼 메서드.
-     * 중첩된 Target, Rule, Condition을 모두 명시적으로 변환하여 데이터 누락을 방지합니다.
-     * @param policy 변환할 Policy 엔티티
-     * @return 변환된 PolicyDto
-     */
-    private PolicyDto convertEntityToDto(Policy policy) {
-        if (policy == null) return null;
-
-        List<PolicyDto.TargetDto> targetDtos = policy.getTargets().stream()
-                .map(t -> PolicyDto.TargetDto.builder()
-                        .targetType(t.getTargetType())
-                        .targetIdentifier(t.getTargetIdentifier())
-                        .httpMethod(t.getHttpMethod())
-                        .build())
-                .collect(Collectors.toList());
-
-        List<PolicyDto.RuleDto> ruleDtos = policy.getRules().stream()
-                .map(r -> {
-                    List<String> conditionExpressions = r.getConditions().stream()
-                            .map(PolicyCondition::getExpression)
-                            .collect(Collectors.toList());
-                    return PolicyDto.RuleDto.builder()
-                            .description(r.getDescription())
-                            .conditions(conditionExpressions)
-                            .build();
-                })
-                .collect(Collectors.toList());
-
-        return PolicyDto.builder()
-                .id(policy.getId())
-                .name(policy.getName())
-                .description(policy.getDescription())
-                .effect(policy.getEffect())
-                .priority(policy.getPriority())
-                .targets(targetDtos)
-                .rules(ruleDtos)
-                .build();
-    }
-
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            log.warn("No authenticated user found. Returning 0 as fallback.");
-            return 0L;
+            log.warn("No authenticated user found. Returning null as fallback.");
+            return null; // ID를 찾을 수 없을 때 예외를 던지거나 null을 반환
         }
 
         Object principal = authentication.getPrincipal();
         if (principal instanceof CustomUserDetails userDetails) {
-            Users user = userDetails.getUsers();
+            return userDetails.getUsers().getId();
+        } else if (principal instanceof Users user) {
             return user.getId();
-
-        } else if (principal instanceof Users user) { // principal이 Users 타입인 경우
-            return user.getId();
-        } else {
-            log.warn("Principal is not an instance of CustomUserDetails. Principal type: {}. Returning 0 as fallback.", principal.getClass().getName());
-            return 0L;
         }
+        // 개발/테스트 환경을 위한 임시 처리
+        else if ("admin@example.com".equals(principal.toString())) {
+            return 1L;
+        }
+        log.warn("Principal is not an instance of CustomUserDetails or Users. Returning null. Principal type: {}", principal.getClass().getName());
+        return null;
     }
 }
