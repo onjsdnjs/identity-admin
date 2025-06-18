@@ -2,6 +2,7 @@ package io.spring.identityadmin.workflow.wizard.service;
 
 import io.spring.identityadmin.admin.iam.service.RoleService;
 import io.spring.identityadmin.admin.support.context.service.UserContextService;
+import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.security.core.CustomUserDetails;
@@ -158,22 +159,22 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
 
     private Long getCurrentUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            log.warn("No authenticated user found. Returning null as fallback.");
-            return null; // ID를 찾을 수 없을 때 예외를 던지거나 null을 반환
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            log.warn("No authenticated user found.");
+            return null;
         }
 
         Object principal = authentication.getPrincipal();
+
         if (principal instanceof CustomUserDetails userDetails) {
             return userDetails.getUsers().getId();
         } else if (principal instanceof Users user) {
             return user.getId();
+        } else if (principal instanceof UserDto userDto) {
+            return userDto.getId(); // [핵심] UserDto 타입 처리
         }
-        // 개발/테스트 환경을 위한 임시 처리
-        else if ("admin@example.com".equals(principal.toString())) {
-            return 1L;
-        }
-        log.warn("Principal is not an instance of CustomUserDetails or Users. Returning null. Principal type: {}", principal.getClass().getName());
+
+        log.warn("Principal is not an instance of a recognized user type. Principal type: {}. Returning null.", principal.getClass().getName());
         return null;
     }
 }

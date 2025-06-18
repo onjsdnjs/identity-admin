@@ -90,7 +90,7 @@ public class MethodResourceScanner implements ResourceScanner {
                             .parameterTypes(params)
                             .returnType(method.getReturnType().getSimpleName())
                             .sourceCodeLocation(sourceCodeLocation)
-                            .status(ManagedResource.Status.PERMISSION_CREATED)
+                            .status(ManagedResource.Status.NEEDS_DEFINITION)
                             .build());
                 }
             } catch (Exception e) {
