@@ -1,30 +1,28 @@
--- PostgreSQL 기준 스키마
+-- PostgreSQL 기준 최종 스키마
 
--- 기존 테이블이 있다면 삭제하여 초기 상태 보장
-DROP TABLE IF EXISTS WIZARD_SESSION CASCADE;
-DROP TABLE IF EXISTS POLICY_TEMPLATE CASCADE;
-DROP TABLE IF EXISTS BUSINESS_RESOURCE_ACTION CASCADE;
-DROP TABLE IF EXISTS BUSINESS_ACTION CASCADE;
-DROP TABLE IF EXISTS BUSINESS_RESOURCE CASCADE;
-DROP TABLE IF EXISTS CONDITION_TEMPLATE CASCADE;
-DROP TABLE IF EXISTS ROLE_HIERARCHY_CONFIG CASCADE;
-DROP TABLE IF EXISTS PERMISSION_FUNCTIONS CASCADE;
-DROP TABLE IF EXISTS ROLE_PERMISSIONS CASCADE;
-DROP TABLE IF EXISTS PERMISSION CASCADE;
-DROP TABLE IF EXISTS GROUP_ROLES CASCADE;
-DROP TABLE IF EXISTS ROLE CASCADE;
-DROP TABLE IF EXISTS USER_GROUPS CASCADE;
-DROP TABLE IF EXISTS APP_GROUP CASCADE;
-DROP TABLE IF EXISTS USERS CASCADE;
-DROP TABLE IF EXISTS FUNCTION_CATALOG CASCADE;
-DROP TABLE IF EXISTS FUNCTION_GROUP CASCADE;
-DROP TABLE IF EXISTS MANAGED_RESOURCE CASCADE;
-DROP TABLE IF EXISTS POLICY_CONDITION CASCADE;
-DROP TABLE IF EXISTS POLICY_RULE CASCADE;
-DROP TABLE IF EXISTS POLICY_TARGET CASCADE;
-DROP TABLE IF EXISTS POLICY CASCADE;
-DROP TABLE IF EXISTS DOCUMENT CASCADE;
-DROP TABLE IF EXISTS AUDIT_LOG CASCADE;
+-- 테이블 초기화 (순서 보장)
+DROP TABLE IF EXISTS
+    WIZARD_SESSION,
+    POLICY_TEMPLATE,
+    AUDIT_LOG,
+    ROLE_HIERARCHY_CONFIG,
+    POLICY_CONDITION,
+    POLICY_RULE,
+    POLICY_TARGET,
+    POLICY,
+    ROLE_PERMISSIONS,
+    PERMISSION,
+    MANAGED_RESOURCE, -- FunctionCatalog 대신 직접 Permission과 연결
+    GROUP_ROLES,
+    ROLE,
+    USER_GROUPS,
+    APP_GROUP,
+    USERS,
+    BUSINESS_RESOURCE_ACTION,
+    BUSINESS_ACTION,
+    BUSINESS_RESOURCE,
+    CONDITION_TEMPLATE,
+    DOCUMENT CASCADE;
 
 -- 사용자 테이블
 CREATE TABLE USERS (
@@ -52,15 +50,33 @@ CREATE TABLE ROLE (
                       is_expression VARCHAR(1) DEFAULT 'N'
 );
 
--- 권한 테이블
+-- 기술 리소스 테이블 (워크벤치 관리 대상)
+CREATE TABLE MANAGED_RESOURCE (
+                                  id BIGSERIAL PRIMARY KEY,
+                                  resource_identifier VARCHAR(512) UNIQUE NOT NULL,
+                                  resource_type VARCHAR(255) NOT NULL,
+                                  http_method VARCHAR(255),
+                                  friendly_name VARCHAR(255),
+                                  description VARCHAR(1024),
+                                  service_owner VARCHAR(255),
+                                  parameter_types VARCHAR(512),
+                                  return_type VARCHAR(255),
+                                  api_docs_url VARCHAR(255),
+                                  source_code_location VARCHAR(255),
+                                  status VARCHAR(50) NOT NULL DEFAULT 'NEEDS_DEFINITION',
+                                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 권한 테이블 (비즈니스 권한)
 CREATE TABLE PERMISSION (
                             permission_id BIGSERIAL PRIMARY KEY,
                             permission_name VARCHAR(255) UNIQUE NOT NULL,
                             friendly_name VARCHAR(255),
-                            description VARCHAR(255),
+                            description VARCHAR(1024),
                             target_type VARCHAR(255),
                             action_type VARCHAR(255),
-                            condition_expression VARCHAR(2048)
+                            managed_resource_id BIGINT UNIQUE REFERENCES MANAGED_RESOURCE(id) ON DELETE SET NULL
 );
 
 -- 사용자-그룹 조인 테이블
@@ -84,50 +100,12 @@ CREATE TABLE ROLE_PERMISSIONS (
                                   PRIMARY KEY (role_id, permission_id)
 );
 
--- 기술 리소스 테이블
-CREATE TABLE MANAGED_RESOURCE (
-                                  id BIGSERIAL PRIMARY KEY,
-                                  resource_identifier VARCHAR(255) UNIQUE NOT NULL,
-                                  resource_type VARCHAR(255) NOT NULL,
-                                  http_method VARCHAR(255),
-                                  friendly_name VARCHAR(255) NOT NULL,
-                                  description VARCHAR(1024),
-                                  service_owner VARCHAR(255),
-                                  parameter_types VARCHAR(255),
-                                  return_type VARCHAR(255),
-                                  is_managed BOOLEAN NOT NULL DEFAULT TRUE,
-                                  is_defined BOOLEAN NOT NULL DEFAULT FALSE -- [신규 추가]
-);
-
--- 기능 그룹 테이블
-CREATE TABLE FUNCTION_GROUP (
-                                id BIGSERIAL PRIMARY KEY,
-                                name VARCHAR(255) UNIQUE NOT NULL
-);
-
--- 기능 카탈로그 테이블
-CREATE TABLE FUNCTION_CATALOG (
-                                  id BIGSERIAL PRIMARY KEY,
-                                  managed_resource_id BIGINT UNIQUE NOT NULL REFERENCES MANAGED_RESOURCE(id) ON DELETE CASCADE,
-                                  friendly_name VARCHAR(255) NOT NULL,
-                                  description VARCHAR(1024),
-                                  function_group_id BIGINT REFERENCES FUNCTION_GROUP(id),
-                                  status VARCHAR(255) NOT NULL DEFAULT 'UNCONFIRMED'
-);
-
--- 권한-기능 조인 테이블
-CREATE TABLE PERMISSION_FUNCTIONS (
-                                      permission_id BIGINT NOT NULL REFERENCES PERMISSION(permission_id) ON DELETE CASCADE,
-                                      function_catalog_id BIGINT NOT NULL REFERENCES FUNCTION_CATALOG(id) ON DELETE CASCADE,
-                                      PRIMARY KEY (permission_id, function_catalog_id)
-);
-
 -- 정책 테이블
 CREATE TABLE POLICY (
                         id BIGSERIAL PRIMARY KEY,
                         name VARCHAR(255) UNIQUE NOT NULL,
-                        description VARCHAR(255),
-                        effect VARCHAR(255) NOT NULL,
+                        description VARCHAR(1024),
+                        effect VARCHAR(50) NOT NULL,
                         priority INT NOT NULL,
                         friendly_description VARCHAR(2048)
 );
@@ -137,8 +115,8 @@ CREATE TABLE POLICY_TARGET (
                                id BIGSERIAL PRIMARY KEY,
                                policy_id BIGINT NOT NULL REFERENCES POLICY(id) ON DELETE CASCADE,
                                target_type VARCHAR(255) NOT NULL,
-                               target_identifier VARCHAR(255) NOT NULL,
-                               http_method VARCHAR(255)
+                               target_identifier VARCHAR(512) NOT NULL,
+                               http_method VARCHAR(50)
 );
 
 -- 정책 규칙 테이블
@@ -153,12 +131,13 @@ CREATE TABLE POLICY_CONDITION (
                                   id BIGSERIAL PRIMARY KEY,
                                   rule_id BIGINT NOT NULL REFERENCES POLICY_RULE(id) ON DELETE CASCADE,
                                   condition_expression VARCHAR(2048) NOT NULL,
+                                  authorization_phase VARCHAR(20) NOT NULL DEFAULT 'PRE_AUTHORIZE', -- [신규] Pre/Post 인가 구분
                                   description VARCHAR(255)
 );
 
 -- 역할 계층 테이블
 CREATE TABLE ROLE_HIERARCHY_CONFIG (
-                                       hierarchy_id BIGSERIAL PRIMARY KEY,
+                                       id BIGSERIAL PRIMARY KEY,
                                        description VARCHAR(255),
                                        hierarchy_string TEXT NOT NULL,
                                        is_active BOOLEAN NOT NULL DEFAULT FALSE
@@ -176,22 +155,49 @@ CREATE TABLE AUDIT_LOG (
                            client_ip VARCHAR(255)
 );
 
--- 정책 템플릿 테이블
-CREATE TABLE POLICY_TEMPLATE (
+-- 비즈니스 정책 생성용 메타데이터 테이블들
+CREATE TABLE BUSINESS_RESOURCE (
+                                   id BIGSERIAL PRIMARY KEY,
+                                   name VARCHAR(255) UNIQUE NOT NULL,
+                                   resource_type VARCHAR(255) NOT NULL,
+                                   description VARCHAR(1024)
+);
+CREATE TABLE BUSINESS_ACTION (
                                  id BIGSERIAL PRIMARY KEY,
-                                 template_id VARCHAR(255) UNIQUE NOT NULL,
-                                 name VARCHAR(255) NOT NULL,
-                                 description VARCHAR(1024),
-                                 category VARCHAR(255),
-    -- [오류 수정 및 개선] TEXT 대신 JSONB 타입을 사용하여 성능 및 기능 최적화
-                                 policy_draft_json JSONB NOT NULL
+                                 name VARCHAR(255) UNIQUE NOT NULL,
+                                 action_type VARCHAR(255) NOT NULL,
+                                 description VARCHAR(1024)
+);
+CREATE TABLE BUSINESS_RESOURCE_ACTION (
+                                          business_resource_id BIGINT NOT NULL REFERENCES BUSINESS_RESOURCE(id) ON DELETE CASCADE,
+                                          business_action_id BIGINT NOT NULL REFERENCES BUSINESS_ACTION(id) ON DELETE CASCADE,
+                                          mapped_permission_name VARCHAR(255) NOT NULL,
+                                          PRIMARY KEY (business_resource_id, business_action_id)
+);
+CREATE TABLE CONDITION_TEMPLATE (
+                                    id BIGSERIAL PRIMARY KEY,
+                                    name VARCHAR(255) UNIQUE NOT NULL,
+                                    spel_template VARCHAR(2048) NOT NULL,
+                                    category VARCHAR(255),
+                                    parameter_count INT NOT NULL DEFAULT 0,
+                                    description VARCHAR(1024)
 );
 
 -- 마법사 세션 테이블
 CREATE TABLE WIZARD_SESSION (
-                                session_id VARCHAR(36) PRIMARY KEY, -- [오류 수정] 컬럼명을 session_id로 변경
+                                session_id VARCHAR(36) PRIMARY KEY,
                                 context_data TEXT NOT NULL,
                                 owner_user_id BIGINT NOT NULL,
                                 created_at TIMESTAMP NOT NULL,
                                 expires_at TIMESTAMP NOT NULL
+);
+
+-- 테스트용 문서 테이블
+CREATE TABLE DOCUMENT (
+                          document_id BIGSERIAL PRIMARY KEY,
+                          title VARCHAR(255) NOT NULL,
+                          content TEXT,
+                          owner_username VARCHAR(255) NOT NULL,
+                          created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                          updated_at TIMESTAMP
 );
