@@ -200,15 +200,122 @@
 .relation-row {
     background: rgba(30, 41, 59, 0.4);
     border: 1px solid var(--dark-border);
-    border-radius: 0.5rem;
-    padding: 0.75rem;
-    margin-bottom: 0.5rem;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
 }
 
-.relation-arrow {
+.relation-row:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
+/* 모던 셀렉트 박스 */
+.modern-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.modern-select {
+    appearance: none;
+    width: 100%;
+    padding: 0.75rem 2.5rem 0.75rem 1rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 2px solid rgba(71, 85, 105, 0.5);
+    border-radius: 0.75rem;
+    color: var(--text-primary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.modern-select:hover {
+    border-color: rgba(99, 102, 241, 0.5);
+    background: rgba(30, 41, 59, 0.6);
+}
+
+.modern-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+.modern-select option {
+    background: #1e293b;
+    color: var(--text-primary);
+    padding: 0.5rem;
+}
+
+.modern-select optgroup {
+    background: #0f172a;
     color: var(--accent-color);
-    font-size: 1.5rem;
     font-weight: bold;
+}
+
+.select-arrow {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--accent-color);
+    transition: all 0.3s ease;
+}
+
+.modern-select:focus ~ .select-arrow {
+    color: var(--primary-color);
+}
+
+/* 관계 화살표 스타일 개선 */
+.relation-arrow-container {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+}
+
+.arrow-line {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg,
+    transparent 0%,
+    var(--accent-color) 20%,
+    var(--accent-color) 80%,
+    transparent 100%);
+}
+
+.relation-icon {
+    background: rgba(15, 23, 42, 0.8);
+    color: var(--accent-color);
+    font-size: 1.25rem;
+    padding: 0.25rem;
+    z-index: 1;
+}
+
+/* 삭제 버튼 스타일 개선 */
+.delete-btn {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+}
+
+.delete-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.2);
 }
 
 /* 툴팁 */

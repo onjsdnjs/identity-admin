@@ -176,6 +176,7 @@ public class RoleHierarchyService {
      * - 순환 참조 검출
      * - 중복 관계 검출
      * - 역방향 관계 검출
+     * - 전이적 중복 검출
      */
     private void validateHierarchyLogic(String hierarchyString) {
         if (hierarchyString == null || hierarchyString.trim().isEmpty()) {
@@ -222,12 +223,59 @@ public class RoleHierarchyService {
             }
         }
 
+        // 전이적 중복 검출 (A>B, B>C가 있을 때 A>C는 불필요)
+        for (String[] relation : relations) {
+            if (isTransitivelyConnected(graph, relation[0], relation[1])) {
+                throw new IllegalArgumentException("불필요한 관계입니다: " + relation[0] + " > " + relation[1] +
+                        " (이미 다른 경로로 연결되어 있습니다)");
+            }
+        }
+
         // 순환 참조 검출 (DFS)
         for (String role : allRoles) {
             if (hasCycle(graph, role, new HashSet<>(), new HashSet<>())) {
                 throw new IllegalArgumentException("순환 참조가 발견되었습니다. 역할: " + role);
             }
         }
+    }
+
+    /**
+     * 전이적 연결 확인 - A에서 B로 가는 다른 경로가 있는지 확인
+     */
+    private boolean isTransitivelyConnected(Map<String, Set<String>> graph, String start, String end) {
+        // 직접 연결을 제외한 임시 그래프 생성
+        Map<String, Set<String>> tempGraph = new HashMap<>();
+        for (Map.Entry<String, Set<String>> entry : graph.entrySet()) {
+            tempGraph.put(entry.getKey(), new HashSet<>(entry.getValue()));
+        }
+
+        // 직접 연결 제거
+        if (tempGraph.containsKey(start)) {
+            tempGraph.get(start).remove(end);
+        }
+
+        // BFS로 다른 경로 탐색
+        Queue<String> queue = new LinkedList<>();
+        Set<String> visited = new HashSet<>();
+        queue.offer(start);
+
+        while (!queue.isEmpty()) {
+            String current = queue.poll();
+            if (visited.contains(current)) continue;
+            visited.add(current);
+
+            Set<String> children = tempGraph.get(current);
+            if (children != null) {
+                for (String child : children) {
+                    if (child.equals(end)) {
+                        return true; // 다른 경로로 도달 가능
+                    }
+                    queue.offer(child);
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

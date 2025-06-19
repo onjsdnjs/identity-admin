@@ -107,50 +107,67 @@
                         <div id="validation-error" class="validation-error"></div>
                         <div id="validation-warning" class="validation-warning"></div>
 
-                        <div id="hierarchy-rows-container" class="space-y-2">
+                        <div id="hierarchy-rows-container" class="space-y-3">
                             <div th:each="pair, stat : ${hierarchyPairs}" class="relation-row">
-                                <div class="grid grid-cols-12 gap-2 items-center">
+                                <div class="grid grid-cols-12 gap-3 items-center">
                                     <div class="col-span-5">
-                                        <select class="parent-role dark-select w-full" onchange="validateAndUpdate()">
-                                            <option value="">상위 역할 선택</option>
-                                            <optgroup th:each="group : ${groupsWithRoles}" th:label="${group.groupName}">
-                                                <option th:each="role : ${group.roles}"
-                                                        th:value="${role.roleName}"
-                                                        th:text="${role.roleDesc + ' (' + role.roleName + ')'}"
-                                                        th:selected="${role.roleName == pair.parentRole}"></option>
-                                            </optgroup>
-                                            <optgroup th:if="${!#lists.isEmpty(ungroupedRoles)}" label="그룹 미지정">
-                                                <option th:each="role : ${ungroupedRoles}"
-                                                        th:value="${role.roleName}"
-                                                        th:text="${role.roleDesc + ' (' + role.roleName + ')'}"
-                                                        th:selected="${role.roleName == pair.parentRole}"></option>
-                                            </optgroup>
-                                        </select>
+                                        <div class="modern-select-wrapper">
+                                            <select class="parent-role modern-select" onchange="validateAndUpdate()">
+                                                <option value="">상위 역할 선택</option>
+                                                <optgroup th:each="group : ${groupsWithRoles}" th:label="${group.groupName}">
+                                                    <option th:each="role : ${group.roles}"
+                                                            th:value="${role.roleName}"
+                                                            th:text="${role.roleDesc}"
+                                                            th:data-subtext="${role.roleName}"
+                                                            th:selected="${role.roleName == pair.parentRole}"></option>
+                                                </optgroup>
+                                                <optgroup th:if="${!#lists.isEmpty(ungroupedRoles)}" label="그룹 미지정">
+                                                    <option th:each="role : ${ungroupedRoles}"
+                                                            th:value="${role.roleName}"
+                                                            th:text="${role.roleDesc}"
+                                                            th:data-subtext="${role.roleName}"
+                                                            th:selected="${role.roleName == pair.parentRole}"></option>
+                                                </optgroup>
+                                            </select>
+                                            <div class="select-arrow">
+                                                <i class="fas fa-chevron-down"></i>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div class="col-span-2 text-center">
-                                        <span class="relation-arrow">→</span>
+                                        <div class="relation-arrow-container">
+                                            <div class="arrow-line"></div>
+                                            <i class="fas fa-chevron-right relation-icon"></i>
+                                        </div>
                                     </div>
                                     <div class="col-span-5">
-                                        <select class="child-role dark-select w-full" onchange="validateAndUpdate()">
-                                            <option value="">하위 역할 선택</option>
-                                            <optgroup th:each="group : ${groupsWithRoles}" th:label="${group.groupName}">
-                                                <option th:each="role : ${group.roles}"
-                                                        th:value="${role.roleName}"
-                                                        th:text="${role.roleDesc + ' (' + role.roleName + ')'}"
-                                                        th:selected="${role.roleName == pair.childRole}"></option>
-                                            </optgroup>
-                                            <optgroup th:if="${!#lists.isEmpty(ungroupedRoles)}" label="그룹 미지정">
-                                                <option th:each="role : ${ungroupedRoles}"
-                                                        th:value="${role.roleName}"
-                                                        th:text="${role.roleDesc + ' (' + role.roleName + ')'}"
-                                                        th:selected="${role.roleName == pair.childRole}"></option>
-                                            </optgroup>
-                                        </select>
+                                        <div class="modern-select-wrapper">
+                                            <select class="child-role modern-select" onchange="validateAndUpdate()">
+                                                <option value="">하위 역할 선택</option>
+                                                <optgroup th:each="group : ${groupsWithRoles}" th:label="${group.groupName}">
+                                                    <option th:each="role : ${group.roles}"
+                                                            th:value="${role.roleName}"
+                                                            th:text="${role.roleDesc}"
+                                                            th:data-subtext="${role.roleName}"
+                                                            th:selected="${role.roleName == pair.childRole}"></option>
+                                                </optgroup>
+                                                <optgroup th:if="${!#lists.isEmpty(ungroupedRoles)}" label="그룹 미지정">
+                                                    <option th:each="role : ${ungroupedRoles}"
+                                                            th:value="${role.roleName}"
+                                                            th:text="${role.roleDesc}"
+                                                            th:data-subtext="${role.roleName}"
+                                                            th:selected="${role.roleName == pair.childRole}"></option>
+                                                </optgroup>
+                                            </select>
+                                            <div class="select-arrow">
+                                                <i class="fas fa-chevron-down"></i>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                                 <button type="button" onclick="removeRow(this)"
-                                        class="mt-2 text-sm text-red-400 hover:text-red-600">
-                                    <i class="fas fa-trash mr-1"></i> 관계 삭제
+                                        class="mt-3 delete-btn">
+                                    <i class="fas fa-trash-alt mr-1"></i> 관계 삭제
                                 </button>
                             </div>
                         </div>
@@ -285,7 +302,7 @@
         groupsWithRoles.forEach(group => {
             optionsHtml += `<optgroup label="${group.groupName}">`;
             group.roles.forEach(role => {
-                optionsHtml += `<option value="${role.roleName}">${role.roleDesc} (${role.roleName})</option>`;
+                optionsHtml += `<option value="${role.roleName}" data-subtext="${role.roleName}">${role.roleDesc}</option>`;
             });
             optionsHtml += '</optgroup>';
         });
@@ -293,32 +310,45 @@
         if (ungroupedRoles && ungroupedRoles.length > 0) {
             optionsHtml += '<optgroup label="그룹 미지정">';
             ungroupedRoles.forEach(role => {
-                optionsHtml += `<option value="${role.roleName}">${role.roleDesc} (${role.roleName})</option>`;
+                optionsHtml += `<option value="${role.roleName}" data-subtext="${role.roleName}">${role.roleDesc}</option>`;
             });
             optionsHtml += '</optgroup>';
         }
 
         newRow.innerHTML = `
-            <div class="grid grid-cols-12 gap-2 items-center">
+            <div class="grid grid-cols-12 gap-3 items-center">
                 <div class="col-span-5">
-                    <select class="parent-role dark-select w-full" onchange="validateAndUpdate()">
-                        <option value="">상위 역할 선택</option>
-                        ${optionsHtml}
-                    </select>
+                    <div class="modern-select-wrapper">
+                        <select class="parent-role modern-select" onchange="validateAndUpdate()">
+                            <option value="">상위 역할 선택</option>
+                            ${optionsHtml}
+                        </select>
+                        <div class="select-arrow">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
                 </div>
                 <div class="col-span-2 text-center">
-                    <span class="relation-arrow">→</span>
+                    <div class="relation-arrow-container">
+                        <div class="arrow-line"></div>
+                        <i class="fas fa-chevron-right relation-icon"></i>
+                    </div>
                 </div>
                 <div class="col-span-5">
-                    <select class="child-role dark-select w-full" onchange="validateAndUpdate()">
-                        <option value="">하위 역할 선택</option>
-                        ${optionsHtml}
-                    </select>
+                    <div class="modern-select-wrapper">
+                        <select class="child-role modern-select" onchange="validateAndUpdate()">
+                            <option value="">하위 역할 선택</option>
+                            ${optionsHtml}
+                        </select>
+                        <div class="select-arrow">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
                 </div>
             </div>
             <button type="button" onclick="removeRow(this)"
-                    class="mt-2 text-sm text-red-400 hover:text-red-600">
-                <i class="fas fa-trash mr-1"></i> 관계 삭제
+                    class="mt-3 delete-btn">
+                <i class="fas fa-trash-alt mr-1"></i> 관계 삭제
             </button>
         `;
 
@@ -387,6 +417,17 @@
             }
         }
 
+        // 전이적 중복 검사 (A>B, B>C가 있을 때 A>C는 불필요)
+        if (!hasError) {
+            for (const rel of relations) {
+                if (isTransitivelyConnected(graph, rel.parent, rel.child)) {
+                    hasError = true;
+                    errorMessage = `불필요한 관계입니다: ${rel.parent} > ${rel.child} (이미 다른 경로로 연결되어 있습니다)`;
+                    break;
+                }
+            }
+        }
+
         // 순환 참조 검사
         if (!hasError && graph.size > 0) {
             for (const [node, ] of graph) {
@@ -417,12 +458,60 @@
         }
 
         // 시각화 업데이트
-        if (!hasError && relations.length > 0) {
-            updateVisualization(relations);
-            updateResultPreview(relations);
+        if (!hasError) {
+            if (relations.length > 0) {
+                updateVisualization(relations);
+                updateResultPreview(relations);
+            } else {
+                // 관계가 없을 때 초기 상태로 복원
+                const container = document.getElementById('mermaid-container');
+                container.innerHTML = `<div id="mermaid-diagram" class="mermaid">
+                    graph TD
+                    A[역할 관계를 설정하면<br/>여기에 시각화됩니다]
+                </div>`;
+                mermaid.init(undefined, document.getElementById('mermaid-diagram'));
+
+                const preview = document.getElementById('result-preview');
+                preview.textContent = '계층 관계를 설정하면 여기에 결과가 표시됩니다.';
+            }
         }
 
         relationshipGraph = graph;
+    }
+
+    // 전이적 연결 확인 (A에서 B로 가는 다른 경로가 있는지 확인)
+    function isTransitivelyConnected(graph, start, end) {
+        // 직접 연결을 임시로 제거하고 다른 경로가 있는지 확인
+        const tempGraph = new Map();
+        for (const [key, values] of graph) {
+            tempGraph.set(key, new Set(values));
+        }
+
+        if (tempGraph.has(start)) {
+            tempGraph.get(start).delete(end);
+        }
+
+        // BFS로 다른 경로 탐색
+        const queue = [start];
+        const visited = new Set();
+
+        while (queue.length > 0) {
+            const current = queue.shift();
+            if (visited.has(current)) continue;
+            visited.add(current);
+
+            const children = tempGraph.get(current);
+            if (children) {
+                for (const child of children) {
+                    if (child === end) {
+                        return true; // 다른 경로로 도달 가능
+                    }
+                    queue.push(child);
+                }
+            }
+        }
+
+        return false;
     }
 
     // 순환 참조 검사 (DFS)
@@ -449,14 +538,42 @@
 
     // 시각화 업데이트
     function updateVisualization(relations) {
-        if (relations.length === 0) return;
+        if (relations.length === 0) {
+            // 관계가 없을 때 초기 상태로 복원
+            const container = document.getElementById('mermaid-container');
+            container.innerHTML = `<div id="mermaid-diagram" class="mermaid">
+                graph TD
+                A[역할 관계를 설정하면<br/>여기에 시각화됩니다]
+            </div>`;
+            mermaid.init(undefined, document.getElementById('mermaid-diagram'));
+            return;
+        }
 
+        // 노드별로 중복 제거를 위한 맵
+        const nodeMap = new Map();
+        let nodeIndex = 0;
+
+        // Mermaid 코드 생성
         let mermaidCode = 'graph TD\n';
-        relations.forEach((rel, index) => {
-            const parentNode = `P${index}["${rel.parent}"]`;
-            const childNode = `C${index}["${rel.child}"]`;
-            mermaidCode += `    ${parentNode} --> ${childNode}\n`;
+
+        relations.forEach(rel => {
+            // 노드 ID 생성 또는 가져오기
+            if (!nodeMap.has(rel.parent)) {
+                nodeMap.set(rel.parent, `N${nodeIndex++}`);
+            }
+            if (!nodeMap.has(rel.child)) {
+                nodeMap.set(rel.child, `N${nodeIndex++}`);
+            }
+
+            const parentId = nodeMap.get(rel.parent);
+            const childId = nodeMap.get(rel.child);
+
+            mermaidCode += `    ${parentId}["${rel.parent}"] --> ${childId}["${rel.child}"]\n`;
         });
+
+        // 스타일 추가
+        mermaidCode += '\n    classDef default fill:#1e293b,stroke:#4f46e5,stroke-width:2px,color:#e2e8f0;\n';
+        mermaidCode += '    classDef highlight fill:#4f46e5,stroke:#6366f1,stroke-width:3px,color:#ffffff;\n';
 
         const container = document.getElementById('mermaid-container');
         container.innerHTML = `<div id="mermaid-diagram" class="mermaid">${mermaidCode}</div>`;
