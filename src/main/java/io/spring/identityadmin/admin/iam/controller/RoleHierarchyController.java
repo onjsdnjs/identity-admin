@@ -63,23 +63,53 @@ public class RoleHierarchyController {
 
     @GetMapping("/{id}")
     public String roleHierarchyDetails(@PathVariable Long id, Model model) {
-        RoleHierarchyEntity entity = roleHierarchyService.getRoleHierarchy(id)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid RoleHierarchy ID: " + id));
+        try {
+            RoleHierarchyEntity entity = roleHierarchyService.getRoleHierarchy(id)
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid RoleHierarchy ID: " + id));
 
-        RoleHierarchyDto dto = modelMapper.map(entity, RoleHierarchyDto.class);
+            RoleHierarchyDto dto = modelMapper.map(entity, RoleHierarchyDto.class);
 
-        List<RoleHierarchyDto.HierarchyPair> pairs = Arrays.stream(entity.getHierarchyString().split("\\n"))
-                .map(String::trim)
-                .filter(s -> s.contains(">"))
-                .map(s -> {
-                    String[] parts = s.split(">");
-                    return new RoleHierarchyDto.HierarchyPair(parts[0].trim(), parts[1].trim());
-                })
-                .collect(Collectors.toList());
-        dto.setHierarchyPairs(pairs);
+            // 계층 문자열 디버깅
+            String hierarchyString = entity.getHierarchyString();
+            log.info("Raw hierarchy string from DB: [{}]", hierarchyString);
 
-        model.addAttribute("hierarchy", dto);
-        prepareHierarchyFormModel(model, pairs);
+            // \n 문자열을 실제 개행문자로 변환
+            if (hierarchyString != null && hierarchyString.contains("\\n")) {
+                hierarchyString = hierarchyString.replace("\\n", "\n");
+                log.info("Converted hierarchy string: [{}]", hierarchyString);
+            }
+
+            List<RoleHierarchyDto.HierarchyPair> pairs = new ArrayList<>();
+            if (hierarchyString != null && !hierarchyString.trim().isEmpty()) {
+                // 실제 개행문자로 분리
+                String[] lines = hierarchyString.split("\n");
+
+                for (String line : lines) {
+                    line = line.trim();
+                    if (line.contains(">")) {
+                        String[] parts = line.split("\\s*>\\s*"); // > 양쪽 공백 제거
+                        if (parts.length == 2) {
+                            String parent = parts[0].trim();
+                            String child = parts[1].trim();
+
+                            pairs.add(new RoleHierarchyDto.HierarchyPair(parent, child));
+                            log.debug("Parsed pair: {} > {}", parent, child);
+                        }
+                    }
+                }
+            }
+
+            dto.setHierarchyPairs(pairs);
+            model.addAttribute("hierarchy", dto);
+            prepareHierarchyFormModel(model, pairs);
+
+            log.info("Role hierarchy details loaded - ID: {}, Valid pairs: {}", id, pairs.size());
+
+        } catch (Exception e) {
+            log.error("Error loading role hierarchy details for ID: {}", id, e);
+            model.addAttribute("error", "역할 계층 정보를 불러오는 중 오류가 발생했습니다.");
+            return "redirect:/admin/role-hierarchies";
+        }
 
         return "admin/role-hierarchy-details";
     }
@@ -121,94 +151,72 @@ public class RoleHierarchyController {
      * - 각 역할의 권한 정보 포함
      */
     private void prepareHierarchyFormModel(Model model, List<RoleHierarchyDto.HierarchyPair> existingPairs) {
-        // 모든 그룹과 역할 정보를 조회
-        List<Group> allGroups = groupService.getAllGroups();
+        try {
+            // 모든 그룹과 역할 정보를 조회 (N+1 문제 방지를 위해 fetch join 사용)
+            List<Group> allGroups = groupService.getAllGroups();
 
-        // 그룹별 역할 정보를 구조화
-        List<GroupWithRolesDto> groupsWithRoles = allGroups.stream()
-                .map(group -> {
-                    GroupWithRolesDto gwrDto = new GroupWithRolesDto();
-                    gwrDto.setGroupId(group.getId());
-                    gwrDto.setGroupName(group.getName());
-                    gwrDto.setGroupDescription(group.getDescription());
+            // 그룹별 역할 정보를 구조화
+            List<GroupWithRolesDto> groupsWithRoles = allGroups.stream()
+                    .map(group -> {
+                        GroupWithRolesDto gwrDto = new GroupWithRolesDto();
+                        gwrDto.setGroupId(group.getId());
+                        gwrDto.setGroupName(group.getName());
+                        gwrDto.setGroupDescription(group.getDescription());
 
-                    List<RoleDetailDto> roleDetails = group.getGroupRoles().stream()
-                            .map(GroupRole::getRole)
-                            .filter(role -> !"Y".equals(role.getIsExpression())) // 표현식 역할 제외
-                            .map(role -> {
-                                RoleDetailDto rdDto = new RoleDetailDto();
-                                rdDto.setRoleId(role.getId());
-                                rdDto.setRoleName(role.getRoleName());
-                                rdDto.setRoleDesc(role.getRoleDesc());
+                        List<RoleDetailDto> roleDetails = group.getGroupRoles().stream()
+                                .map(GroupRole::getRole)
+                                .filter(role -> role != null && !"Y".equals(role.getIsExpression())) // 표현식 역할 제외
+                                .map(role -> {
+                                    RoleDetailDto rdDto = new RoleDetailDto();
+                                    rdDto.setRoleId(role.getId());
+                                    rdDto.setRoleName(role.getRoleName());
+                                    rdDto.setRoleDesc(role.getRoleDesc() != null ? role.getRoleDesc() : role.getRoleName());
 
-                                // 권한 정보 매핑
-                                List<String> permissions = role.getRolePermissions().stream()
-                                        .map(rp -> rp.getPermission().getFriendlyName())
-                                        .sorted()
-                                        .collect(Collectors.toList());
-                                rdDto.setPermissions(permissions);
+                                    // 권한 정보 매핑
+                                    List<String> permissions = role.getRolePermissions().stream()
+                                            .filter(rp -> rp.getPermission() != null)
+                                            .map(rp -> rp.getPermission().getFriendlyName())
+                                            .filter(name -> name != null)
+                                            .sorted()
+                                            .collect(Collectors.toList());
+                                    rdDto.setPermissions(permissions);
 
-                                return rdDto;
-                            })
-                            .collect(Collectors.toList());
+                                    return rdDto;
+                                })
+                                .collect(Collectors.toList());
 
-                    gwrDto.setRoles(roleDetails);
-                    return gwrDto;
-                })
-                .filter(gwrDto -> !gwrDto.getRoles().isEmpty()) // 역할이 없는 그룹 제외
-                .collect(Collectors.toList());
+                        gwrDto.setRoles(roleDetails);
+                        return gwrDto;
+                    })
+                    .filter(gwrDto -> !gwrDto.getRoles().isEmpty()) // 역할이 없는 그룹 제외
+                    .collect(Collectors.toList());
 
-        // 그룹에 속하지 않은 역할들 (혹시 있다면)
-        List<RoleMetadataDto> ungroupedRoles = roleService.getRolesWithoutExpression().stream()
-                .filter(role -> allGroups.stream()
-                        .noneMatch(group -> group.getGroupRoles().stream()
-                                .anyMatch(gr -> gr.getRole().getId().equals(role.getId()))))
-                .map(role -> modelMapper.map(role, RoleMetadataDto.class))
-                .collect(Collectors.toList());
+            // 그룹에 속하지 않은 역할들 (혹시 있다면)
+            List<RoleMetadataDto> ungroupedRoles = roleService.getRolesWithoutExpression().stream()
+                    .filter(role -> allGroups.stream()
+                            .noneMatch(group -> group.getGroupRoles().stream()
+                                    .anyMatch(gr -> gr.getRole() != null && gr.getRole().getId().equals(role.getId()))))
+                    .map(role -> modelMapper.map(role, RoleMetadataDto.class))
+                    .collect(Collectors.toList());
 
-        model.addAttribute("groupsWithRoles", groupsWithRoles);
-        model.addAttribute("ungroupedRoles", ungroupedRoles);
-        model.addAttribute("hierarchyPairs", existingPairs);
+            model.addAttribute("groupsWithRoles", groupsWithRoles);
+            model.addAttribute("ungroupedRoles", ungroupedRoles);
+            model.addAttribute("hierarchyPairs", existingPairs);
 
-        // 모든 역할의 간단한 목록 (호환성 유지)
-        List<RoleMetadataDto> allRoles = roleService.getRolesWithoutExpression().stream()
-                .map(role -> modelMapper.map(role, RoleMetadataDto.class))
-                .collect(Collectors.toList());
-        model.addAttribute("allRoles", allRoles);
+            // 모든 역할의 간단한 목록 (호환성 유지)
+            List<RoleMetadataDto> allRoles = roleService.getRolesWithoutExpression().stream()
+                    .map(role -> modelMapper.map(role, RoleMetadataDto.class))
+                    .collect(Collectors.toList());
+            model.addAttribute("allRoles", allRoles);
+
+            log.debug("Prepared hierarchy form model - Groups: {}, Ungrouped roles: {}",
+                    groupsWithRoles.size(), ungroupedRoles.size());
+
+        } catch (Exception e) {
+            log.error("Error preparing hierarchy form model", e);
+            model.addAttribute("groupsWithRoles", new ArrayList<>());
+            model.addAttribute("ungroupedRoles", new ArrayList<>());
+            model.addAttribute("allRoles", new ArrayList<>());
+        }
     }
-}
-
-// 새로운 DTO 클래스들 (domain.dto 패키지에 추가)
-class GroupWithRolesDto {
-    private Long groupId;
-    private String groupName;
-    private String groupDescription;
-    private List<RoleDetailDto> roles;
-
-    // getter/setter
-    public Long getGroupId() { return groupId; }
-    public void setGroupId(Long groupId) { this.groupId = groupId; }
-    public String getGroupName() { return groupName; }
-    public void setGroupName(String groupName) { this.groupName = groupName; }
-    public String getGroupDescription() { return groupDescription; }
-    public void setGroupDescription(String groupDescription) { this.groupDescription = groupDescription; }
-    public List<RoleDetailDto> getRoles() { return roles; }
-    public void setRoles(List<RoleDetailDto> roles) { this.roles = roles; }
-}
-
-class RoleDetailDto {
-    private Long roleId;
-    private String roleName;
-    private String roleDesc;
-    private List<String> permissions;
-
-    // getter/setter
-    public Long getRoleId() { return roleId; }
-    public void setRoleId(Long roleId) { this.roleId = roleId; }
-    public String getRoleName() { return roleName; }
-    public void setRoleName(String roleName) { this.roleName = roleName; }
-    public String getRoleDesc() { return roleDesc; }
-    public void setRoleDesc(String roleDesc) { this.roleDesc = roleDesc; }
-    public List<String> getPermissions() { return permissions; }
-    public void setPermissions(List<String> permissions) { this.permissions = permissions; }
 }
