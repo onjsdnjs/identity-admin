@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.Objects;
@@ -28,12 +29,9 @@ public class PolicySynchronizationService {
     /**
      * 특정 역할(Role)의 변경사항을 기반으로, 이에 매핑되는 기술 정책(Policy)을
      * 자동으로 생성하거나 업데이트하여 동기화합니다.
-     * @param roleId 동기화할 역할의 ID
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void synchronizePolicyForRole(Long roleId) {
-        Role role = roleRepository.findByIdWithPermissions(roleId)
-                .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleId));
+    public void synchronizePolicyForRole(Role role) {
 
         String policyName = "AUTO_POLICY_FOR_" + role.getRoleName();
 
@@ -49,16 +47,22 @@ public class PolicySynchronizationService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        // 2. 규칙(Rule) DTO 생성: 역할 자체를 인가 조건으로 하는 SpEL을 생성합니다.
-        String conditionSpel = String.format("hasAuthority('%s')", role.getRoleName());
+        // 2. 역할에 포함된 모든 Permission의 이름을 기반으로 'OR' 결합된 SpEL 표현식을 생성합니다.
+        String mergedPermissionsExpression = role.getRolePermissions().stream()
+                .map(rp -> rp.getPermission().getName())
+                .map(permissionName -> String.format("hasAuthority('%s')", permissionName))
+                .collect(Collectors.joining(" or "));
 
-        // 2-1. [수정] SpEL 문자열을 ConditionDto 객체로 먼저 생성합니다.
+        // 역할에 할당된 권한이 없을 경우, 이 정책은 누구도 통과할 수 없도록 'false'로 설정
+        if (!StringUtils.hasText(mergedPermissionsExpression)) {
+            mergedPermissionsExpression = "false";
+        }
+
         PolicyDto.ConditionDto conditionDto = PolicyDto.ConditionDto.builder()
-                .expression(conditionSpel)
-                .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE) // 자동 생성 규칙은 기본적으로 사전(Pre) 인가
+                .expression(mergedPermissionsExpression)
+                .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE)
                 .build();
 
-        // 2-2. [수정] ConditionDto 리스트를 포함하여 RuleDto를 생성합니다.
         PolicyDto.RuleDto ruleDto = PolicyDto.RuleDto.builder()
                 .description("Auto-generated rule for " + role.getRoleName())
                 .conditions(List.of(conditionDto))

@@ -58,16 +58,44 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * ManagedResource를 기반으로 가독성이 높은 고유 권한 이름을 생성합니다.
+     * - 메서드: 패키지 경로를 제외하고 '클래스명_메서드명' 형태로 생성합니다.
+     * - URL: 경로 변수와 특수문자를 정리하여 'ADMIN_USERS_ID'와 같은 형태로 생성합니다.
+     */
     private String generatePermissionName(ManagedResource resource) {
-        String typePrefix = resource.getResourceType().name(); // URL 또는 METHOD
-        String identifierPart = resource.getResourceIdentifier()
-                .replaceAll("[^a-zA-Z0-9_.-]", "_") // 허용 문자 확대
-                .replace('.', '_')
-                .toUpperCase();
+        String typePrefix = resource.getResourceType().name();
+        String identifierPart;
 
-        if (identifierPart.length() > 100) { // 길이 제한 조정
-            identifierPart = identifierPart.substring(0, 100);
+        if (resource.getResourceType() == ManagedResource.ResourceType.METHOD) {
+            String fullIdentifier = resource.getResourceIdentifier();
+            // 파라미터 부분 "()" 제거
+            String withoutParams = fullIdentifier.replaceAll("\\(.*\\)", "");
+            // '.' 기준으로 분리
+            String[] parts = withoutParams.split("\\.");
+            if (parts.length >= 2) {
+                // 마지막 두 부분(클래스명, 메서드명)만 사용
+                String className = parts[parts.length - 2];
+                String methodName = parts[parts.length - 1];
+                identifierPart = (className + "_" + methodName).toUpperCase();
+            } else {
+                // 예외적인 경우, 기존 방식과 유사하게 처리
+                identifierPart = withoutParams.replace('.', '_').toUpperCase();
+            }
+        } else { // URL 타입의 경우
+            identifierPart = resource.getResourceIdentifier()
+                    // 경로 변수(예: {id})를 'ID' 문자열로 대체
+                    .replaceAll("\\{.*?\\}", "ID")
+                    // 슬래시(/)를 언더스코어(_)로 변경
+                    .replace('/', '_')
+                    // 허용된 문자(알파벳, 숫자, _)를 제외한 모든 문자 제거
+                    .replaceAll("[^a-zA-Z0-9_]", "")
+                    .toUpperCase();
         }
+
+        // 공통 후처리: 연속된 언더스코어를 하나로, 시작/끝 언더스코어는 제거
+        identifierPart = identifierPart.replaceAll("_+", "_").replaceAll("^_|_$", "");
+
         return String.format("%s_%s", typePrefix, identifierPart);
     }
 }

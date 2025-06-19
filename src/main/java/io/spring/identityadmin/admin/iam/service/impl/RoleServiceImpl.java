@@ -94,7 +94,6 @@ public class RoleServiceImpl implements RoleService {
         existingRole.setRoleDesc(role.getRoleDesc());
         existingRole.setIsExpression(role.getIsExpression());
 
-        // ========================= [오류 수정된 동기화 로직] =========================
         Set<Long> desiredPermissionIds = permissionIds != null ? new HashSet<>(permissionIds) : new HashSet<>();
         Set<RolePermission> currentRolePermissions = existingRole.getRolePermissions();
 
@@ -112,8 +111,9 @@ public class RoleServiceImpl implements RoleService {
                     currentRolePermissions.add(RolePermission.builder().role(existingRole).permission(permission).build());
                 });
 
+        Role savedRole = roleRepository.save(existingRole);
         //역할 저장이 완료된 후, 정책 동기화 서비스 호출
-        policySyncService.synchronizePolicyForRole(existingRole.getId());
+        policySyncService.synchronizePolicyForRole(savedRole);
 
         return existingRole;
     }
