@@ -357,9 +357,53 @@
     border: 1px solid rgba(71, 85, 105, 0.5);
     border-radius: 1rem;
     padding: 2rem;
-    max-width: 800px;
+    max-width: 90vw;
     max-height: 90vh;
     overflow-y: auto;
+    width: 900px;
+}
+
+/* 대규모 다이어그램 스크롤 영역 */
+.confirm-dialog-content .mermaid-container {
+    position: relative;
+    overflow: auto;
+    max-height: 50vh;
+    background: rgba(30, 41, 59, 0.3);
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+/* Mermaid 다이어그램 노드 스타일 */
+.confirm-dialog-content .mermaid .node rect {
+    stroke-width: 2px !important;
+}
+
+.confirm-dialog-content .mermaid .node div {
+    padding: 0.5rem !important;
+}
+
+.confirm-dialog-content .mermaid .edgeLabel {
+    background-color: transparent !important;
+}
+
+/* 스크롤바 스타일 */
+.confirm-dialog-content .mermaid-container::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.confirm-dialog-content .mermaid-container::-webkit-scrollbar-track {
+    background: var(--dark-surface);
+    border-radius: 4px;
+}
+
+.confirm-dialog-content .mermaid-container::-webkit-scrollbar-thumb {
+    background: var(--primary-color);
+    border-radius: 4px;
+}
+
+.confirm-dialog-content .mermaid-container::-webkit-scrollbar-corner {
+    background: var(--dark-surface);
 }
 
 /* 애니메이션 */
