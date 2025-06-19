@@ -1,6 +1,6 @@
-/* role-hierarchy.css - static/css/role-hierarchy.css에 추가 */
+/* role-hierarchy.css - static/css/role-hierarchy.css */
 
-/* 다크 테마 기본 색상 */
+/* CSS 변수 정의 */
 :root {
     --dark-bg: rgba(15, 23, 42, 0.8);
     --dark-surface: rgba(30, 41, 59, 0.6);
@@ -24,7 +24,7 @@
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3);
 }
 
-/* 다크 입력 요소 */
+/* 입력 요소 공통 스타일 */
 .dark-input,
 .dark-select {
     background: var(--dark-surface);
@@ -40,7 +40,7 @@
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
-/* 다크 체크박스 */
+/* 체크박스 */
 .dark-checkbox {
     background: var(--dark-surface);
     border: 2px solid var(--dark-border);
@@ -52,7 +52,7 @@
     border-color: var(--primary-color);
 }
 
-/* 다크 라벨 */
+/* 라벨 */
 .dark-label {
     color: var(--text-secondary);
     font-weight: 500;
@@ -60,7 +60,7 @@
     display: block;
 }
 
-/* 다크 버튼 */
+/* 버튼 */
 .dark-btn-primary {
     background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
     color: white;
@@ -86,12 +86,12 @@
     background-clip: text;
 }
 
-/* 다크 테마 색상 */
+/* 텍스트 색상 */
 .text-dark-muted {
     color: var(--text-muted);
 }
 
-/* 역할 팔레트 스타일 */
+/* 역할 팔레트 */
 .role-palette {
     background: var(--dark-surface);
     border-radius: 0.75rem;
@@ -152,17 +152,41 @@
     border-radius: 0.375rem;
 }
 
-/* 시각화 영역 */
+/* 시각화 영역 - 스크롤 가능 */
 .hierarchy-visualization {
-    background: rgba(30, 41, 59, 0.4);
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(30, 41, 59, 0.5);
     border-radius: 0.75rem;
-    padding: 1.5rem;
-    min-height: 400px;
+    padding: 1rem;
+    height: 500px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Mermaid 컨테이너 - 스크롤 가능 */
+#mermaid-container {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    position: relative;
+}
+
+/* Mermaid 다이어그램 */
+#mermaid-diagram {
+    min-width: 100%;
+    min-height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
+/* Mermaid SVG - 원본 크기 유지 */
+#mermaid-diagram svg {
+    max-width: none !important;
+    height: auto !important;
+}
+
+/* 결과 미리보기 */
 .result-preview {
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid var(--dark-border);
@@ -268,7 +292,7 @@
     color: var(--primary-color);
 }
 
-/* 관계 화살표 스타일 개선 */
+/* 관계 화살표 */
 .relation-arrow-container {
     position: relative;
     display: flex;
@@ -296,7 +320,7 @@
     z-index: 1;
 }
 
-/* 삭제 버튼 스타일 개선 */
+/* 삭제 버튼 */
 .delete-btn {
     background: rgba(239, 68, 68, 0.1);
     color: #f87171;
@@ -332,12 +356,6 @@
     display: none;
 }
 
-/* Mermaid 다이어그램 */
-.mermaid {
-    width: 100%;
-    height: 100%;
-}
-
 /* 확인 다이얼로그 */
 .confirm-dialog {
     position: fixed;
@@ -363,50 +381,216 @@
     width: 900px;
 }
 
-/* 대규모 다이어그램 스크롤 영역 */
+/* 확인 다이얼로그의 Mermaid 컨테이너 */
 .confirm-dialog-content .mermaid-container {
     position: relative;
     overflow: auto;
-    max-height: 50vh;
-    background: rgba(30, 41, 59, 0.3);
+    max-height: 500px;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(30, 41, 59, 0.4);
     border-radius: 0.5rem;
     padding: 1rem;
 }
 
-/* Mermaid 다이어그램 노드 스타일 */
-.confirm-dialog-content .mermaid .node rect {
-    stroke-width: 2px !important;
-}
-
-.confirm-dialog-content .mermaid .node div {
-    padding: 0.5rem !important;
-}
-
-.confirm-dialog-content .mermaid .edgeLabel {
-    background-color: transparent !important;
+#confirm-mermaid {
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* 스크롤바 스타일 */
-.confirm-dialog-content .mermaid-container::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+#mermaid-container::-webkit-scrollbar,
+.confirm-dialog-content .mermaid-container::-webkit-scrollbar,
+.role-palette::-webkit-scrollbar,
+.result-preview::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
 }
 
-.confirm-dialog-content .mermaid-container::-webkit-scrollbar-track {
-    background: var(--dark-surface);
-    border-radius: 4px;
+#mermaid-container::-webkit-scrollbar-track,
+.confirm-dialog-content .mermaid-container::-webkit-scrollbar-track,
+.role-palette::-webkit-scrollbar-track,
+.result-preview::-webkit-scrollbar-track {
+    background: rgba(30, 41, 59, 0.5);
+    border-radius: 5px;
 }
 
-.confirm-dialog-content .mermaid-container::-webkit-scrollbar-thumb {
+#mermaid-container::-webkit-scrollbar-thumb,
+.confirm-dialog-content .mermaid-container::-webkit-scrollbar-thumb,
+.role-palette::-webkit-scrollbar-thumb,
+.result-preview::-webkit-scrollbar-thumb {
     background: var(--primary-color);
-    border-radius: 4px;
+    border-radius: 5px;
 }
 
+#mermaid-container::-webkit-scrollbar-thumb:hover,
+.confirm-dialog-content .mermaid-container::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-hover);
+}
+
+#mermaid-container::-webkit-scrollbar-corner,
 .confirm-dialog-content .mermaid-container::-webkit-scrollbar-corner {
-    background: var(--dark-surface);
+    background: rgba(30, 41, 59, 0.5);
 }
 
+/* ============================= */
+/* Mermaid 다이어그램 노드 스타일링 - 중후한 색상 */
+/* ============================= */
+
+/* 기본 노드 스타일 - 진한 슬레이트 색상 */
+.mermaid .node rect,
+.mermaid .node circle,
+.mermaid .node ellipse,
+.mermaid .node polygon,
+.mermaid .node path {
+    fill: #1e293b !important;
+    stroke: #334155 !important;
+    stroke-width: 2px !important;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
+    rx: 8px;
+    ry: 8px;
+}
+
+/* 노드 내부 패딩 */
+.mermaid .node div {
+    padding: 0.75rem 1rem !important;
+}
+
+/* 노드 텍스트 - 밝은 회색 */
+.mermaid .node .label {
+    color: #f1f5f9 !important;
+    font-weight: 600 !important;
+    font-size: 16px !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    line-height: 1.4 !important;
+}
+
+/* 노드 크기 */
+.mermaid .node rect {
+    min-width: 120px !important;
+    max-width: 300px !important;
+    min-height: 50px !important;
+    max-height: 80px !important;
+}
+
+/* 호버 효과 - 약간 밝게 */
+.mermaid .node:hover rect,
+.mermaid .node:hover circle,
+.mermaid .node:hover ellipse,
+.mermaid .node:hover polygon {
+    fill: #334155 !important;
+    stroke: #475569 !important;
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.5));
+    cursor: pointer;
+}
+
+/* 루트 노드 - 더 진한 색상 */
+.mermaid .node.root rect,
+.mermaid .node:first-of-type rect {
+    fill: #0f172a !important;
+    stroke: #1e293b !important;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.6));
+}
+
+/* 리프 노드 - 약간 다른 톤 */
+.mermaid .node.leaf rect,
+.mermaid .node:last-of-type rect {
+    fill: #1e3a4c !important;
+    stroke: #2d4a5f !important;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
+}
+
+/* 엣지(연결선) 스타일 - 중간 회색 */
+.mermaid .flowchart-link,
+.mermaid .edgePath path {
+    stroke: #475569 !important;
+    stroke-width: 2.5px !important;
+    opacity: 0.9;
+    fill: none !important;
+}
+
+/* 화살표 마커 */
+.mermaid .marker,
+.mermaid marker path {
+    fill: #475569 !important;
+    stroke: #475569 !important;
+}
+
+/* 엣지 라벨 - 어두운 배경 */
+.mermaid .edgeLabel {
+    background-color: #0f172a !important;
+    color: #cbd5e1 !important;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid #1e293b;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.mermaid .edgeLabel rect {
+    fill: #0f172a !important;
+    stroke: none !important;
+}
+
+/* 특별한 노드 타입별 색상 - 중후한 톤 */
+
+/* 관리자 역할 - 진한 보라색 톤 */
+.mermaid .node rect[class*="ADMIN"],
+.mermaid .node.admin-node rect {
+    fill: #1e1b4b !important;
+    stroke: #312e81 !important;
+    filter: drop-shadow(0 6px 10px rgba(30, 27, 75, 0.6));
+}
+
+/* 사용자 역할 - 진한 청색 톤 */
+.mermaid .node rect[class*="USER"],
+.mermaid .node.user-node rect {
+    fill: #1e3a5f !important;
+    stroke: #2d4a7c !important;
+    filter: drop-shadow(0 4px 8px rgba(30, 58, 95, 0.5));
+}
+
+/* 게스트 역할 - 진한 회색 톤 */
+.mermaid .node rect[class*="GUEST"],
+.mermaid .node.guest-node rect {
+    fill: #374151 !important;
+    stroke: #4b5563 !important;
+    filter: drop-shadow(0 4px 6px rgba(55, 65, 81, 0.4));
+}
+
+/* 그룹/클러스터 스타일 */
+.mermaid .cluster rect {
+    fill: #111827 !important;
+    stroke: #1f2937 !important;
+    stroke-width: 2px !important;
+    rx: 10px !important;
+    ry: 10px !important;
+    opacity: 0.3;
+}
+
+.mermaid .cluster text {
+    fill: #9ca3af !important;
+    font-weight: bold !important;
+}
+
+/* 다크 모드에서 추가 그림자 효과 */
+@media (prefers-color-scheme: dark) {
+    .mermaid .node rect {
+        filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.7));
+    }
+
+    .mermaid .node:hover rect {
+        filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.8));
+    }
+}
+
+/* ============================= */
 /* 애니메이션 */
+/* ============================= */
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -422,44 +606,20 @@
     animation: fadeIn 0.5s ease-out;
 }
 
-/* 스크롤바 커스터마이징 */
-.role-palette::-webkit-scrollbar,
-.result-preview::-webkit-scrollbar {
-    width: 8px;
-}
-
-.role-palette::-webkit-scrollbar-track,
-.result-preview::-webkit-scrollbar-track {
-    background: var(--dark-surface);
-    border-radius: 4px;
-}
-
-.role-palette::-webkit-scrollbar-thumb,
-.result-preview::-webkit-scrollbar-thumb {
-    background: var(--dark-border);
-    border-radius: 4px;
-}
-
-.role-palette::-webkit-scrollbar-thumb:hover,
-.result-preview::-webkit-scrollbar-thumb:hover {
-    background: var(--primary-color);
-}
-
-/* 반응형 디자인 */
-@media (max-width: 1280px) {
-    .grid.grid-cols-12 {
-        grid-template-columns: repeat(1, 1fr);
+@keyframes nodeGlow {
+    0% {
+        filter: drop-shadow(0 4px 8px rgba(30, 41, 59, 0.5));
     }
-
-    .col-span-3,
-    .col-span-4,
-    .col-span-5 {
-        grid-column: span 1;
+    50% {
+        filter: drop-shadow(0 8px 16px rgba(30, 41, 59, 0.8));
     }
-
-    .hierarchy-visualization {
-        min-height: 300px;
+    100% {
+        filter: drop-shadow(0 4px 8px rgba(30, 41, 59, 0.5));
     }
+}
+
+.mermaid .node.highlight rect {
+    animation: nodeGlow 2s ease-in-out infinite;
 }
 
 /* 로딩 애니메이션 */
@@ -478,6 +638,57 @@
         transform: rotate(360deg);
     }
 }
+
+/* ============================= */
+/* 반응형 디자인 */
+/* ============================= */
+
+@media (max-width: 1280px) {
+    .grid.grid-cols-12 {
+        grid-template-columns: repeat(1, 1fr);
+    }
+
+    .col-span-3,
+    .col-span-4,
+    .col-span-5 {
+        grid-column: span 1;
+    }
+
+    .hierarchy-visualization {
+        height: 400px;
+    }
+}
+
+/* 모바일 반응형 */
+@media (max-width: 768px) {
+    .hierarchy-visualization {
+        height: 300px;
+    }
+
+    .mermaid .node .label {
+        font-size: 14px !important;
+    }
+
+    .mermaid .node rect {
+        min-width: 100px !important;
+        max-width: 250px !important;
+    }
+
+    .mermaid .node div {
+        padding: 0.5rem 0.75rem !important;
+    }
+}
+
+/* 큰 화면 */
+@media (min-width: 1920px) {
+    .hierarchy-visualization {
+        height: 600px;
+    }
+}
+
+/* ============================= */
+/* 유틸리티 클래스 */
+/* ============================= */
 
 /* 트랜지션 효과 */
 .transition-all {

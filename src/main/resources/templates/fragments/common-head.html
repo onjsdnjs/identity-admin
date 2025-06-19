@@ -4,6 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title th:text="${pageTitle ?: '인증 플랫폼'}">인증 플랫폼</title>
+
+    <!-- Tailwind CSS를 먼저 로드 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -28,7 +30,7 @@
                         'warning': '#f59e0b'            // 주황색 (경고)
                     },
                     fontFamily: {
-                        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif', '"Apple Color Emoji"', '"Segoe UI Emoji"', '"Segoe UI Symbol"', '"Noto Color Emoji"'],
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', '"Noto Sans"', 'sans-serif'],
                     },
                     backgroundImage: {
                         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -39,16 +41,45 @@
                         'float': 'float 3s ease-in-out infinite',
                         'slide-in': 'slideInFromTop 0.6s ease-out',
                     }
-                }
+                },
+                // Important 설정을 추가하여 커스텀 스타일이 우선하도록 함
+                important: false
             }
         }
     </script>
+
+    <!-- 커스텀 CSS를 나중에 로드하여 우선순위 확보 -->
     <link rel="stylesheet" th:href="@{/css/main.css}" />
+
+    <!-- Toast JS -->
     <script th:src="@{/js/toast.js}"></script>
+
+    <!-- CSRF 토큰 -->
     <th:block th:if="${_csrf != null}">
         <meta name="_csrf" th:content="${_csrf.token}" />
         <meta name="_csrf_header" th:content="${_csrf.headerName}" />
         <meta name="_csrf_parameter" th:content="${_csrf.parameterName}" />
     </th:block>
+
+    <!-- CSS 충돌 해결을 위한 스타일 리셋 -->
+    <style>
+        /* Tailwind 기본 스타일과 커스텀 스타일 간 충돌 방지 */
+        .admin-sidebar * {
+            box-sizing: border-box;
+        }
+
+        /* 특정 컴포넌트에 대한 Tailwind 리셋 방지 */
+        .admin-sidebar ul,
+        .admin-sidebar li {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Font Awesome 아이콘과의 충돌 방지 */
+        .admin-sidebar svg {
+            vertical-align: middle;
+        }
+    </style>
 </th:block>
 </html>

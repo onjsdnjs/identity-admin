@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
-<head th:replace="~{fragments/common-head :: head-elements(pageTitle=${role.id != null ? '역할 수정' : '역할 등록'})}"></head>
+<head th:replace="~{fragments/common-head :: head-elements(pageTitle=${role.id != null ? '역할 수정' : '역할 등록'})}">
+    <link rel="stylesheet" th:href="@{/css/modern-checkbox.css}">
+</head>
 <body class="flex flex-col min-h-screen font-sans">
 
 <div th:insert="~{fragments/header :: header}"></div>
@@ -12,45 +14,93 @@
     <main class="flex-1 p-6 md:p-10 flex items-center justify-center">
         <div class="w-full max-w-lg p-8 sm:p-10 rounded-xl shadow-2xl" style="background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(20px); border: 1px solid rgba(71, 85, 105, 0.3);">
             <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4" style="background: linear-gradient(135deg, #6366f1, #818cf8);">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path>
+                    </svg>
+                </div>
                 <h2 class="mt-4 text-3xl font-bold text-gradient" th:text="${role.id != null ? '역할 수정' : '새 역할 등록'}"></h2>
             </div>
 
             <form th:action="${role.id != null ? '/admin/roles/' + role.id + '/edit' : '/admin/roles'}" method="post" th:object="${role}" class="space-y-5">
                 <input type="hidden" th:field="*{id}" th:if="${role.id != null}" />
                 <div>
-                    <label for="roleName" class="block text-sm font-medium" style="color: #cbd5e1;">역할명 (고유값, 예: ADMIN):</label>
-                    <input type="text" id="roleName" th:field="*{roleName}"
-                           class="mt-1 block w-full px-4 py-2.5 rounded-lg shadow-sm sm:text-sm font-mono"
-                           style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;" required />
+                    <label for="roleName" class="block text-sm font-medium mb-2" style="color: #cbd5e1;">역할명 (고유값, 예: ADMIN):</label>
+                    <div class="relative">
+                        <input type="text" id="roleName" th:field="*{roleName}"
+                               class="mt-1 block w-full px-4 py-3 rounded-lg shadow-sm sm:text-sm font-mono transition-all duration-300"
+                               style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;"
+                               placeholder="ROLE_USER" required />
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <svg class="h-5 w-5" style="color: #94a3b8;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
                 <div>
-                    <label for="roleDesc" class="block text-sm font-medium" style="color: #cbd5e1;">설명:</label>
-                    <input type="text" id="roleDesc" th:field="*{roleDesc}"
-                           class="mt-1 block w-full px-4 py-2.5 rounded-lg shadow-sm sm:text-sm"
-                           style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;" />
+                    <label for="roleDesc" class="block text-sm font-medium mb-2" style="color: #cbd5e1;">설명:</label>
+                    <div class="relative">
+                        <input type="text" id="roleDesc" th:field="*{roleDesc}"
+                               class="mt-1 block w-full px-4 py-3 rounded-lg shadow-sm sm:text-sm transition-all duration-300"
+                               style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;"
+                               placeholder="역할에 대한 설명을 입력하세요" />
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <svg class="h-5 w-5" style="color: #94a3b8;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
                 <div>
-                    <label for="isExpression" class="block text-sm font-medium" style="color: #cbd5e1;">표현식 여부 (Y/N):</label>
-                    <input type="text" id="isExpression" th:field="*{isExpression}"
-                           class="mt-1 block w-full px-4 py-2.5 rounded-lg shadow-sm sm:text-sm"
-                           style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;"
-                           placeholder="Y 또는 N" />
+                    <label for="isExpression" class="block text-sm font-medium mb-2" style="color: #cbd5e1;">표현식 여부:</label>
+                    <div class="relative">
+                        <select id="isExpression" th:field="*{isExpression}"
+                                class="mt-1 block w-full px-4 py-3 rounded-lg shadow-sm sm:text-sm transition-all duration-300"
+                                style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;">
+                            <option value="N">아니오 (N)</option>
+                            <option value="Y">예 (Y)</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-3">
+                            <svg class="h-5 w-5" style="color: #94a3b8;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
+                            </svg>
+                        </div>
+                    </div>
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium mb-2" style="color: #cbd5e1;">할당할 권한 (Permissions):</label>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-lg max-h-60 overflow-y-auto"
-                         style="background: rgba(30, 41, 59, 0.4); border: 1px solid rgba(71, 85, 105, 0.3);">
-                        <div th:each="permission : ${permissionList}">
-                            <input type="checkbox" th:id="'perm_' + ${permission.id}" th:name="permissionIds" th:value="${permission.id}"
-                                   th:checked="${#lists.contains(selectedPermissionIds, permission.id)}"
-                                   class="mr-2 h-4 w-4 rounded focus:ring-app-accent"
-                                   style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5);" />
-                            <label th:for="'perm_' + ${permission.id}" th:text="${permission.friendlyName}"
-                                   class="text-sm font-mono" style="color: #e2e8f0;"></label>
-                            <p class="text-xs ml-6" th:text="${permission.targetType + ':' + permission.actionType}" style="color: #94a3b8;"></p>
+                    <div class="flex items-center justify-between mb-3">
+                        <label class="block text-sm font-medium" style="color: #cbd5e1;">
+                            <svg class="inline-block w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                            </svg>
+                            할당할 권한 (Permissions)
+                        </label>
+                        <span id="selected-count" class="text-sm" style="color: #94a3b8;">0개 선택됨</span>
+                    </div>
+                    <div class="checkbox-grid">
+                        <div th:each="permission : ${permissionList}"
+                             class="checkbox-item compact"
+                             th:classappend="${#lists.contains(selectedPermissionIds, permission.id)} ? 'selected' : ''">
+                            <label class="custom-checkbox compact">
+                                <input type="checkbox"
+                                       th:id="'perm_' + ${permission.id}"
+                                       th:name="permissionIds"
+                                       th:value="${permission.id}"
+                                       th:checked="${#lists.contains(selectedPermissionIds, permission.id)}"
+                                       onchange="toggleItemSelection(this)" />
+                                <span class="checkbox-mark"></span>
+                                <div class="checkbox-label">
+                                    <span class="checkbox-label-title font-mono" th:text="${permission.friendlyName}"></span>
+                                    <span class="checkbox-label-description" th:text="${permission.targetType + ':' + permission.actionType}"></span>
+                                </div>
+                            </label>
                         </div>
-                        <div th:if="${#lists.isEmpty(permissionList)}" class="text-sm col-span-full text-center" style="color: #94a3b8;">
+                        <div th:if="${#lists.isEmpty(permissionList)}" class="text-sm col-span-full text-center py-8" style="color: #94a3b8;">
+                            <svg class="w-12 h-12 mx-auto mb-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                            </svg>
                             등록된 권한이 없습니다.
                         </div>
                     </div>
@@ -58,13 +108,20 @@
 
                 <div class="pt-2">
                     <button type="submit"
-                            class="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-app-accent transition-all duration-150 ease-in-out transform hover:scale-105"
-                            style="background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);"
-                            th:text="${role.id != null ? '역할 저장' : '역할 등록'}"></button>
+                            class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-app-accent transition-all duration-150 ease-in-out transform hover:scale-105"
+                            style="background: linear-gradient(135deg, #6366f1, #4f46e5); box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                        </svg>
+                        <span th:text="${role.id != null ? '역할 저장' : '역할 등록'}"></span>
+                    </button>
                 </div>
             </form>
             <div class="mt-6 text-center">
-                <a th:href="@{/admin/roles}" class="text-sm font-medium hover:underline" style="color: #818cf8;">
+                <a th:href="@{/admin/roles}" class="inline-flex items-center text-sm font-medium hover:underline transition-all duration-200" style="color: #818cf8;">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
                     역할 목록으로 돌아가기
                 </a>
             </div>
@@ -73,19 +130,75 @@
 </div>
 
 <div th:insert="~{fragments/footer :: footer}" class="mt-auto"></div>
-<script th:inline="javascript">
-    /*<![CDATA[*/
+
+<style>
+    /* 텍스트 그라디언트 */
+    .text-gradient {
+        background: linear-gradient(135deg, #6366f1, #818cf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    /* 컴팩트 스타일 조정 */
+    .checkbox-item.compact {
+        padding: 12px;
+    }
+</style>
+
+<script>
+    // 체크박스 선택 시 시각적 피드백과 리플 효과
+    function toggleItemSelection(checkbox) {
+        const item = checkbox.closest('.checkbox-item');
+        const checkboxMark = checkbox.nextElementSibling;
+
+        // 리플 효과 추가
+        const ripple = document.createElement('span');
+        ripple.className = 'ripple';
+        checkboxMark.appendChild(ripple);
+
+        setTimeout(() => ripple.remove(), 600);
+
+        // 선택 상태 토글
+        if (checkbox.checked) {
+            item.classList.add('selected');
+            // 진동 효과 (지원하는 경우)
+            if (navigator.vibrate) {
+                navigator.vibrate(10);
+            }
+        } else {
+            item.classList.remove('selected');
+        }
+
+        // 선택된 권한 수 업데이트
+        updateSelectedCount();
+    }
+
+    // 선택된 권한 수 표시
+    function updateSelectedCount() {
+        const selectedCount = document.querySelectorAll('input[name="permissionIds"]:checked').length;
+        const totalCount = document.querySelectorAll('input[name="permissionIds"]').length;
+
+        const countDisplay = document.getElementById('selected-count');
+        if (countDisplay) {
+            countDisplay.textContent = `${selectedCount}/${totalCount} 선택됨`;
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         if (typeof initAuth === 'function') {
             initAuth();
         }
+
+        // 초기 선택 개수 표시
+        updateSelectedCount();
+
         // 토스트 메시지 표시 (필요시)
         const message = /*[[${message}]]*/ null;
         if (message) {
             showToast(message, 'success');
         }
     });
-    /*]]>*/
 </script>
 </body>
 </html>
