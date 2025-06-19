@@ -88,10 +88,19 @@
                         </div>
                     </div>
 
-                    <!-- 중앙: 시각화 캔버스 -->
+
+                    <!-- 시각화 영역 수정 - 확대 버튼 추가 -->
                     <div class="col-span-5">
                         <h3 class="text-lg font-bold text-slate-200 mb-3">계층 구조 시각화</h3>
                         <div class="hierarchy-visualization">
+                            <!-- 확대 버튼 추가 -->
+                            <button type="button"
+                                    class="expand-button"
+                                    onclick="showFullscreenModal('fullscreen-mermaid')"
+                                    title="전체화면으로 보기">
+                                <i class="fas fa-expand"></i>
+                                <span>확대</span>
+                            </button>
                             <div id="mermaid-container" style="width: 100%; height: 100%;">
                                 <div id="mermaid-diagram" class="mermaid">
                                     graph TD
@@ -223,8 +232,16 @@
         </h3>
 
         <div class="mb-6">
-            <div class="bg-slate-900/50 rounded-lg p-6 border border-slate-700"
-                 style="max-height: 50vh; overflow: auto;">
+            <div class="bg-slate-900/50 rounded-lg p-6 border border-slate-700 mermaid-container"
+                 style="max-height: 50vh; overflow: auto; position: relative;">
+                <!-- 확대 버튼 추가 -->
+                <button type="button"
+                        class="expand-button"
+                        onclick="showConfirmFullscreen()"
+                        title="전체화면으로 보기">
+                    <i class="fas fa-expand"></i>
+                    <span>확대</span>
+                </button>
                 <div id="confirm-mermaid" class="mermaid" style="min-height: 200px;"></div>
             </div>
             <p class="text-sm text-slate-500 mt-2 text-center">
@@ -252,17 +269,14 @@
 
 <div th:insert="~{fragments/footer :: footer}"></div>
 
-<!-- 수정이 필요한 JavaScript 부분만 표시 -->
-<!-- JavaScript 부분만 리팩토링 -->
 <script th:inline="javascript">
     // 전역 상수 및 설정
     const CONFIG = {
         MERMAID: {
             THEME: 'dark',
-            SCALE: 0.75,
-            NODE_SPACING: 50,
-            RANK_SPACING: 50,
-            FONT_SIZE: '14px'
+            NODE_SPACING: 80,
+            RANK_SPACING: 80,
+            FONT_SIZE: '16px'
         },
         ANIMATION: {
             FADE_DURATION: 300,
@@ -299,44 +313,31 @@
                 startOnLoad: false,
                 theme: 'dark',
                 themeVariables: {
-                    // 중후한 색상으로 변경
-                    primaryColor: '#1e293b',       // 진한 슬레이트 (노드 배경)
-                    primaryTextColor: '#f1f5f9',   // 밝은 회색 (텍스트)
-                    primaryBorderColor: '#334155',  // 중간 슬레이트 (테두리)
-                    lineColor: '#475569',          // 중간 회색 (연결선)
-                    secondaryColor: '#0f172a',     // 매우 진한 슬레이트
+                    primaryColor: '#1e293b',
+                    primaryTextColor: '#f1f5f9',
+                    primaryBorderColor: '#334155',
+                    lineColor: '#475569',
+                    secondaryColor: '#0f172a',
                     tertiaryColor: '#1e293b',
-                    background: '#020617',         // 거의 검정
-                    mainBkg: '#1e293b',           // 메인 배경
-                    secondBkg: '#334155',         // 보조 배경
-                    tertiaryBkg: '#475569',       // 제3 배경
-
-                    // 특별한 노드 색상
-                    classText: '#f1f5f9',
-
-                    // 엣지 관련
-                    edgeLabelBackground: '#0f172a',
-
-                    // 클러스터
-                    clusterBkg: '#1e293b',
-                    clusterBorder: '#334155',
-
-                    // 폰트 크기
-                    fontSize: '16px'
+                    background: '#020617',
+                    mainBkg: '#1e293b',
+                    secondBkg: '#334155',
+                    tertiaryBkg: '#475569',
+                    fontSize: CONFIG.MERMAID.FONT_SIZE
                 },
                 securityLevel: 'loose',
                 flowchart: {
                     useMaxWidth: false,
                     htmlLabels: true,
                     curve: 'basis',
-                    nodeSpacing: 80,
-                    rankSpacing: 80,
+                    nodeSpacing: CONFIG.MERMAID.NODE_SPACING,
+                    rankSpacing: CONFIG.MERMAID.RANK_SPACING,
                     padding: 20,
                     diagramPadding: 20
                 }
             });
             mermaidInitialized = true;
-            console.log('Mermaid initialized with dark professional theme');
+            console.log('Mermaid initialized with config:', CONFIG.MERMAID);
         }
     }
 
@@ -641,6 +642,62 @@
         return false;
     }
 
+    // 역할의 친화적 이름 찾기
+    function findFriendlyName(roleName) {
+        // 모든 그룹의 역할에서 찾기
+        if (groupsWithRoles && groupsWithRoles.length > 0) {
+            for (const group of groupsWithRoles) {
+                if (group.roles && group.roles.length > 0) {
+                    for (const role of group.roles) {
+                        if (role.roleName === roleName) {
+                            return (role.roleDesc || roleName).replace(/["\n]/g, ' ').trim();
+                        }
+                    }
+                }
+            }
+        }
+
+        // 그룹 미지정 역할에서 찾기
+        if (ungroupedRoles && ungroupedRoles.length > 0) {
+            for (const role of ungroupedRoles) {
+                if (role.roleName === roleName) {
+                    return (role.roleDesc || roleName).replace(/["\n]/g, ' ').trim();
+                }
+            }
+        }
+
+        // 찾지 못한 경우 원본 이름 반환
+        return roleName.replace(/["\n]/g, ' ').trim();
+    }
+
+    // Mermaid 코드 생성
+    function generateMermaidCode(relations) {
+        const nodeMap = new Map();
+        let nodeIndex = 0;
+        let mermaidCode = 'graph TD\n';
+
+        relations.forEach(rel => {
+            // 노드 ID 생성
+            if (!nodeMap.has(rel.parent)) {
+                nodeMap.set(rel.parent, `N${nodeIndex++}`);
+            }
+            if (!nodeMap.has(rel.child)) {
+                nodeMap.set(rel.child, `N${nodeIndex++}`);
+            }
+
+            const parentId = nodeMap.get(rel.parent);
+            const childId = nodeMap.get(rel.child);
+
+            // 친화적 이름 찾기
+            const parentLabel = findFriendlyName(rel.parent);
+            const childLabel = findFriendlyName(rel.child);
+
+            mermaidCode += `    ${parentId}["${parentLabel}"] --> ${childId}["${childLabel}"]\n`;
+        });
+
+        return mermaidCode;
+    }
+
     // 시각화 업데이트
     function updateVisualization(relations) {
         if (!relations || relations.length === 0) {
@@ -680,19 +737,7 @@
 
                     // 다이어그램이 렌더링된 후 스크롤 위치 조정
                     setTimeout(() => {
-                        // 중앙으로 스크롤
-                        const svg = container.querySelector('svg');
-                        if (svg) {
-                            const svgRect = svg.getBoundingClientRect();
-                            const containerRect = container.getBoundingClientRect();
-
-                            if (svgRect.width > containerRect.width) {
-                                container.scrollLeft = (svgRect.width - containerRect.width) / 2;
-                            }
-                            if (svgRect.height > containerRect.height) {
-                                container.scrollTop = (svgRect.height - containerRect.height) / 2;
-                            }
-                        }
+                        centerDiagram(container);
                     }, 100);
                 }
             } catch (e) {
@@ -702,34 +747,21 @@
         }, 100);
     }
 
-    // Mermaid 코드 생성
-    function generateMermaidCode(relations) {
-        const nodeMap = new Map();
-        let nodeIndex = 0;
-        let mermaidCode = 'graph TD\n';
+    // 다이어그램 중앙 정렬
+    function centerDiagram(container) {
+        const svg = container.querySelector('svg');
+        if (svg) {
+            const svgRect = svg.getBoundingClientRect();
+            const containerRect = container.getBoundingClientRect();
 
-        relations.forEach(rel => {
-            // 노드 ID 생성
-            if (!nodeMap.has(rel.parent)) {
-                nodeMap.set(rel.parent, `N${nodeIndex++}`);
+            if (svgRect.width > containerRect.width) {
+                container.scrollLeft = (svgRect.width - containerRect.width) / 2;
             }
-            if (!nodeMap.has(rel.child)) {
-                nodeMap.set(rel.child, `N${nodeIndex++}`);
+            if (svgRect.height > containerRect.height) {
+                container.scrollTop = (svgRect.height - containerRect.height) / 2;
             }
-
-            const parentId = nodeMap.get(rel.parent);
-            const childId = nodeMap.get(rel.child);
-
-            // 친화적 이름 찾기
-            const parentLabel = findFriendlyName(rel.parent);
-            const childLabel = findFriendlyName(rel.child);
-
-            mermaidCode += `    ${parentId}["${parentLabel}"] --> ${childId}["${childLabel}"]\n`;
-        });
-
-        return mermaidCode;
+        }
     }
-
 
     // 오류 상태 표시
     function showErrorState(container, relations) {
@@ -749,6 +781,105 @@
 
         // hidden input 업데이트
         document.getElementById('hierarchyString').value = hierarchyString;
+    }
+
+    // 전체화면 모달 표시
+    function showFullscreenModal(targetContainerId) {
+        const relations = collectRelations();
+        if (relations.length === 0) {
+            showToast('표시할 계층 관계가 없습니다.', 'warning');
+            return;
+        }
+
+        // 모달 생성
+        const modal = document.createElement('div');
+        modal.id = 'fullscreen-modal';
+        modal.className = 'fullscreen-modal';
+        modal.innerHTML = `
+            <div class="fullscreen-modal-content">
+                <div class="fullscreen-modal-header">
+                    <h3 class="text-2xl font-bold text-slate-200">
+                        <i class="fas fa-sitemap mr-2 text-indigo-400"></i>
+                        계층 구조 전체 보기
+                    </h3>
+                    <button type="button" onclick="closeFullscreenModal()" class="close-button">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="fullscreen-modal-body">
+                    <div id="${targetContainerId}" class="fullscreen-mermaid-container"></div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 모달 표시
+        setTimeout(() => {
+            modal.classList.add('show');
+
+            // Mermaid 다이어그램 렌더링
+            renderFullscreenDiagram(targetContainerId, relations);
+        }, 10);
+
+        // ESC 키로 닫기
+        document.addEventListener('keydown', handleEscKey);
+    }
+
+    // 전체화면 다이어그램 렌더링
+    function renderFullscreenDiagram(containerId, relations) {
+        initializeMermaid();
+
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const mermaidCode = generateMermaidCode(relations);
+
+        container.innerHTML = '';
+        const diagramDiv = document.createElement('div');
+        diagramDiv.className = 'mermaid';
+        diagramDiv.textContent = mermaidCode;
+        container.appendChild(diagramDiv);
+
+        setTimeout(() => {
+            try {
+                if (typeof mermaid !== 'undefined') {
+                    mermaid.init(undefined, diagramDiv);
+
+                    // 렌더링 후 중앙 정렬
+                    setTimeout(() => {
+                        centerDiagram(container);
+                    }, 100);
+                }
+            } catch (e) {
+                console.error('Fullscreen Mermaid error:', e);
+                container.innerHTML = `
+                    <div class="text-center text-slate-400 p-8">
+                        <p>다이어그램 렌더링 중 오류가 발생했습니다.</p>
+                    </div>
+                `;
+            }
+        }, 100);
+    }
+
+    // 전체화면 모달 닫기
+    function closeFullscreenModal() {
+        const modal = document.getElementById('fullscreen-modal');
+        if (modal) {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
+        }
+
+        document.removeEventListener('keydown', handleEscKey);
+    }
+
+    // ESC 키 핸들러
+    function handleEscKey(event) {
+        if (event.key === 'Escape') {
+            closeFullscreenModal();
+        }
     }
 
     // 확인 다이얼로그 표시
@@ -813,34 +944,6 @@
         return mermaidCode;
     }
 
-    function findFriendlyName(roleName) {
-        // 모든 그룹의 역할에서 찾기
-        if (groupsWithRoles && groupsWithRoles.length > 0) {
-            for (const group of groupsWithRoles) {
-                if (group.roles && group.roles.length > 0) {
-                    for (const role of group.roles) {
-                        if (role.roleName === roleName) {
-                            // roleDesc가 있으면 사용, 없으면 roleName 사용
-                            return (role.roleDesc || roleName).replace(/["\n]/g, ' ').trim();
-                        }
-                    }
-                }
-            }
-        }
-
-        // 그룹 미지정 역할에서 찾기
-        if (ungroupedRoles && ungroupedRoles.length > 0) {
-            for (const role of ungroupedRoles) {
-                if (role.roleName === roleName) {
-                    return (role.roleDesc || roleName).replace(/["\n]/g, ' ').trim();
-                }
-            }
-        }
-
-        // 찾지 못한 경우 원본 이름 반환
-        return roleName.replace(/["\n]/g, ' ').trim();
-    }
-
     // 확인 다이얼로그 다이어그램 렌더링
     function renderConfirmDiagram(mermaidCode) {
         const confirmMermaid = document.getElementById('confirm-mermaid');
@@ -860,6 +963,14 @@
             try {
                 if (typeof mermaid !== 'undefined' && diagramDiv && diagramDiv.parentNode) {
                     mermaid.init(undefined, diagramDiv);
+
+                    // 렌더링 후 중앙 정렬
+                    setTimeout(() => {
+                        const container = confirmMermaid.closest('.mermaid-container');
+                        if (container) {
+                            centerDiagram(container);
+                        }
+                    }, 100);
                 }
             } catch (e) {
                 console.error('Mermaid confirm dialog error:', e);
@@ -941,6 +1052,14 @@
         }
 
         return maxDepth + 1;
+    }
+
+    // 확인 다이얼로그 전체화면 표시
+    function showConfirmFullscreen() {
+        const relations = collectRelations();
+        if (relations.length === 0) return;
+
+        showFullscreenModal('confirm-fullscreen-mermaid');
     }
 
     function hideConfirmDialog() {
@@ -1060,11 +1179,12 @@
             showInitialState();
         }
 
-        // Toast 스타일 추가
-        if (!document.getElementById('toast-styles')) {
-            const toastStyles = document.createElement('style');
-            toastStyles.id = 'toast-styles';
-            toastStyles.textContent = `
+        // Toast 및 모달 스타일 추가
+        if (!document.getElementById('custom-styles')) {
+            const styles = document.createElement('style');
+            styles.id = 'custom-styles';
+            styles.textContent = `
+                /* Toast 스타일 */
                 .toast-message {
                     padding: 12px 20px;
                     border-radius: 8px;
@@ -1123,8 +1243,108 @@
                         transform: translateX(100%);
                     }
                 }
+
+                /* 전체화면 모달 스타일 */
+                .fullscreen-modal {
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: rgba(0, 0, 0, 0.95);
+                    z-index: 10000;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                }
+
+                .fullscreen-modal.show {
+                    opacity: 1;
+                }
+
+                .fullscreen-modal-content {
+                    width: 95vw;
+                    height: 95vh;
+                    background: rgba(15, 23, 42, 0.98);
+                    border: 2px solid rgba(99, 102, 241, 0.3);
+                    border-radius: 1rem;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+                }
+
+                .fullscreen-modal-header {
+                    padding: 1.5rem;
+                    border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    background: rgba(30, 41, 59, 0.5);
+                }
+
+                .fullscreen-modal-body {
+                    flex: 1;
+                    padding: 1rem;
+                    overflow: hidden;
+                    position: relative;
+                }
+
+                .fullscreen-mermaid-container {
+                    width: 100%;
+                    height: 100%;
+                    overflow: auto;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .close-button {
+                    background: rgba(239, 68, 68, 0.2);
+                    color: #f87171;
+                    border: 1px solid rgba(239, 68, 68, 0.3);
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.5rem;
+                    font-size: 1.25rem;
+                    transition: all 0.3s ease;
+                    cursor: pointer;
+                }
+
+                .close-button:hover {
+                    background: rgba(239, 68, 68, 0.3);
+                    border-color: rgba(239, 68, 68, 0.5);
+                    transform: scale(1.05);
+                }
+
+                /* 확대 버튼 스타일 */
+                .expand-button {
+                    position: absolute;
+                    top: 1rem;
+                    right: 1rem;
+                    background: rgba(99, 102, 241, 0.2);
+                    color: #818cf8;
+                    border: 1px solid rgba(99, 102, 241, 0.3);
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.5rem;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    transition: all 0.3s ease;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    z-index: 10;
+                }
+
+                .expand-button:hover {
+                    background: rgba(99, 102, 241, 0.3);
+                    border-color: rgba(99, 102, 241, 0.5);
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+                }
             `;
-            document.head.appendChild(toastStyles);
+            document.head.appendChild(styles);
         }
     });
 </script>
