@@ -21,6 +21,7 @@ import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
 import io.spring.identityadmin.security.core.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -187,7 +188,11 @@ public class GrantingWizardServiceImpl implements GrantingWizardService {
 
     private Long getCurrentAdminId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        Assert.notNull(authentication, "Authentication object must not be null");
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getPrincipal())) {
+            log.warn("인증된 관리자 사용자를 찾을 수 없습니다. (No authenticated admin user found)");
+            throw new AuthenticationCredentialsNotFoundException("관리자 ID를 확인할 수 없습니다. 세션이 만료되었거나 비정상적인 접근입니다.");
+        }
+
         Object principal = authentication.getPrincipal();
         if (principal instanceof UserDto userDto) return userDto.getId();
         if (principal instanceof CustomUserDetails userDetails) return userDetails.getUsers().getId();
