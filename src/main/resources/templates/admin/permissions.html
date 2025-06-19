@@ -28,8 +28,9 @@
                     <thead class="text-xs text-white uppercase" style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%);">
                     <tr>
                         <th scope="col" class="py-3.5 px-6 font-semibold">ID</th>
-                        <th scope="col" class="py-3.5 px-6 font-semibold">권한명 (Name)</th>
-                        <th scope="col" class="py-3.5 px-6 font-semibold">설명</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">권한</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">권한 명</th>
+                        <th scope="col" class="py-3.5 px-6 font-semibold">권한 설명</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">대상 타입</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">행동 타입</th>
                         <th scope="col" class="py-3.5 px-6 font-semibold">관리</th>
@@ -39,6 +40,7 @@
                     <tr th:each="permission : ${permissions}" style="border-color: rgba(71, 85, 105, 0.3);">
                         <td class="py-4 px-6" th:text="${permission.id}">1</td>
                         <td class="py-4 px-6 font-mono text-sm" th:text="${permission.name}">DOCUMENT_READ</td>
+                        <td class="py-4 px-6 font-mono text-sm" th:text="${permission.friendlyName}">DOCUMENT_READ</td>
                         <td class="py-4 px-6" th:text="${permission.description}" style="color: #cbd5e1;">문서 읽기 권한</td>
                         <td class="py-4 px-6">
                             <span class="px-2 py-1 rounded-full text-xs font-semibold"

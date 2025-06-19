@@ -46,7 +46,7 @@
                                    th:checked="${#lists.contains(selectedPermissionIds, permission.id)}"
                                    class="mr-2 h-4 w-4 rounded focus:ring-app-accent"
                                    style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5);" />
-                            <label th:for="'perm_' + ${permission.id}" th:text="${permission.name}"
+                            <label th:for="'perm_' + ${permission.id}" th:text="${permission.friendlyName}"
                                    class="text-sm font-mono" style="color: #e2e8f0;"></label>
                             <p class="text-xs ml-6" th:text="${permission.targetType + ':' + permission.actionType}" style="color: #94a3b8;"></p>
                         </div>
