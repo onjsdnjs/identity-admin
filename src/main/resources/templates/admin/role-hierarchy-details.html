@@ -137,7 +137,8 @@
                                                             th:value="${role.roleName}"
                                                             th:text="${role.roleDesc}"
                                                             th:data-subtext="${role.roleName}"
-                                                            th:selected="${role.roleName == pair.parentRole}"></option>
+                                                            th:selected="${role.roleName == pair.parentRole}"
+                                                            disabled></option>
                                                 </optgroup>
                                             </select>
                                             <div class="select-arrow">
@@ -167,7 +168,8 @@
                                                             th:value="${role.roleName}"
                                                             th:text="${role.roleDesc}"
                                                             th:data-subtext="${role.roleName}"
-                                                            th:selected="${role.roleName == pair.childRole}"></option>
+                                                            th:selected="${role.roleName == pair.childRole}"
+                                                            disabled></option>
                                                 </optgroup>
                                             </select>
                                             <div class="select-arrow">
@@ -387,7 +389,7 @@
             optionsHtml += '<optgroup label="그룹 미지정">';
             ungroupedRoles.forEach(role => {
                 const desc = role.roleDesc || role.roleName;
-                optionsHtml += `<option value="${role.roleName}" data-subtext="${role.roleName}">${desc}</option>`;
+                optionsHtml += `<option value="${role.roleName}" data-subtext="${role.roleName}" disabled>${desc}</option>`;
             });
             optionsHtml += '</optgroup>';
         }

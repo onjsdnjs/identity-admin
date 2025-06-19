@@ -278,6 +278,30 @@
     font-weight: bold;
 }
 
+/* 비활성화된 옵션 스타일 - 그룹 미지정 역할용 */
+.modern-select option:disabled {
+    color: #6b7280 !important;
+    background-color: #374151 !important;
+    font-style: italic;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 그룹 미지정 옵션그룹 스타일 */
+.modern-select optgroup[label="그룹 미지정"] {
+    color: #9ca3af !important;
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.modern-select optgroup[label="그룹 미지정"] option {
+    color: #6b7280 !important;
+    background-color: #374151 !important;
+    font-style: italic;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .select-arrow {
     position: absolute;
     right: 1rem;
