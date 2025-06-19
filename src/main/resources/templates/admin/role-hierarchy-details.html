@@ -29,7 +29,9 @@
                 <p class="text-dark-muted mt-2">역할 간의 상하 관계를 시각적으로 정의하고 관리합니다</p>
             </div>
 
-            <form id="hierarchyForm" method="post" th:object="${hierarchy}" class="space-y-6">
+            <form id="hierarchyForm" method="post"
+                  th:action="${hierarchy.id != null} ? @{/admin/role-hierarchies/{id}/edit(id=${hierarchy.id})} : @{/admin/role-hierarchies}"
+                  th:object="${hierarchy}" class="space-y-6">
                 <input type="hidden" th:field="*{id}" th:if="${hierarchy.id != null}" />
                 <input type="hidden" id="hierarchyString" th:field="*{hierarchyString}" />
 
@@ -273,20 +275,25 @@
     console.log('Existing hierarchy pairs (cleaned):', hierarchyPairs);
 
     // Mermaid 초기화
-    mermaid.initialize({
-        startOnLoad: true,
-        theme: 'dark',
-        themeVariables: {
-            primaryColor: '#6366f1',
-            primaryTextColor: '#e2e8f0',
-            primaryBorderColor: '#4f46e5',
-            lineColor: '#60a5fa',
-            secondaryColor: '#1e293b',
-            tertiaryColor: '#334155',
-            background: '#0f172a',
-            mainBkg: '#1e293b',
-            secondBkg: '#334155',
-            tertiaryBkg: '#475569'
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mermaid 전역 설정
+        if (typeof mermaid !== 'undefined') {
+            mermaid.initialize({
+                startOnLoad: false,  // 자동 시작 비활성화
+                theme: 'dark',
+                themeVariables: {
+                    primaryColor: '#6366f1',
+                    primaryTextColor: '#e2e8f0',
+                    primaryBorderColor: '#4f46e5',
+                    lineColor: '#60a5fa',
+                    secondaryColor: '#1e293b',
+                    tertiaryColor: '#334155',
+                    background: '#0f172a',
+                    mainBkg: '#1e293b',
+                    secondBkg: '#334155',
+                    tertiaryBkg: '#475569'
+                }
+            });
         }
     });
 
@@ -593,7 +600,6 @@
     // 시각화 업데이트
     function updateVisualization(relations) {
         if (relations.length === 0) {
-            // 관계가 없을 때 초기 상태로 복원
             showInitialState();
             return;
         }
@@ -602,7 +608,7 @@
         const nodeMap = new Map();
         let nodeIndex = 0;
 
-        // Mermaid 코드 생성
+        // Mermaid 코드 생성 - 더 단순한 형태로
         let mermaidCode = 'graph TD\n';
 
         relations.forEach(rel => {
@@ -617,26 +623,35 @@
             const parentId = nodeMap.get(rel.parent);
             const childId = nodeMap.get(rel.child);
 
-            mermaidCode += `    ${parentId}["${rel.parent}"] --> ${childId}["${rel.child}"]\n`;
+            // 특수문자 이스케이프
+            const parentLabel = rel.parent.replace(/"/g, "'");
+            const childLabel = rel.child.replace(/"/g, "'");
+
+            mermaidCode += `    ${parentId}[${parentLabel}] --> ${childId}[${childLabel}]\n`;
         });
 
-        // 스타일 추가
-        mermaidCode += '\n    classDef default fill:#1e293b,stroke:#4f46e5,stroke-width:2px,color:#e2e8f0\n';
-        mermaidCode += '    classDef highlight fill:#4f46e5,stroke:#6366f1,stroke-width:3px,color:#ffffff\n';
+        console.log('Generated Mermaid code:', mermaidCode);
 
         const container = document.getElementById('mermaid-container');
+        container.innerHTML = '';
+
         const diagramDiv = document.createElement('div');
         diagramDiv.id = 'mermaid-diagram';
         diagramDiv.className = 'mermaid';
         diagramDiv.textContent = mermaidCode;
 
-        container.innerHTML = '';
         container.appendChild(diagramDiv);
 
         try {
+            // Mermaid 재초기화
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'dark'
+            });
             mermaid.init(undefined, diagramDiv);
         } catch (e) {
             console.error('Mermaid visualization error:', e);
+            console.error('Mermaid code that caused error:', mermaidCode);
             showInitialState();
         }
     }
@@ -717,32 +732,11 @@
             }
         }
 
-        // Mermaid 코드 생성 (큰 그래프를 위한 최적화)
-        let mermaidCode = 'graph TB\n'; // TB (Top to Bottom)으로 변경
+        // Mermaid 코드 생성 (큰 그래프를 위한 최적화) - 단순화
+        let mermaidCode = 'graph TB\n';
 
-        // 노드 정의
-        relations.forEach(rel => {
-            if (!nodeMap.has(rel.parent)) {
-                const id = `N${nodeIndex++}`;
-                nodeMap.set(rel.parent, id);
-                const level = levels.get(rel.parent) || 0;
-                nodeStyles.set(rel.parent, level);
-            }
-            if (!nodeMap.has(rel.child)) {
-                const id = `N${nodeIndex++}`;
-                nodeMap.set(rel.child, id);
-                const level = levels.get(rel.child) || 1;
-                nodeStyles.set(rel.child, level);
-            }
-        });
-
-        // 관계 정의
-        relations.forEach(rel => {
-            const parentId = nodeMap.get(rel.parent);
-            const childId = nodeMap.get(rel.child);
-            const parentLevel = nodeStyles.get(rel.parent);
-            const childLevel = nodeStyles.get(rel.child);
-
+        // 관계 정의 - 더 단순하게
+        relations.forEach((rel, idx) => {
             // 역할 설명 찾기
             let parentDesc = rel.parent;
             let childDesc = rel.child;
@@ -758,65 +752,41 @@
                 });
             });
 
-            // Mermaid에서는 \n으로 개행 처리
-            mermaidCode += `    ${parentId}["${parentDesc}\\n${rel.parent}"] --> ${childId}["${childDesc}\\n${rel.child}"]\n`;
+            // 특수문자 처리
+            parentDesc = parentDesc.replace(/"/g, "'").replace(/\n/g, " ");
+            childDesc = childDesc.replace(/"/g, "'").replace(/\n/g, " ");
+
+            // 간단한 형태로 생성
+            mermaidCode += `    ${rel.parent.replace(/[^a-zA-Z0-9]/g, '_')}["${parentDesc}"] --> ${rel.child.replace(/[^a-zA-Z0-9]/g, '_')}["${childDesc}"]\n`;
         });
 
-        // 레벨별 스타일 적용
-        const levelColors = ['#4f46e5', '#7c3aed', '#2563eb', '#0891b2', '#059669'];
-        for (let i = 0; i < 5; i++) {
-            const nodesAtLevel = Array.from(nodeStyles.entries())
-                .filter(([node, level]) => level === i)
-                .map(([node, level]) => nodeMap.get(node));
-
-            if (nodesAtLevel.length > 0) {
-                mermaidCode += `    classDef level${i} fill:${levelColors[i % levelColors.length]},stroke:#fff,stroke-width:2px,color:#fff\n`;
-                mermaidCode += `    class ${nodesAtLevel.join(',')} level${i}\n`;
-            }
-        }
+        console.log('Confirm dialog Mermaid code:', mermaidCode);
 
         // 다이어그램 크기 및 스크롤 처리를 위한 설정
         const confirmMermaid = document.getElementById('confirm-mermaid');
+        confirmMermaid.innerHTML = '';
 
-        // 다이어그램을 div에 텍스트로 설정
-        confirmMermaid.textContent = mermaidCode;
-        confirmMermaid.removeAttribute('data-processed'); // 재처리를 위해 속성 제거
-
-        // Mermaid 설정 (큰 다이어그램 최적화)
-        mermaid.initialize({
-            startOnLoad: false,
-            theme: 'dark',
-            flowchart: {
-                nodeSpacing: 50,
-                rankSpacing: 80,
-                curve: 'basis',
-                useMaxWidth: false // 자동 크기 조정 비활성화
-            },
-            themeVariables: {
-                primaryColor: '#6366f1',
-                primaryTextColor: '#ffffff',
-                primaryBorderColor: '#4f46e5',
-                lineColor: '#60a5fa',
-                background: '#1e293b',
-                mainBkg: '#1e293b',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '14px'
-            }
-        });
+        const diagramDiv = document.createElement('div');
+        diagramDiv.className = 'mermaid';
+        diagramDiv.textContent = mermaidCode;
+        confirmMermaid.appendChild(diagramDiv);
 
         try {
-            mermaid.init(undefined, confirmMermaid);
-        } catch (e) {
-            console.error('Mermaid init error:', e);
-            // 오류 발생 시 단순한 다이어그램으로 대체
-            let simpleMermaidCode = 'graph TB\n';
-            relations.forEach((rel, idx) => {
-                const parentId = `P${idx}`;
-                const childId = `C${idx}`;
-                simpleMermaidCode += `    ${parentId}[${rel.parent}] --> ${childId}[${rel.child}]\n`;
+            // Mermaid 초기화
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'dark',
+                flowchart: {
+                    useMaxWidth: true
+                }
             });
-            confirmMermaid.textContent = simpleMermaidCode;
-            mermaid.init(undefined, confirmMermaid);
+            mermaid.init(undefined, diagramDiv);
+        } catch (e) {
+            console.error('Mermaid confirm dialog error:', e);
+            // 오류 발생 시 텍스트로 표시
+            confirmMermaid.innerHTML = '<pre style="color: #e2e8f0; font-size: 12px;">' +
+                relations.map(r => `${r.parent} → ${r.child}`).join('\n') +
+                '</pre>';
         }
 
         // 영향 분석
@@ -859,28 +829,49 @@
     }
 
     function submitForm() {
-        document.getElementById('hierarchyForm').submit();
+        const form = document.getElementById('hierarchyForm');
+        if (form) {
+            // submit 이벤트를 발생시켜 검증 로직 실행
+            const event = new Event('submit', {
+                bubbles: true,
+                cancelable: true
+            });
+            form.dispatchEvent(event);
+        }
     }
 
     // 초기 상태 표시
     function showInitialState() {
         const container = document.getElementById('mermaid-container');
-        if (container) {
-            const diagramDiv = document.createElement('div');
-            diagramDiv.id = 'mermaid-diagram';
-            diagramDiv.className = 'mermaid';
-            diagramDiv.textContent = 'graph TD\n    A[역할 관계를 설정하면 여기에 시각화됩니다]';
+        if (!container) {
+            console.error('Mermaid container not found');
+            return;
+        }
 
-            container.innerHTML = '';
-            container.appendChild(diagramDiv);
+        // 기존 내용 제거
+        container.innerHTML = '';
 
-            if (typeof mermaid !== 'undefined') {
+        // 새로운 div 생성
+        const diagramDiv = document.createElement('div');
+        diagramDiv.id = 'mermaid-diagram';
+        diagramDiv.className = 'mermaid';
+        diagramDiv.style.width = '100%';
+        diagramDiv.style.height = '100%';
+        diagramDiv.textContent = 'graph TD\n    A[역할 관계를 설정하면 여기에 시각화됩니다]';
+
+        container.appendChild(diagramDiv);
+
+        // Mermaid가 로드된 후 초기화
+        if (typeof mermaid !== 'undefined') {
+            setTimeout(() => {
                 try {
                     mermaid.init(undefined, diagramDiv);
                 } catch (e) {
-                    console.error('Mermaid init error:', e);
+                    console.error('Mermaid init error in showInitialState:', e);
+                    // 에러 발생 시 텍스트로 표시
+                    container.innerHTML = '<div class="text-center text-slate-400 p-8">역할 관계를 설정하면 여기에 시각화됩니다</div>';
                 }
-            }
+            }, 100);
         }
 
         const preview = document.getElementById('result-preview');
@@ -934,6 +925,8 @@
         const form = document.getElementById('hierarchyForm');
         if (form) {
             form.addEventListener('submit', function(e) {
+                e.preventDefault(); // 기본 제출 막기
+
                 // 폼 제출 전, UI의 모든 관계를 읽어 hidden input에 문자열로 변환하여 저장
                 const rows = document.querySelectorAll('.relation-row');
                 const hierarchyPairs = [];
@@ -951,13 +944,11 @@
                 });
 
                 if (!isValid) {
-                    e.preventDefault(); // 폼 제출 중단
                     showToast('상위 역할과 하위 역할을 모두 선택해야 합니다.', 'error');
                     return;
                 }
 
                 if (hierarchyPairs.length === 0) {
-                    e.preventDefault();
                     showToast('최소 하나 이상의 관계를 설정해야 합니다.', 'error');
                     return;
                 }
@@ -968,6 +959,11 @@
 
                 console.log('Submitting hierarchy string:', hierarchyString);
                 console.log('Number of relations:', hierarchyPairs.length);
+                console.log('Form action:', form.action);
+                console.log('Form method:', form.method);
+
+                // 실제 폼 제출
+                form.submit();
             });
         }
 

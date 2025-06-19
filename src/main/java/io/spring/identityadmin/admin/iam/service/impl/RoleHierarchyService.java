@@ -60,24 +60,32 @@ public class RoleHierarchyService {
             put = { @CachePut(value = "roleHierarchies", key = "#result.id") }
     )
     public RoleHierarchyEntity createRoleHierarchy(RoleHierarchyEntity roleHierarchyEntity) {
-        if (roleHierarchyRepository.findByHierarchyString(roleHierarchyEntity.getHierarchyString()).isPresent()) {
-            throw new IllegalArgumentException("동일한 역할 계층 설정이 이미 존재합니다.");
+        try {
+            log.info("Creating new role hierarchy: {}", roleHierarchyEntity.getDescription());
+
+            if (roleHierarchyRepository.findByHierarchyString(roleHierarchyEntity.getHierarchyString()).isPresent()) {
+                throw new IllegalArgumentException("동일한 역할 계층 설정이 이미 존재합니다.");
+            }
+
+            // 계층 문자열 유효성 검증 (강화)
+            validateHierarchyString(roleHierarchyEntity.getHierarchyString());
+
+            // 순환 참조 및 논리적 오류 검증
+            validateHierarchyLogic(roleHierarchyEntity.getHierarchyString());
+
+            RoleHierarchyEntity savedEntity = roleHierarchyRepository.save(roleHierarchyEntity);
+
+            if (savedEntity.getIsActive()) {
+                deactivateAllOtherHierarchies(savedEntity.getId());
+                reloadRoleHierarchyBean();
+            }
+            log.info("Created RoleHierarchyEntity with ID: {}", savedEntity.getId());
+            return savedEntity;
+
+        } catch (Exception e) {
+            log.error("Error creating role hierarchy: ", e);
+            throw e;
         }
-
-        // 계층 문자열 유효성 검증 (강화)
-        validateHierarchyString(roleHierarchyEntity.getHierarchyString());
-
-        // 순환 참조 및 논리적 오류 검증
-        validateHierarchyLogic(roleHierarchyEntity.getHierarchyString());
-
-        RoleHierarchyEntity savedEntity = roleHierarchyRepository.save(roleHierarchyEntity);
-
-        if (savedEntity.getIsActive()) {
-            deactivateAllOtherHierarchies(savedEntity.getId());
-            reloadRoleHierarchyBean();
-        }
-        log.info("Created RoleHierarchyEntity with ID: {}", savedEntity.getId());
-        return savedEntity;
     }
 
     @Transactional
@@ -90,24 +98,40 @@ public class RoleHierarchyService {
             put = { @CachePut(value = "roleHierarchies", key = "#result.id") }
     )
     public RoleHierarchyEntity updateRoleHierarchy(RoleHierarchyEntity roleHierarchyEntity) {
-        RoleHierarchyEntity existingEntity = roleHierarchyRepository.findById(roleHierarchyEntity.getId())
-                .orElseThrow(() -> new IllegalArgumentException("RoleHierarchy not found with ID: " + roleHierarchyEntity.getId()));
+        try {
+            log.info("Updating role hierarchy with ID: {}", roleHierarchyEntity.getId());
 
-        validateHierarchyString(roleHierarchyEntity.getHierarchyString());
-        validateHierarchyLogic(roleHierarchyEntity.getHierarchyString());
+            RoleHierarchyEntity existingEntity = roleHierarchyRepository.findById(roleHierarchyEntity.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("RoleHierarchy not found with ID: " + roleHierarchyEntity.getId()));
 
-        existingEntity.setHierarchyString(roleHierarchyEntity.getHierarchyString());
-        existingEntity.setDescription(roleHierarchyEntity.getDescription());
-        existingEntity.setIsActive(roleHierarchyEntity.getIsActive());
+            log.info("Validating hierarchy string: {}", roleHierarchyEntity.getHierarchyString());
+            validateHierarchyString(roleHierarchyEntity.getHierarchyString());
 
-        RoleHierarchyEntity updatedEntity = roleHierarchyRepository.save(existingEntity);
+            log.info("Validating hierarchy logic");
+            validateHierarchyLogic(roleHierarchyEntity.getHierarchyString());
 
-        if (updatedEntity.getIsActive()) {
-            deactivateAllOtherHierarchies(updatedEntity.getId());
+            existingEntity.setHierarchyString(roleHierarchyEntity.getHierarchyString());
+            existingEntity.setDescription(roleHierarchyEntity.getDescription());
+            existingEntity.setIsActive(roleHierarchyEntity.getIsActive());
+
+            RoleHierarchyEntity updatedEntity = roleHierarchyRepository.save(existingEntity);
+            log.info("Saved updated entity with ID: {}", updatedEntity.getId());
+
+            if (updatedEntity.getIsActive()) {
+                log.info("Deactivating other hierarchies");
+                deactivateAllOtherHierarchies(updatedEntity.getId());
+            }
+
+            log.info("Reloading role hierarchy bean");
+            reloadRoleHierarchyBean();
+
+            log.info("Successfully updated RoleHierarchyEntity with ID: {}", updatedEntity.getId());
+            return updatedEntity;
+
+        } catch (Exception e) {
+            log.error("Error updating role hierarchy: ", e);
+            throw e;
         }
-        reloadRoleHierarchyBean();
-        log.info("Updated RoleHierarchyEntity with ID: {}", updatedEntity.getId());
-        return updatedEntity;
     }
 
     @Transactional
@@ -140,6 +164,13 @@ public class RoleHierarchyService {
     public void reloadRoleHierarchyBean() {
         try {
             String hierarchyString = getActiveRoleHierarchyString();
+
+            // DB에서 읽은 문자열의 \n을 실제 개행문자로 변환
+            if (hierarchyString != null && hierarchyString.contains("\\n")) {
+                hierarchyString = hierarchyString.replace("\\n", "\n");
+                log.debug("Converted \\n to actual newline in hierarchy string");
+            }
+
             roleHierarchy.setHierarchy(hierarchyString);
             log.info("RoleHierarchyImpl bean reloaded with new hierarchy: \n{}", hierarchyString);
         } catch (Exception e) {
@@ -151,20 +182,29 @@ public class RoleHierarchyService {
         if (hierarchyString == null || hierarchyString.trim().isEmpty()) {
             return;
         }
-        Set<String> referencedRoleNames = Arrays.stream(hierarchyString.split("[\\n>]"))
+
+        // \n 문자열을 실제 개행문자로 변환
+        if (hierarchyString.contains("\\n")) {
+            hierarchyString = hierarchyString.replace("\\n", "\n");
+        }
+
+        // 계층 문자열에서 모든 역할 이름 추출
+        Set<String> referencedRoleNames = Arrays.stream(hierarchyString.split("[\\r\\n]+"))
+                .flatMap(line -> Arrays.stream(line.split("\\s*>\\s*")))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toSet());
 
-        Set<String> cleanRoleNames = referencedRoleNames.stream()
-                .map(s -> s.startsWith("ROLE_") ? s.substring(5) : s)
-                .collect(Collectors.toSet());
-
+        // DB 에서 존재하는 역할명 가져오기 (대소문자 구분 없이)
         Set<String> existingRoleNames = roleRepository.findAll().stream()
                 .map(role -> role.getRoleName().toUpperCase())
                 .collect(Collectors.toSet());
 
-        for (String roleName : cleanRoleNames) {
+        log.debug("Referenced roles in hierarchy: {}", referencedRoleNames);
+        log.debug("Existing roles in database: {}", existingRoleNames);
+
+        // 참조된 각 역할이 DB에 존재하는지 확인
+        for (String roleName : referencedRoleNames) {
             if (!existingRoleNames.contains(roleName.toUpperCase())) {
                 throw new IllegalArgumentException("계층 문자열에 존재하지 않는 역할이 포함되어 있습니다: " + roleName);
             }
