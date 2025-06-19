@@ -27,35 +27,22 @@ public class RoleHierarchyService {
     private final RoleRepository roleRepository;
     private final RoleHierarchyImpl roleHierarchy;
 
-    /**
-     * RoleHierarchyService 빈 생성이 완료된 후, RoleHierarchyImpl 빈에 계층 정보를 설정합니다.
-     */
-    @PostConstruct // <<< 이 메서드를 추가합니다.
+    @PostConstruct
     public void initializeRoleHierarchy() {
         log.info("Initializing RoleHierarchyService and setting initial RoleHierarchyImpl hierarchy...");
         reloadRoleHierarchyBean();
     }
 
-    /**
-     * 모든 역할 계층 설정을 조회합니다.
-     */
     @Cacheable(value = "roleHierarchies", key = "'allRoleHierarchies'")
     public List<RoleHierarchyEntity> getAllRoleHierarchies() {
         return roleHierarchyRepository.findAll();
     }
 
-    /**
-     * ID로 역할 계층 설정을 조회합니다.
-     */
     @Cacheable(value = "roleHierarchies", key = "#id")
     public Optional<RoleHierarchyEntity> getRoleHierarchy(Long id) {
         return roleHierarchyRepository.findById(id);
     }
 
-    /**
-     * 현재 활성화된 역할 계층 문자열을 DB에서 로드합니다.
-     * 캐싱을 통해 불필요한 DB 조회를 줄입니다.
-     */
     @Cacheable(value = "activeRoleHierarchyString", key = "'current'")
     public String getActiveRoleHierarchyString() {
         return roleHierarchyRepository.findByIsActiveTrue()
@@ -63,10 +50,6 @@ public class RoleHierarchyService {
                 .orElse("");
     }
 
-    /**
-     * 새로운 역할 계층 설정을 생성합니다.
-     * (이전 응답에서 제공된 createRoleHierarchy 메서드 내용 그대로)
-     */
     @Transactional
     @Caching(
             evict = {
@@ -78,24 +61,25 @@ public class RoleHierarchyService {
     )
     public RoleHierarchyEntity createRoleHierarchy(RoleHierarchyEntity roleHierarchyEntity) {
         if (roleHierarchyRepository.findByHierarchyString(roleHierarchyEntity.getHierarchyString()).isPresent()) {
-            throw new IllegalArgumentException("Role hierarchy string already exists.");
+            throw new IllegalArgumentException("동일한 역할 계층 설정이 이미 존재합니다.");
         }
+
+        // 계층 문자열 유효성 검증 (강화)
         validateHierarchyString(roleHierarchyEntity.getHierarchyString());
+
+        // 순환 참조 및 논리적 오류 검증
+        validateHierarchyLogic(roleHierarchyEntity.getHierarchyString());
 
         RoleHierarchyEntity savedEntity = roleHierarchyRepository.save(roleHierarchyEntity);
 
         if (savedEntity.getIsActive()) {
             deactivateAllOtherHierarchies(savedEntity.getId());
-            reloadRoleHierarchyBean(); // 런타임에 RoleHierarchyImpl 빈 갱신
+            reloadRoleHierarchyBean();
         }
         log.info("Created RoleHierarchyEntity with ID: {}", savedEntity.getId());
         return savedEntity;
     }
 
-    /**
-     * 기존 역할 계층 설정을 업데이트합니다.
-     * (이전 응답에서 제공된 updateRoleHierarchy 메서드 내용 그대로)
-     */
     @Transactional
     @Caching(
             evict = {
@@ -110,6 +94,7 @@ public class RoleHierarchyService {
                 .orElseThrow(() -> new IllegalArgumentException("RoleHierarchy not found with ID: " + roleHierarchyEntity.getId()));
 
         validateHierarchyString(roleHierarchyEntity.getHierarchyString());
+        validateHierarchyLogic(roleHierarchyEntity.getHierarchyString());
 
         existingEntity.setHierarchyString(roleHierarchyEntity.getHierarchyString());
         existingEntity.setDescription(roleHierarchyEntity.getDescription());
@@ -125,10 +110,6 @@ public class RoleHierarchyService {
         return updatedEntity;
     }
 
-    /**
-     * 특정 역할 계층 설정을 삭제합니다.
-     * (이전 응답에서 제공된 deleteRoleHierarchy 메서드 내용 그대로)
-     */
     @Transactional
     @Caching(
             evict = {
@@ -144,10 +125,6 @@ public class RoleHierarchyService {
         log.info("Deleted RoleHierarchyEntity with ID: {}", id);
     }
 
-    /**
-     * 특정 RoleHierarchyEntity를 활성화하고, 나머지 모든 계층 설정을 비활성화합니다.
-     * (이전 응답에서 제공된 activateRoleHierarchy 메서드 내용 그대로)
-     */
     @Transactional
     @CacheEvict(value = "activeRoleHierarchyString", allEntries = true)
     public void activateRoleHierarchy(Long activeId) {
@@ -160,27 +137,16 @@ public class RoleHierarchyService {
         log.info("Activated RoleHierarchyEntity with ID: {}", activeId);
     }
 
-
-    /**
-     * RoleHierarchyImpl 빈에 DB 에서 로드한 최신 계층 문자열을 설정합니다.
-     * 이 메서드는 PlatformSecurityConfig에서 @Bean 초기화 시 호출됩니다.
-     * 또한, DB에서 계층 정보가 변경될 때마다 수동으로 호출되어 런타임 갱신을 수행합니다.
-     */
     public void reloadRoleHierarchyBean() {
         try {
-            String hierarchyString = getActiveRoleHierarchyString(); // DB에서 활성화된 계층 문자열 로드 (캐시 사용)
-            // ObjectProvider를 통해 RoleHierarchyImpl 빈을 가져와 설정
-            roleHierarchy.setHierarchy(hierarchyString); // <<< ObjectProvider 사용
+            String hierarchyString = getActiveRoleHierarchyString();
+            roleHierarchy.setHierarchy(hierarchyString);
             log.info("RoleHierarchyImpl bean reloaded with new hierarchy: \n{}", hierarchyString);
         } catch (Exception e) {
             log.error("Failed to reload RoleHierarchyImpl bean dynamically. Error: {}", e.getMessage(), e);
         }
     }
 
-    /**
-     * 계층 문자열에 포함된 역할 이름들이 DB에 실제로 존재하는 역할들인지 검증합니다.
-     * (이전 응답에서 제공된 validateHierarchyString 메서드 내용 그대로)
-     */
     private void validateHierarchyString(String hierarchyString) {
         if (hierarchyString == null || hierarchyString.trim().isEmpty()) {
             return;
@@ -200,9 +166,92 @@ public class RoleHierarchyService {
 
         for (String roleName : cleanRoleNames) {
             if (!existingRoleNames.contains(roleName.toUpperCase())) {
-                throw new IllegalArgumentException("Hierarchy string contains invalid role name: " + roleName + ". Role does not exist in the database.");
+                throw new IllegalArgumentException("계층 문자열에 존재하지 않는 역할이 포함되어 있습니다: " + roleName);
             }
         }
+    }
+
+    /**
+     * 역할 계층의 논리적 유효성을 검증합니다.
+     * - 순환 참조 검출
+     * - 중복 관계 검출
+     * - 역방향 관계 검출
+     */
+    private void validateHierarchyLogic(String hierarchyString) {
+        if (hierarchyString == null || hierarchyString.trim().isEmpty()) {
+            return;
+        }
+
+        // 계층 관계를 그래프로 구성
+        Map<String, Set<String>> graph = new HashMap<>();
+        Set<String> allRoles = new HashSet<>();
+        List<String[]> relations = new ArrayList<>();
+
+        // 계층 문자열 파싱
+        Arrays.stream(hierarchyString.split("\\n"))
+                .map(String::trim)
+                .filter(s -> s.contains(">"))
+                .forEach(relation -> {
+                    String[] parts = relation.split(">");
+                    if (parts.length == 2) {
+                        String parent = parts[0].trim();
+                        String child = parts[1].trim();
+
+                        allRoles.add(parent);
+                        allRoles.add(child);
+                        relations.add(new String[]{parent, child});
+
+                        graph.computeIfAbsent(parent, k -> new HashSet<>()).add(child);
+                    }
+                });
+
+        // 중복 관계 검출
+        Set<String> seenRelations = new HashSet<>();
+        for (String[] relation : relations) {
+            String relationKey = relation[0] + ">" + relation[1];
+            if (!seenRelations.add(relationKey)) {
+                throw new IllegalArgumentException("중복된 관계가 발견되었습니다: " + relationKey);
+            }
+        }
+
+        // 역방향 관계 검출
+        for (String[] relation : relations) {
+            String reverseKey = relation[1] + ">" + relation[0];
+            if (seenRelations.contains(reverseKey)) {
+                throw new IllegalArgumentException("역방향 관계가 발견되었습니다: " + relation[0] + " <-> " + relation[1]);
+            }
+        }
+
+        // 순환 참조 검출 (DFS)
+        for (String role : allRoles) {
+            if (hasCycle(graph, role, new HashSet<>(), new HashSet<>())) {
+                throw new IllegalArgumentException("순환 참조가 발견되었습니다. 역할: " + role);
+            }
+        }
+    }
+
+    /**
+     * DFS를 사용하여 순환 참조를 검출합니다.
+     */
+    private boolean hasCycle(Map<String, Set<String>> graph, String node, Set<String> visited, Set<String> recursionStack) {
+        visited.add(node);
+        recursionStack.add(node);
+
+        Set<String> children = graph.get(node);
+        if (children != null) {
+            for (String child : children) {
+                if (!visited.contains(child)) {
+                    if (hasCycle(graph, child, visited, recursionStack)) {
+                        return true;
+                    }
+                } else if (recursionStack.contains(child)) {
+                    return true;
+                }
+            }
+        }
+
+        recursionStack.remove(node);
+        return false;
     }
 
     private void deactivateAllOtherHierarchies(Long currentActiveId) {
