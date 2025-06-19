@@ -8,12 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
-    if (typeof mermaid !== 'undefined') {
-        mermaid.initialize({ startOnLoad: false, theme: 'default' });
-    } else {
-        console.error('Mermaid 라이브러리가 로드되지 않았습니다. 그래프 기능이 제한될 수 있습니다.');
-    }
-
     // --- 상태 관리 (State) ---
     class StudioState {
         constructor() {
