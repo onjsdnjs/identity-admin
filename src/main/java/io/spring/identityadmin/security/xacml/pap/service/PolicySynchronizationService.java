@@ -8,7 +8,6 @@ import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,17 +24,20 @@ public class PolicySynchronizationService {
     private final PolicyRepository policyRepository;
     private final RoleRepository roleRepository;
     private final PolicyService policyService;
-    private final ModelMapper modelMapper;
 
+    /**
+     * 특정 역할(Role)의 변경사항을 기반으로, 이에 매핑되는 기술 정책(Policy)을
+     * 자동으로 생성하거나 업데이트하여 동기화합니다.
+     * @param roleId 동기화할 역할의 ID
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void synchronizePolicyForRole(Long roleId) {
         Role role = roleRepository.findByIdWithPermissions(roleId)
                 .orElseThrow(() -> new IllegalArgumentException("Role not found: " + roleId));
 
-        // 1. 정책의 '명세'인 PolicyDto를 생성합니다.
         String policyName = "AUTO_POLICY_FOR_" + role.getRoleName();
 
-        // 대상(Target) DTO 목록 생성
+        // 1. 대상(Target) DTO 목록 생성: 역할에 포함된 모든 권한의 리소스를 DTO로 변환합니다.
         List<PolicyDto.TargetDto> targetDtos = role.getRolePermissions().stream()
                 .map(rp -> rp.getPermission().getManagedResource())
                 .filter(Objects::nonNull)
@@ -47,22 +49,22 @@ public class PolicySynchronizationService {
                 .distinct()
                 .collect(Collectors.toList());
 
-        // [최종 수정] ConditionDto를 사용하여 RuleDto를 생성합니다.
+        // 2. 규칙(Rule) DTO 생성: 역할 자체를 인가 조건으로 하는 SpEL을 생성합니다.
         String conditionSpel = String.format("hasAuthority('%s')", role.getRoleName());
 
-        // 1. 개별 ConditionDto 생성 (기본값으로 PRE_AUTHORIZE)
+        // 2-1. [수정] SpEL 문자열을 ConditionDto 객체로 먼저 생성합니다.
         PolicyDto.ConditionDto conditionDto = PolicyDto.ConditionDto.builder()
                 .expression(conditionSpel)
-                .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE)
+                .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE) // 자동 생성 규칙은 기본적으로 사전(Pre) 인가
                 .build();
 
-        // 2. ConditionDto 리스트를 포함하여 RuleDto 생성
+        // 2-2. [수정] ConditionDto 리스트를 포함하여 RuleDto를 생성합니다.
         PolicyDto.RuleDto ruleDto = PolicyDto.RuleDto.builder()
                 .description("Auto-generated rule for " + role.getRoleName())
                 .conditions(List.of(conditionDto))
                 .build();
 
-        // 최종 PolicyDto 생성
+        // 3. 최종 PolicyDto 생성
         PolicyDto policyDto = PolicyDto.builder()
                 .name(policyName)
                 .description(String.format("'%s' 역할을 위한 자동 생성 정책", role.getRoleDesc()))
@@ -72,17 +74,17 @@ public class PolicySynchronizationService {
                 .rules(List.of(ruleDto))
                 .build();
 
-        // 기존 정책이 있는지 확인하여 ID 설정 (업데이트를 위함)
+        // 4. 기존 정책이 있는지 확인하여 ID 설정 (업데이트를 위함)
         policyRepository.findByName(policyName)
                 .ifPresent(existingPolicy -> policyDto.setId(existingPolicy.getId()));
 
-        // PolicyService의 DTO 기반 메서드를 호출
-        if(policyDto.getId() != null) {
+        // 5. PolicyService에 DTO를 전달하여 정책 생성 또는 업데이트를 '요청'합니다.
+        if (policyDto.getId() != null) {
             policyService.updatePolicy(policyDto);
         } else {
             policyService.createPolicy(policyDto);
         }
 
-        log.info("Policy specification for role '{}' has been sent to PolicyService for synchronization.", role.getRoleName());
+        log.info("Policy for role '{}' has been synchronized.", role.getRoleName());
     }
 }
