@@ -7,6 +7,7 @@ import io.spring.identityadmin.domain.entity.RolePermission;
 import io.spring.identityadmin.repository.PermissionRepository;
 import io.spring.identityadmin.repository.RoleRepository;
 import io.spring.identityadmin.security.xacml.pap.service.PolicySynchronizationService;
+import io.spring.identityadmin.security.xacml.pep.CustomDynamicAuthorizationManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
@@ -30,6 +31,7 @@ public class RoleServiceImpl implements RoleService {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final PolicySynchronizationService policySyncService;
+    private final CustomDynamicAuthorizationManager authorizationManager;
 
     @Transactional(readOnly = true)
     @Cacheable(value = "roles", key = "#id")
@@ -112,10 +114,12 @@ public class RoleServiceImpl implements RoleService {
                 });
 
         Role savedRole = roleRepository.save(existingRole);
-        //역할 저장이 완료된 후, 정책 동기화 서비스 호출
-        policySyncService.synchronizePolicyForRole(savedRole);
 
-        return existingRole;
+        //policySyncService.synchronizePolicyForRole(savedRole);
+        // 변경된 역할-권한 관계가 실시간 인가 결정에 반영되도록 함
+        authorizationManager.reload();
+
+        return savedRole;
     }
 
     @Transactional

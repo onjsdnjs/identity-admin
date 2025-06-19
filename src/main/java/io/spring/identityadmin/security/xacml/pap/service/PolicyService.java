@@ -1,6 +1,7 @@
 package io.spring.identityadmin.security.xacml.pap.service;
 
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 
 import java.util.List;
@@ -15,4 +16,5 @@ public interface PolicyService {
     Policy createPolicy(PolicyDto policyDto);
     void updatePolicy(PolicyDto policyDto);
     void deletePolicy(Long id);
+    void synchronizePolicyForPermission(Permission permission);
 }

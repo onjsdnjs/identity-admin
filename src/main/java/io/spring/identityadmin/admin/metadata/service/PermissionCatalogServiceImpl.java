@@ -1,9 +1,13 @@
 package io.spring.identityadmin.admin.metadata.service;
 
 import io.spring.identityadmin.domain.dto.PermissionDto;
+import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
+import io.spring.identityadmin.domain.entity.policy.Policy;
+import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.repository.PermissionRepository;
+import io.spring.identityadmin.security.xacml.pap.service.PolicyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -20,12 +24,13 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
 
     private final PermissionRepository permissionRepository;
     private final ModelMapper modelMapper;
+    private final PolicyService policyService;
 
     @Override
     @Transactional
     public Permission synchronizePermissionFor(ManagedResource resource) {
         if (resource.getStatus() == ManagedResource.Status.NEEDS_DEFINITION) {
-            throw new IllegalStateException("Cannot create permission from a resource that needs definition. Resource ID: " + resource.getId());
+            throw new IllegalStateException("정의가 필요한 리소스로부터 권한을 생성할 수 없습니다. 리소스 ID: " + resource.getId());
         }
 
         String permissionName = generatePermissionName(resource);
@@ -46,6 +51,9 @@ public class PermissionCatalogServiceImpl implements PermissionCatalogService {
 
         Permission savedPermission = permissionRepository.save(permission);
         log.info("Permission '{}' has been synchronized for resource '{}'.", savedPermission.getName(), resource.getResourceIdentifier());
+
+        // [핵심] 권한이 생성/업데이트된 후, 이 권한에 대한 정책 동기화를 즉시 호출합니다.
+        policyService.synchronizePolicyForPermission(savedPermission);
 
         return savedPermission;
     }

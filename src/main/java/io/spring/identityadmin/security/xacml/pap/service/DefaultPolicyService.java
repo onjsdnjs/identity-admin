@@ -2,6 +2,7 @@ package io.spring.identityadmin.security.xacml.pap.service;
 
 import io.spring.identityadmin.common.event.dto.PolicyChangedEvent;
 import io.spring.identityadmin.common.event.service.IntegrationEventBus;
+import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
@@ -101,6 +102,45 @@ public class DefaultPolicyService implements PolicyService {
                     .map(Permission::getId)
                     .collect(Collectors.toSet());
             eventBus.publish(new PolicyChangedEvent(policy.getId(), permissionIds));
+        }
+    }
+
+    @Override
+    public void synchronizePolicyForPermission(Permission permission) {
+        ManagedResource resource = permission.getManagedResource();
+        if (resource == null) {
+            log.warn("Permission '{}' has no linked resource. Cannot sync policy.", permission.getName());
+            return;
+        }
+
+        String policyName = "AUTO_POLICY_FOR_PERM_" + permission.getName();
+        String expression = String.format("hasAuthority('%s')", permission.getName());
+
+        // 정책의 '명세'인 PolicyDto 생성
+        PolicyDto policyDto = PolicyDto.builder()
+                .name(policyName)
+                .description(String.format("'%s' 권한에 대한 자동 생성 정책", permission.getFriendlyName()))
+                .effect(Policy.Effect.ALLOW)
+                .priority(500) // 자동 생성 정책은 중간 우선순위
+                .targets(List.of(new PolicyDto.TargetDto(
+                        resource.getResourceType().name(),
+                        resource.getResourceIdentifier(),
+                        resource.getHttpMethod() != null ? resource.getHttpMethod().name() : "ANY"
+                )))
+                .rules(List.of(new PolicyDto.RuleDto(
+                        "Auto-generated rule for " + permission.getName(),
+                        List.of(new PolicyDto.ConditionDto(expression, PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE))
+                )))
+                .build();
+
+        // 기존 정책이 있는지 확인하여 ID 설정 (업데이트를 위함)
+        policyRepository.findByName(policyName).ifPresent(p -> policyDto.setId(p.getId()));
+
+        // DTO를 사용하여 정책 생성 또는 업데이트
+        if (policyDto.getId() != null) {
+            this.updatePolicy(policyDto);
+        } else {
+            this.createPolicy(policyDto);
         }
     }
 
