@@ -5,6 +5,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -13,5 +16,8 @@ public class RoleHierarchyDto {
     private Long id;
     private String hierarchyString;
     private String description;
-    private Boolean isActive; // 활성화 여부
+    private Boolean isActive;
+    private List<HierarchyPair> hierarchyPairs = new ArrayList<>();
+
+    public record HierarchyPair(String parentRole, String childRole) {}
 }

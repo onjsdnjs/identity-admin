@@ -1,7 +1,9 @@
 package io.spring.identityadmin.admin.iam.controller;
 
+import io.spring.identityadmin.admin.iam.service.RoleService;
 import io.spring.identityadmin.admin.iam.service.impl.RoleHierarchyService;
 import io.spring.identityadmin.domain.dto.RoleHierarchyDto;
+import io.spring.identityadmin.domain.dto.RoleMetadataDto;
 import io.spring.identityadmin.domain.entity.RoleHierarchyEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,7 +13,10 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/admin/role-hierarchies")
@@ -21,6 +26,7 @@ public class RoleHierarchyController {
 
     private final RoleHierarchyService roleHierarchyService;
     private final ModelMapper modelMapper;
+    private final RoleService roleService;
 
     @GetMapping
     public String getRoleHierarchies(Model model) {
@@ -35,9 +41,14 @@ public class RoleHierarchyController {
 
     @GetMapping("/register")
     public String registerRoleHierarchyForm(Model model) {
-        model.addAttribute("hierarchy", new RoleHierarchyDto()); // 빈 DTO 객체 전달
-        log.info("Displaying new role hierarchy registration form.");
-        return "admin/role-hierarchy-details"; // admin/role-hierarchy-details.html 템플릿
+        model.addAttribute("hierarchy", new RoleHierarchyDto());
+        List<RoleMetadataDto> allRoles = roleService.getRolesWithoutExpression().stream()
+                .map(role -> modelMapper.map(role, RoleMetadataDto.class))
+                .collect(Collectors.toList());
+
+        model.addAttribute("allRoles", allRoles);
+        model.addAttribute("hierarchyPairs", new ArrayList<>());
+        return "admin/role-hierarchy-details";
     }
 
     @PostMapping
@@ -53,8 +64,27 @@ public class RoleHierarchyController {
     public String roleHierarchyDetails(@PathVariable Long id, Model model) {
         RoleHierarchyEntity entity = roleHierarchyService.getRoleHierarchy(id)
                 .orElseThrow(() -> new IllegalArgumentException("Invalid RoleHierarchy ID: " + id));
-        model.addAttribute("hierarchy", modelMapper.map(entity, RoleHierarchyDto.class));
-        log.info("Displaying details for role hierarchy ID: {}", id);
+
+        RoleHierarchyDto dto = modelMapper.map(entity, RoleHierarchyDto.class);
+
+        List<RoleHierarchyDto.HierarchyPair> pairs = Arrays.stream(entity.getHierarchyString().split("\\n"))
+                .map(String::trim)
+                .filter(s -> s.contains(">"))
+                .map(s -> {
+                    String[] parts = s.split(">");
+                    return new RoleHierarchyDto.HierarchyPair(parts[0].trim(), parts[1].trim());
+                })
+                .collect(Collectors.toList());
+        dto.setHierarchyPairs(pairs);
+
+        model.addAttribute("hierarchy", dto);
+
+        List<RoleMetadataDto> allRoles = roleService.getRolesWithoutExpression().stream()
+                .map(role -> modelMapper.map(role, RoleMetadataDto.class))
+                .collect(Collectors.toList());
+        model.addAttribute("allRoles", allRoles);
+
+        model.addAttribute("hierarchyPairs", pairs);
         return "admin/role-hierarchy-details";
     }
 
