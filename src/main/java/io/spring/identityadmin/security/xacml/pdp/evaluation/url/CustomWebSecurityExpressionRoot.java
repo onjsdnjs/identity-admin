@@ -1,13 +1,12 @@
 package io.spring.identityadmin.security.xacml.pdp.evaluation.url;
 
-import io.spring.identityadmin.ai.AiAuthorizationAdvisor;
+import io.spring.identityadmin.ai.AINativeIAMAdvisor;
 import io.spring.identityadmin.ai.dto.TrustAssessment;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
 import io.spring.identityadmin.security.xacml.pip.risk.RiskEngine;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.web.FilterInvocation;
 import org.springframework.security.web.access.expression.WebSecurityExpressionRoot;
 
 import java.util.Map;
@@ -16,13 +15,13 @@ public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
 
     private final RiskEngine riskEngine;
     private final AttributeInformationPoint attributePIP;
-    private final AiAuthorizationAdvisor advisor; // RiskEngine 대신 주입
+    private final AINativeIAMAdvisor advisor; // RiskEngine 대신 주입
     private final AuthorizationContext authorizationContext;
     private TrustAssessment trustAssessment; // 평가 결과를 캐싱
 
     public CustomWebSecurityExpressionRoot(Authentication authentication, HttpServletRequest request,
                                            RiskEngine riskEngine, AttributeInformationPoint attributePIP,
-                                           AiAuthorizationAdvisor advisor, // RiskEngine 대신 주입
+                                           AINativeIAMAdvisor advisor, // RiskEngine 대신 주입
                                            AuthorizationContext authorizationContext) {
         super(() -> authentication, request);
         this.riskEngine = riskEngine;
@@ -43,7 +42,7 @@ public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
         return this.trustAssessment.score();
     }
 
-    public AiAuthorizationAdvisor getAi() {
+    public AINativeIAMAdvisor getAi() {
         return this.advisor;
     }
 

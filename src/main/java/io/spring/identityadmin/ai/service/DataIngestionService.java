@@ -1,4 +1,4 @@
-package io.spring.identityadmin.ai;
+package io.spring.identityadmin.ai.service;
 
 import io.spring.identityadmin.common.event.dto.DomainEvent;
 

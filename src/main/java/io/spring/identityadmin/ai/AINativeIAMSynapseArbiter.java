@@ -1,24 +1,28 @@
-package io.spring.identityadmin.ai.service;
+package io.spring.identityadmin.ai;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.spring.identityadmin.ai.AiAuthorizationAdvisor;
 import io.spring.identityadmin.ai.dto.PolicyAnalysisReport;
 import io.spring.identityadmin.ai.dto.RecommendedRoleDto;
 import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
 import io.spring.identityadmin.ai.dto.TrustAssessment;
+import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.Users;
+import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.repository.UserRepository;
+import io.spring.identityadmin.security.xacml.pap.service.BusinessPolicyService;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Set;
@@ -27,14 +31,15 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class PrometheusCoreService implements AiAuthorizationAdvisor {
+public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
     private final ChatClient chatClient;
     private final VectorStore vectorStore;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
     private final PolicyRepository policyRepository;
-
+    private final BusinessPolicyService businessPolicyService;
+    private final ModelMapper modelMapper;
 
     @Override
     public TrustAssessment assessContext(AuthorizationContext context) {
@@ -117,17 +122,6 @@ public class PrometheusCoreService implements AiAuthorizationAdvisor {
             log.error("AI의 리소스 이름 추천 응답을 파싱하는 데 실패했습니다.", e);
             return new ResourceNameSuggestion(technicalIdentifier, "AI 추천 이름 생성에 실패했습니다.");
         }
-    }
-
-    // ====================================================================
-    // 아래는 아직 상세 로직이 구현되지 않은 메서드들입니다. (향후 구현 필요)
-    // ====================================================================
-
-    @Override
-    public PolicyDto generatePolicyFromText(String naturalLanguageQuery) {
-        log.warn("generatePolicyFromText is not fully implemented yet. Returning a mock response.");
-        // TODO: Function Calling을 사용하여 실제 정책 생성 로직 구현
-        return PolicyDto.builder().name("AI-Generated-Policy").description(naturalLanguageQuery).build();
     }
 
     @Override
@@ -241,6 +235,59 @@ public class PrometheusCoreService implements AiAuthorizationAdvisor {
         } catch (Exception e) {
             log.error("AI 보안 상태 분석 응답을 파싱하는 데 실패했습니다: {}", jsonResponse, e);
             return List.of();
+        }
+    }
+
+    /**
+     * 관리자의 자연어 요구사항을 분석하여, 시스템이 실행할 수 있는 정책(Policy) 초안을 생성합니다.
+     * AI를 사용하여 자연어를 구조화된 BusinessPolicyDto JSON으로 변환한 뒤,
+     * 이를 BusinessPolicyService에 전달하여 실제 정책을 생성합니다.
+     */
+    @Override
+    @Transactional
+    public PolicyDto generatePolicyFromText(String naturalLanguageQuery) {
+        // 1. AI에 전달할 프롬프트 구성
+        String systemPrompt = """
+            당신은 사용자의 자연어 요청을 분석하여, IAM 시스템이 이해할 수 있는 구조화된 JSON 데이터로 변환하는 AI 에이전트입니다.
+            요청을 분석하여 주체(subjects), 리소스(resources), 행위(actions), 그리고 SpEL 형식의 조건(condition)을 추출해야 합니다.
+            - 주체, 리소스, 행위는 'GROUP_이름', 'ROLE_이름', 'PERM_이름' 과 같은 시스템 식별자로 변환해야 합니다.
+            - 시간, 장소와 같은 제약 조건은 SpEL(Spring Expression Language) 형식의 문자열로 변환해야 합니다.
+            - 분석이 불가능하거나 정보가 부족하면, 필수 필드를 null이 아닌 빈 배열([])로 설정하여 응답해야 합니다.
+            
+            응답은 반드시 아래 명시된 JSON 형식으로만 제공해야 합니다.
+            JSON 형식:
+            {
+              "name": "정책 이름 (자연어 요청을 기반으로 생성)",
+              "description": "정책 설명 (자연어 요청을 기반으로 생성)",
+              "subjects": ["GROUP_DEV", "ROLE_ADMIN"],
+              "resources": ["PERM_CUSTOMER_DATA_READ"],
+              "actions": ["ACTION_VIEW"],
+              "condition": "hasIpAddress('192.168.1.0/24') && #isBusinessHours()",
+              "effect": "ALLOW"
+            }
+            """;
+
+        // 2. ChatClient를 사용하여 AI 모델에 JSON 생성 요청
+        String jsonResponse = chatClient.prompt()
+                .system(systemPrompt)
+                .user(naturalLanguageQuery)
+                .call()
+                .content();
+
+        try {
+            // 3. AI가 생성한 JSON 응답을 BusinessPolicyDto 객체로 변환
+            BusinessPolicyDto businessPolicyDto = objectMapper.readValue(jsonResponse, BusinessPolicyDto.class);
+
+            // 4. 변환된 DTO를 사용하여 실제 정책 생성 서비스를 호출
+            Policy createdPolicy = businessPolicyService.createPolicyFromBusinessRule(businessPolicyDto);
+            log.info("AI-generated policy has been successfully created. Policy ID: {}", createdPolicy.getId());
+
+            // 5. 생성된 Policy 엔티티를 PolicyDto로 변환하여 반환
+            return modelMapper.map(createdPolicy, PolicyDto.class);
+
+        } catch (Exception e) {
+            log.error("AI 정책 생성 또는 파싱에 실패했습니다. Natural Query: {}, AI Response: {}", naturalLanguageQuery, jsonResponse, e);
+            throw new IllegalStateException("AI를 통한 정책 생성에 실패했습니다. AI 응답을 확인해주세요.", e);
         }
     }
 }

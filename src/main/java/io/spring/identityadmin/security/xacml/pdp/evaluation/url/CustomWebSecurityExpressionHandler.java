@@ -1,6 +1,6 @@
 package io.spring.identityadmin.security.xacml.pdp.evaluation.url;
 
-import io.spring.identityadmin.ai.AiAuthorizationAdvisor;
+import io.spring.identityadmin.ai.AINativeIAMAdvisor;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import io.spring.identityadmin.security.xacml.pip.context.ContextHandler;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
@@ -9,12 +9,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
-import org.springframework.security.access.expression.SecurityExpressionOperations;
 import org.springframework.security.authentication.AuthenticationTrustResolverImpl;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.web.FilterInvocation;
 import org.springframework.security.web.access.expression.DefaultHttpSecurityExpressionHandler;
-import org.springframework.security.web.access.expression.WebSecurityExpressionRoot;
 import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.stereotype.Component;
 
@@ -31,7 +28,7 @@ public class CustomWebSecurityExpressionHandler extends DefaultHttpSecurityExpre
     private final RiskEngine riskEngine;
     private final ContextHandler contextHandler;
     private final AttributeInformationPoint attributePIP;
-    private final AiAuthorizationAdvisor advisor;
+    private final AINativeIAMAdvisor advisor;
 
     /**
      * WebExpressionAuthorizationManager에 의해 호출되는 실제 진입점입니다.

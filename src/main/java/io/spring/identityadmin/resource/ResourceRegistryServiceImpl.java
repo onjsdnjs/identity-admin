@@ -1,13 +1,13 @@
 package io.spring.identityadmin.resource;
 
-import com.querydsl.core.BooleanBuilder;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
+import io.spring.identityadmin.ai.AINativeIAMAdvisor;
+import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
 import io.spring.identityadmin.domain.dto.ResourceManagementDto;
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
 import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
-import io.spring.identityadmin.domain.entity.QManagedResource;
 import io.spring.identityadmin.repository.ManagedResourceRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.function.Function;
@@ -30,6 +29,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     private final List<ResourceScanner> scanners;
     private final ManagedResourceRepository managedResourceRepository;
     private final PermissionCatalogService permissionCatalogService;
+    private final AINativeIAMAdvisor advisor;
 
     @Override
     @Transactional
@@ -68,10 +68,15 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
                         !Objects.equals(existing.getApiDocsUrl(), discovered.getApiDocsUrl()) ||
                         !Objects.equals(existing.getSourceCodeLocation(), discovered.getSourceCodeLocation());
 
+                ResourceNameSuggestion suggestion = advisor.suggestResourceName(
+                        discovered.getResourceIdentifier(),
+                        discovered.getServiceOwner()
+                );
+
                 if (needsUpdate) {
                     log.trace("Resource '{}' needs update.", identifier);
-                    existing.setFriendlyName(discovered.getFriendlyName());
-                    existing.setDescription(discovered.getDescription());
+                    existing.setFriendlyName(suggestion.friendlyName());
+                    existing.setDescription(suggestion.description());
                     existing.setApiDocsUrl(discovered.getApiDocsUrl());
                     existing.setSourceCodeLocation(discovered.getSourceCodeLocation());
 

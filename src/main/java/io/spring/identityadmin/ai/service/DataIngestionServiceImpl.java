@@ -2,7 +2,6 @@ package io.spring.identityadmin.ai.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.spring.identityadmin.ai.DataIngestionService;
 import io.spring.identityadmin.common.event.dto.DomainEvent;
 import io.spring.identityadmin.common.event.dto.PolicyChangedEvent;
 import io.spring.identityadmin.repository.PolicyRepository;
