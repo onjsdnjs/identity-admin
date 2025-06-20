@@ -54,33 +54,41 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
         Map<String, ManagedResource> existingResourcesMap = managedResourceRepository.findAll().stream()
                 .collect(Collectors.toMap(ManagedResource::getResourceIdentifier, Function.identity()));
 
-        List<ManagedResource> resourcesToSave = new ArrayList<>();
+        // 1. AI 추천이 필요한 '새로운' 리소스만 필터링하여 목록으로 만듭니다.
+        List<ManagedResource> newResources = discoveredResourcesMap.values().stream()
+                .filter(discovered -> !existingResourcesMap.containsKey(discovered.getResourceIdentifier()))
+                .collect(Collectors.toList());
 
-        discoveredResourcesMap.forEach((identifier, discovered) -> {
-            ManagedResource existing = existingResourcesMap.get(identifier);
-            if (existing == null) {
-                // [AI 기능 연동] 새로운 리소스가 발견되면, AI에게 이름과 설명을 추천받습니다.
-                log.debug("새로운 리소스 '{}' 발견. AI에게 이름과 설명을 요청합니다.", identifier);
-                try {
-                    ResourceNameSuggestion suggestion = aINativeIAMAdvisor.suggestResourceName(
-                            discovered.getResourceIdentifier(),
-                            discovered.getServiceOwner()
-                    );
-                    discovered.setFriendlyName(suggestion.friendlyName());
-                    discovered.setDescription(suggestion.description());
-                    log.info("AI 추천 적용 완료: '{}' -> '{}'", identifier, suggestion.friendlyName());
-                } catch (Exception e) {
-                    log.warn("AI 리소스 이름 추천 실패: {}. 기본값을 사용합니다.", identifier, e);
-                    // AI 추천 실패 시 스캐너가 생성한 기본 이름 사용
+        if (!newResources.isEmpty()) {
+            log.info("{}개의 새로운 리소스에 대한 AI 추천을 요청합니다...", newResources.size());
+
+            // 2. AI에 전달할 형태로 데이터를 가공합니다.
+            List<Map<String, String>> resourcesToSuggest = newResources.stream()
+                    .map(r -> Map.of(
+                            "identifier", r.getResourceIdentifier(),
+                            "owner", r.getServiceOwner()))
+                    .collect(Collectors.toList());
+
+            // 3. 단 한 번의 AI 호출로 모든 추천 결과를 받아옵니다.
+            Map<String, ResourceNameSuggestion> suggestionsMap = aINativeIAMAdvisor.suggestResourceNamesInBatch(resourcesToSuggest);
+
+            // 4. 받아온 추천 결과를 각 리소스에 적용합니다.
+            newResources.forEach(resource -> {
+                ResourceNameSuggestion suggestion = suggestionsMap.get(resource.getResourceIdentifier());
+                if (suggestion != null) {
+                    resource.setFriendlyName(suggestion.friendlyName());
+                    resource.setDescription(suggestion.description());
+                } else {
+                    log.warn("AI가 리소스 '{}'에 대한 추천을 반환하지 않았습니다. 기본값을 사용합니다.", resource.getResourceIdentifier());
+                    // AI 추천 실패 시 스캐너가 생성한 기본 이름이 그대로 사용됨
                 }
-                resourcesToSave.add(discovered);
-            }
-            // 기존 리소스에 대한 업데이트 로직은 필요 시 추가
-        });
+            });
 
-        if (!resourcesToSave.isEmpty()) {
-            managedResourceRepository.saveAll(resourcesToSave);
-            log.info("{}개의 신규 또는 업데이트된 리소스가 데이터베이스에 저장되었습니다.", resourcesToSave.size());
+            // 5. 모든 신규 리소스를 한번에 저장합니다.
+            managedResourceRepository.saveAll(newResources);
+            log.info("{}개의 새로운 리소스가 AI 추천과 함께 데이터베이스에 저장되었습니다.", newResources.size());
+        } else {
+            log.info("새로 발견된 리소스가 없습니다.");
         }
 
         log.info("리소스 동기화 프로세스가 완료되었습니다.");

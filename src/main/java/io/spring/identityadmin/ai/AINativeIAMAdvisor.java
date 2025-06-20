@@ -7,6 +7,7 @@ import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * AI-Native IAM 플랫폼의 모든 지능형 기능을 제공하는 핵심 어드바이저(Advisor) 인터페이스.
@@ -48,4 +49,11 @@ public interface AINativeIAMAdvisor {
      * @return AI가 제안하는 이름과 설명을 담은 DTO
      */
     ResourceNameSuggestion suggestResourceName(String technicalIdentifier, String serviceOwner);
+
+    /**
+     * 여러 리소스의 기술 정보를 한번에 받아, 각각에 대한 이름과 설명을 배치로 제안합니다.
+     * @param resourcesToSuggest 추천이 필요한 리소스의 기술 정보 목록
+     * @return 기술 식별자를 Key로, 제안된 이름/설명을 Value로 갖는 Map
+     */
+    Map<String, ResourceNameSuggestion> suggestResourceNamesInBatch(List<Map<String, String>> resourcesToSuggest);
 }

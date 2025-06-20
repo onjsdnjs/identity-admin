@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -111,6 +112,47 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         } catch (Exception e) {
             log.error("AI의 신뢰도 평가 응답을 파싱하는 데 실패했습니다. 응답: {}", jsonResponse, e);
             return new TrustAssessment(0.5, List.of("AI_RESPONSE_PARSING_ERROR"), "AI 응답을 분석하는데 실패했습니다.");
+        }
+    }
+
+    @Override
+    public Map<String, ResourceNameSuggestion> suggestResourceNamesInBatch(List<Map<String, String>> resourcesToSuggest) {
+        if (resourcesToSuggest == null || resourcesToSuggest.isEmpty()) {
+            return Map.of();
+        }
+
+        // 1. AI에 전달할 프롬프트 구성
+        String systemPrompt = """
+            당신은 소프트웨어의 기술적 용어를 일반 비즈니스 사용자가 이해하기 쉬운 이름과 설명으로 만드는 네이밍 전문가입니다.
+            주어진 JSON 배열 형태의 기술 정보 목록을 받아서, 각 항목에 대해 명확하고 직관적인 'friendlyName'과 'description'을 한국어로 추천해주세요.
+            
+            응답은 반드시 아래 명시된 '기술 식별자(identifier)를 Key로 갖는 JSON 객체' 형식으로만 제공해야 합니다.
+            입력된 모든 항목에 대한 응답을 포함해야 합니다.
+            
+            응답 JSON 형식:
+            {
+              "기술_식별자_1": {"friendlyName": "추천 이름 1", "description": "상세 설명 1"},
+              "기술_식별자_2": {"friendlyName": "추천 이름 2", "description": "상세 설명 2"}
+            }
+            """;
+
+        try {
+            // 2. 추천이 필요한 리소스 목록을 JSON 문자열로 변환하여 프롬프트에 삽입
+            String resourcesJson = objectMapper.writeValueAsString(resourcesToSuggest);
+
+            String jsonResponse = chatClient.prompt()
+                    .system(systemPrompt)
+                    .user(resourcesJson)
+                    .call()
+                    .content();
+
+            // 3. AI의 응답을 Map 형태로 변환하여 반환
+            return objectMapper.readValue(jsonResponse, new TypeReference<>() {});
+
+        } catch (Exception e) {
+            log.error("AI 리소스 이름 배치 추천 실패", e);
+            // 실패 시 빈 Map 반환
+            return Map.of();
         }
     }
 
