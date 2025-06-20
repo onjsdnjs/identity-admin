@@ -1,8 +1,6 @@
 package io.spring.identityadmin.resource;
 
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
-import io.spring.identityadmin.ai.AINativeIAMAdvisor;
-import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
 import io.spring.identityadmin.domain.dto.ResourceManagementDto;
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
 import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
@@ -29,7 +27,6 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     private final List<ResourceScanner> scanners;
     private final ManagedResourceRepository managedResourceRepository;
     private final PermissionCatalogService permissionCatalogService;
-    private final AINativeIAMAdvisor advisor;
 
     @Override
     @Transactional
@@ -68,15 +65,11 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
                         !Objects.equals(existing.getApiDocsUrl(), discovered.getApiDocsUrl()) ||
                         !Objects.equals(existing.getSourceCodeLocation(), discovered.getSourceCodeLocation());
 
-                ResourceNameSuggestion suggestion = advisor.suggestResourceName(
-                        discovered.getResourceIdentifier(),
-                        discovered.getServiceOwner()
-                );
 
                 if (needsUpdate) {
                     log.trace("Resource '{}' needs update.", identifier);
-                    existing.setFriendlyName(suggestion.friendlyName());
-                    existing.setDescription(suggestion.description());
+                    existing.setFriendlyName(discovered.getFriendlyName());
+                    existing.setDescription(discovered.getDescription());
                     existing.setApiDocsUrl(discovered.getApiDocsUrl());
                     existing.setSourceCodeLocation(discovered.getSourceCodeLocation());
 

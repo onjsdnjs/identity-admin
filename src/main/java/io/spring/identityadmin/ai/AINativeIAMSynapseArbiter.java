@@ -21,16 +21,17 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
     private final ChatClient chatClient;
@@ -40,6 +41,24 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
     private final PolicyRepository policyRepository;
     private final BusinessPolicyService businessPolicyService;
     private final ModelMapper modelMapper;
+
+    public AINativeIAMSynapseArbiter(
+            ChatClient chatClient,
+            VectorStore vectorStore,
+            ObjectMapper objectMapper,
+            UserRepository userRepository,
+            PolicyRepository policyRepository,
+            @Lazy BusinessPolicyService businessPolicyService, // <-- 핵심 수정 사항
+            ModelMapper modelMapper) {
+
+        this.chatClient = chatClient;
+        this.vectorStore = vectorStore;
+        this.objectMapper = objectMapper;
+        this.userRepository = userRepository;
+        this.policyRepository = policyRepository;
+        this.businessPolicyService = businessPolicyService;
+        this.modelMapper = modelMapper;
+    }
 
     @Override
     public TrustAssessment assessContext(AuthorizationContext context) {
@@ -130,7 +149,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         Users targetUser = userRepository.findByIdWithGroupsRolesAndPermissions(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다: " + userId));
 
-        Set<String> currentUserRoles = targetUser.getRoleNames().stream().collect(Collectors.toSet());
+        Set<String> currentUserRoles = new HashSet<>(targetUser.getRoleNames());
 
         // 2. RAG 패턴: Vector DB 에서 대상 사용자와 유사한 프로필을 가진 다른 사용자들을 검색
         String userProfileQuery = String.format("사용자: %s, 소속 그룹: %s",

@@ -16,7 +16,7 @@ spring:
       chat:
         options:
           # 사용 가능한 모델: gpt-4o, gpt-4-turbo, gpt-3.5-turbo 등
-          model: GPT-4o-mini
+          model: gpt-4o-mini
           temperature: 0.7
 
       # 3. 임베딩 모델 설정
