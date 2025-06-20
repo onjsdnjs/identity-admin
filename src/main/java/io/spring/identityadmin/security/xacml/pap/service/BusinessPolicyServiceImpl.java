@@ -16,7 +16,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -36,138 +35,113 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
     private final PolicyEnrichmentService policyEnrichmentService;
 
     /**
-     * BusinessPolicyDto를 기반으로 새로운 접근 정책을 생성합니다.
-     * 이 메서드는 AINativeIAMSynapseArbiter에서 자연어 정책 생성을 위해 호출될 수 있습니다.
-     *
-     * @param dto 정책 생성을 위한 비즈니스 요구사항이 담긴 DTO
-     * @return 생성된 Policy 엔티티
+     * [수정] BusinessPolicyDto를 기반으로 새로운 접근 정책을 생성합니다.
+     * DTO의 각 필드를 Policy, PolicyTarget, PolicyRule 엔티티에 올바르게 매핑합니다.
      */
     @Override
-    public Policy createBusinessPolicy(BusinessPolicyDto dto) {
-        log.info("비즈니스 규칙에 기반한 정책 생성을 시작합니다: {}", dto.getPolicyName());
+    public Policy createPolicyFromBusinessRule(BusinessPolicyDto dto) {
+        log.info("비즈니스 규칙 기반 정책 생성을 시작합니다: {}", dto.getPolicyName());
 
-        Policy policy = new Policy();
-        policy.setName(dto.getPolicyName());
-        policy.setDescription(dto.getDescription());
-        policy.setEffect(dto.getEffect());
+        Policy policy = Policy.builder()
+                .name(dto.getPolicyName())
+                .description(dto.getDescription())
+                .effect(dto.getEffect())
+                .priority(50)
+                .build();
 
-        // 1. Policy의 대상을 정의하는 PolicyTarget 엔티티들을 생성합니다.
-        Set<PolicyTarget> targets = createTargetsFromSubjects(dto.getSubjects());
-        policy.setTargets(targets);
-        targets.forEach(target -> target.setPolicy(policy)); // 양방향 연관관계 설정
+        // 1. PolicyTarget 엔티티들을 생성하고 Policy에 추가합니다.
+        Set<PolicyTarget> targets = createTargetsFromDto(dto);
+        targets.forEach(policy::addTarget);
 
-        // 2. 최종 SpEL 조건 문자열을 조립합니다.
-        String finalCondition = buildSpelCondition(dto);
-        policy.setCondition(finalCondition);
+        // 2. PolicyRule과 그 하위의 PolicyCondition 엔티티들을 생성하고 Policy에 추가합니다.
+        Set<PolicyRule> rules = createRulesFromDto(dto);
+        rules.forEach(policy::addRule);
 
-        // 3. 완성된 Policy 엔티티를 저장하고 반환합니다.
         Policy savedPolicy = policyRepository.save(policy);
         log.info("새로운 비즈니스 정책이 성공적으로 생성되었습니다. Policy ID: {}", savedPolicy.getId());
 
         return savedPolicy;
     }
 
-    /**
-     * BusinessPolicyDto에 포함된 정보를 바탕으로 최종 SpEL 조건 문자열을 생성합니다.
-     *
-     * @param dto 비즈니스 정책 DTO
-     * @return 조합된 최종 SpEL 문자열
-     */
-    private String buildSpelCondition(BusinessPolicyDto dto) {
-        StringBuilder conditionBuilder = new StringBuilder();
-
-        // 1. 기본 조건 생성 (예: 리소스 및 행위에 대한 권한 확인)
-        // 이 예제에서는 리소스와 액션을 조합하여 'hasAuthority'로 변환합니다.
-        // 예: PERM_CUSTOMER_DATA_READ_VIEW
-        String basePermissionCondition = createBasePermissionCondition(dto.getResources(), dto.getActions());
-        if (StringUtils.hasText(basePermissionCondition)) {
-            conditionBuilder.append(basePermissionCondition);
-        }
-
-        // 2. AI 리스크 평가 활성화 여부에 따라 AI 조건 추가
-        if (dto.isAiRiskAssessmentEnabled()) {
-            if (!conditionBuilder.isEmpty()) {
-                conditionBuilder.append(" and ");
-            }
-            // 예시: #ai.assessContext().score >= 0.7
-            String aiCondition = String.format("#ai.assessContext().score >= %.2f", dto.getRequiredTrustScore());
-            conditionBuilder.append(aiCondition);
-            log.debug("AI 리스크 평가 조건이 추가되었습니다: {}", aiCondition);
-        }
-
-        // 3. 관리자가 직접 입력한 추가 SpEL 조건이 있다면 AND로 연결
-        if (StringUtils.hasText(dto.getCustomConditionSpel())) {
-            if (!conditionBuilder.isEmpty()) {
-                conditionBuilder.append(" and ");
-            }
-            conditionBuilder.append("(").append(dto.getCustomConditionSpel()).append(")");
-            log.debug("사용자 정의 SpEL 조건이 추가되었습니다: {}", dto.getCustomConditionSpel());
-        }
-
-        return conditionBuilder.toString();
-    }
-
-    /**
-     * 서브젝트 문자열 목록(예: "GROUP_DEV", "ROLE_MANAGER")을
-     * PolicyTarget 엔티티 Set으로 변환합니다.
-     *
-     * @param subjects 서브젝트 식별자 문자열 목록
-     * @return PolicyTarget 엔티티 Set
-     */
-    private Set<PolicyTarget> createTargetsFromSubjects(Set<String> subjects) {
-        if (subjects == null || subjects.isEmpty()) {
-            return new HashSet<>();
-        }
-
+    private Set<PolicyTarget> createTargetsFromDto(BusinessPolicyDto dto) {
         Set<PolicyTarget> targets = new HashSet<>();
-        for (String subject : subjects) {
-            String[] parts = subject.split("_", 2);
-            if (parts.length == 2) {
-                String type = parts[0].toUpperCase();
-                String idOrName = parts[1]; // 실제로는 name을 id로 변환하는 과정이 필요할 수 있습니다.
 
-                // PolicyTarget.Type enum에 GROUP, ROLE 등이 정의되어 있어야 합니다.
-                try {
-                    PolicyTarget.Type targetType = PolicyTarget.Type.valueOf(type);
-                    targets.add(new PolicyTarget(targetType, idOrName));
-                } catch (IllegalArgumentException e) {
-                    log.warn("지원하지 않는 서브젝트 타입입니다: {}", type);
-                }
-            }
+        if (!CollectionUtils.isEmpty(dto.getSubjectUserIds())) {
+            dto.getSubjectUserIds().forEach(userId -> targets.add(
+                    PolicyTarget.builder()
+                            .targetType("USER")
+                            .targetIdentifier(String.valueOf(userId))
+                            .build()
+            ));
+        }
+        if (!CollectionUtils.isEmpty(dto.getSubjectGroupIds())) {
+            dto.getSubjectGroupIds().forEach(groupId -> targets.add(
+                    PolicyTarget.builder()
+                            .targetType("GROUP")
+                            .targetIdentifier(String.valueOf(groupId))
+                            .build()
+            ));
+        }
+        if (!CollectionUtils.isEmpty(dto.getBusinessResourceIds())) {
+            dto.getBusinessResourceIds().forEach(resourceId -> targets.add(
+                    PolicyTarget.builder()
+                            .targetType("RESOURCE")
+                            .targetIdentifier(String.valueOf(resourceId))
+                            .build()
+            ));
         }
         return targets;
     }
 
-    /**
-     * 리소스와 액션 목록을 기반으로 기본적인 hasAuthority() SpEL 조건을 생성합니다.
-     * (이 부분은 시스템의 권한(Permission) 명명 규칙에 따라 달라집니다)
-     *
-     * @param resources 리소스 식별자 목록
-     * @param actions   액션 식별자 목록
-     * @return 생성된 hasAuthority() SpEL 문자열
-     */
-    private String createBasePermissionCondition(Set<String> resources, Set<String> actions) {
-        if (resources == null || resources.isEmpty() || actions == null || actions.isEmpty()) {
-            return "";
-        }
-        // 예시: 리소스가 'CUSTOMER_DATA', 액션이 'READ', 'VIEW'일 경우
-        // 'PERM_CUSTOMER_DATA_READ', 'PERM_CUSTOMER_DATA_VIEW' 권한이 있는지 확인하는 SpEL 생성
-        return resources.stream()
-                .flatMap(resource -> actions.stream().map(action -> String.format("'%s_%s'", resource, action)))
-                .map(permission -> String.format("hasAuthority(%s)", permission))
-                .collect(Collectors.joining(" or ")); // 여러 권한 중 하나만 있어도 되면 or
-    }
+    private Set<PolicyRule> createRulesFromDto(BusinessPolicyDto dto) {
+        StringBuilder conditionBuilder = new StringBuilder();
 
-    @Override
-    @Transactional
-    public Policy createPolicyFromBusinessRule(BusinessPolicyDto dto) {
-        Policy policy = new Policy();
-        translateAndApplyDtoToPolicy(policy, dto);
-        policyEnrichmentService.enrichPolicyWithFriendlyDescription(policy); // 설명 자동 생성
-        Policy savedPolicy = policyRepository.save(policy);
-        authorizationManager.reload(); // 인가 시스템 런타임 갱신
-        log.info("Successfully created a new policy '{}' from business rule.", savedPolicy.getName());
-        return savedPolicy;
+        // 1. 행위(Action)에 대한 SpEL 조건 생성
+        if (!CollectionUtils.isEmpty(dto.getBusinessActionIds())) {
+            String actionCondition = dto.getBusinessActionIds().stream()
+                    .map(actionId -> String.format("hasAction('%d')", actionId))
+                    .collect(Collectors.joining(" or "));
+            conditionBuilder.append("(").append(actionCondition).append(")");
+        }
+
+        // 2. 선택된 조건 템플릿(Condition Templates)을 기반으로 SpEL 조건 생성
+        if (!CollectionUtils.isEmpty(dto.getConditions())) {
+            for (Map.Entry<Long, List<String>> entry : dto.getConditions().entrySet()) {
+                Long templateId = entry.getKey();
+                List<String> params = entry.getValue();
+
+                ConditionTemplate template = conditionTemplateRepository.findById(templateId)
+                        .orElseThrow(() -> new IllegalArgumentException("조건 템플릿을 찾을 수 없습니다: " + templateId));
+
+                String formattedCondition = String.format(template.getSpelTemplate(), params.toArray());
+
+                if (!conditionBuilder.isEmpty()) {
+                    conditionBuilder.append(" and ");
+                }
+                conditionBuilder.append(formattedCondition);
+            }
+        }
+
+        // 3. 완성된 SpEL로 PolicyRule과 PolicyCondition 엔티티 생성
+        if (!conditionBuilder.isEmpty()) {
+            // Rule을 먼저 생성합니다. 'name'이 없으므로 'description'을 사용합니다.
+            PolicyRule rule = PolicyRule.builder()
+                    .description(dto.getPolicyName() + " Rule")
+                    .build();
+
+            // Condition을 생성하고 Rule에 설정합니다.
+            PolicyCondition condition = PolicyCondition.builder()
+                    .expression(conditionBuilder.toString())
+                    .build();
+
+            // Rule에 Condition을 추가하고, 양방향 관계를 설정합니다.
+            rule.getConditions().add(condition);
+            condition.setRule(rule);
+
+            return Set.of(rule);
+        }
+
+        return new HashSet<>();
     }
 
     @Override
