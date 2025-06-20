@@ -15,7 +15,7 @@ public record AuthorizationContext(
         String action,             // 행동 (어떻게)
         EnvironmentDetails environment, // 환경 (어떤 상황에서)
         Map<String, Object> attributes /* PIP를 통해 동적으로 로드된 추가 속성 */) {
-    public AuthorizationContext(Authentication subjext, ResourceDetails resource, String action, EnvironmentDetails environment) {
-        this(subjext, resource, action, environment, new ConcurrentHashMap<>());
+    public AuthorizationContext(Authentication subject, ResourceDetails resource, String action, EnvironmentDetails environment) {
+        this(subject, resource, action, environment, new ConcurrentHashMap<>());
     }
 }

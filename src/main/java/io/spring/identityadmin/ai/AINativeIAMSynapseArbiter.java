@@ -8,13 +8,13 @@ import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
 import io.spring.identityadmin.ai.dto.TrustAssessment;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.repository.UserRepository;
 import io.spring.identityadmin.security.xacml.pap.service.BusinessPolicyService;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.ai.chat.client.ChatClient;
@@ -63,41 +63,48 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
     @Override
     public TrustAssessment assessContext(AuthorizationContext context) {
-        // 1. RAG 패턴: VectorStore 에서 관련 과거 접근 기록을 검색합니다.
+        // 1. RAG 패턴: Vector DB 에서 관련 과거 접근 기록 검색 (기존과 유사)
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(context.subject().getName() + " " + context.resource().identifier())
                 .topK(5)
                 .build();
         List<Document> history = vectorStore.similaritySearch(searchRequest);
+        String historyContent = history.stream().map(Document::getText).collect(Collectors.joining("\n"));
 
-        // 2. [수정] AI에 전달할 프롬프트를 모두 한국어로 작성합니다.
+        UserDto user = (UserDto) context.subject().getPrincipal();
+
+        // 2. [수정] AI의 '연쇄적 추론'을 유도하는 강화된 프롬프트
         String userPromptTemplate = """
-            **현재 요청 정보:**
-            - 사용자: {username}
+            **1. 현재 접근 요청 상세 정보:**
+            - 사용자: {name} (ID: {userId})
+            - 역할: {roles}
+            - 소속 그룹: {groups}
             - 접근 리소스: {resource}
             - 요청 행위: {action}
             - 접속 IP 주소: {ip}
             
-            **해당 사용자의 최근 접근 이력:**
+            **2. 해당 사용자의 과거 접근 패턴 요약 (최근 5건):**
             {history}
+            
+            **3. 분석 및 평가:**
+            위 정보를 바탕으로, 다음 단계에 따라 현재 접근 요청의 위험도를 분석하고 신뢰도를 평가하라.
+            - **Anomalies (이상 징후):** 과거 패턴과 비교하여 현재 요청에서 나타나는 이상 징후(예: 새로운 IP, 평소와 다른 시간대, 접근한 적 없는 리소스)를 모두 찾아 목록으로 나열하라.
+            - **Reasoning (추론 과정):** 식별된 이상 징후와 사용자의 역할/권한을 종합하여, 이 요청이 왜 위험하거나 안전하다고 판단했는지 그 이유를 단계별로 설명하라.
+            - **Final Assessment (최종 판결):** 위 분석을 바탕으로 최종 신뢰도 점수(score), 위험 태그(riskTags), 그리고 한국어 요약(summary)을 결정하라.
             """;
 
-        String historyContent = history.stream()
-                .map(Document::getText) // Document 객체의 내용을 가져옵니다.
-                .collect(Collectors.joining("\n"));
-
-        // ChatClient를 사용하여 AI 모델에 요청을 보냅니다.
         String jsonResponse = chatClient.prompt()
                 .system("""
-                    당신은 IAM(계정 및 접근 관리) 시스템의 보안 리스크를 평가하는 AI 전문가입니다.
-                    주어진 사용자의 과거 행동 패턴과 현재 접근 요청의 컨텍스트를 종합적으로 분석하여,
-                    현재 요청의 신뢰도를 평가해야 합니다.
-                    응답은 반드시 아래 명시된 JSON 형식으로만 제공해야 합니다.
-                    JSON 형식: {"score": 0.xx, "riskTags": ["위험_태그_1", "위험_태그_2"], "summary": "한국어 요약 설명"}
+                    당신은 IAM 시스템의 모든 컨텍스트를 분석하여 접근 요청의 신뢰도를 판결하는 AI 보안 전문가 '아비터(Arbiter)'입니다.
+                    당신은 반드시 연쇄적 추론(Chain-of-Thought) 방식으로 분석을 수행한 뒤, 최종 결론을 JSON 형식으로만 반환해야 합니다.
+                    JSON 형식: {"score": 0.xx, "riskTags": ["위험_태그"], "summary": "한국어 요약 설명"}
                     """)
                 .user(userSpec -> userSpec
                         .text(userPromptTemplate)
-                        .param("username", context.subject().getName())
+                        .param("userId", user.getUsername())
+                        .param("name", user.getName())
+                        .param("roles", context.attributes().getOrDefault("userRoles", "N/A"))
+                        .param("groups", context.attributes().getOrDefault("userGroups", "N/A"))
                         .param("resource", context.resource().identifier())
                         .param("action", context.action())
                         .param("history", historyContent)
@@ -106,12 +113,13 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                 .call()
                 .content();
 
-        // 3. AI의 JSON 응답을 DTO 객체로 변환하여 반환합니다.
+        // 3. AI의 JSON 응답을 DTO 객체로 변환하여 반환
         try {
             return objectMapper.readValue(jsonResponse, TrustAssessment.class);
         } catch (Exception e) {
-            log.error("AI의 신뢰도 평가 응답을 파싱하는 데 실패했습니다. 응답: {}", jsonResponse, e);
-            return new TrustAssessment(0.5, List.of("AI_RESPONSE_PARSING_ERROR"), "AI 응답을 분석하는데 실패했습니다.");
+            log.error("AI 신뢰도 판결 응답 파싱 실패: {}", jsonResponse, e);
+            // AI 실패 시 안전을 위해 보수적인 점수 반환
+            return new TrustAssessment(0.3, List.of("AI_SYSTEM_ERROR"), "AI 시스템 오류로 신뢰도를 평가할 수 없습니다.");
         }
     }
 

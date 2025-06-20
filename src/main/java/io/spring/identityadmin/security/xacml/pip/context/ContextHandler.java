@@ -17,4 +17,6 @@ public interface ContextHandler {
      * [신규] 메서드 기반 보안(Method Security)을 위한 컨텍스트를 생성합니다.
      */
     AuthorizationContext create(Authentication authentication, MethodInvocation invocation);
+
+    AuthorizationContext buildContext(HttpServletRequest request, Object resource)
 }

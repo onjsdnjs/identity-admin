@@ -1,15 +1,61 @@
 package io.spring.identityadmin.security.xacml.pip.context;
 
+import io.spring.identityadmin.domain.entity.Users;
+import io.spring.identityadmin.repository.UserRepository;
+import io.spring.identityadmin.security.core.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import org.aopalliance.intercept.MethodInvocation; // MethodInvocation 임포트
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 @Component
+@RequiredArgsConstructor
 public class DefaultContextHandler implements ContextHandler {
+
+    private final UserRepository userRepository;
+
+    @Override
+    public AuthorizationContext buildContext(HttpServletRequest request, Object resource) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        CustomUserDetails userDetails = (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails)
+                ? (CustomUserDetails) authentication.getPrincipal() : null;
+
+        Users subject = (userDetails != null) ? userDetails.getUsers() : null;
+
+        // [수정] subject가 null이 아닐 경우, DB 에서 최신 역할/그룹 정보를 조회하여 컨텍스트에 추가
+        if (subject != null) {
+            Users userWithDetails = userRepository.findByIdWithGroupsAndRoles(subject.getId())
+                    .orElse(subject);
+
+            // 역할과 그룹 정보를 attributes 맵에 추가
+            Map<String, Object> attributes = new HashMap<>();
+            attributes.put("userRoles", userWithDetails.getRoleNames());
+            attributes.put("userGroups", userWithDetails.getUserGroups());
+
+            // TODO: 리소스 민감도 등급 등 추가 정보 로드 로직
+            // attributes.put("resourceSensitivity", getResourceSensitivity(resource));
+
+            return new AuthorizationContext(authentication, subject,
+                    new ResourceDetails(resource.toString()),
+                    new EnvironmentDetails(request.getRemoteAddr()),
+                    attributes);
+        }
+
+        // 인증되지 않은 사용자의 경우
+        return new AuthorizationContext(authentication, null,
+                new ResourceDetails(resource.toString()),
+                new EnvironmentDetails(request.getRemoteAddr()),
+                new HashMap<>());
+    }
+
     @Override
     public AuthorizationContext create(Authentication authentication, HttpServletRequest request) {
         // 기존 URL 기반 컨텍스트 생성 로직은 그대로 유지
