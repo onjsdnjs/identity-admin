@@ -34,9 +34,8 @@ public class PrometheusCoreService implements AiAuthorizationAdvisor {
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
     private final PolicyRepository policyRepository;
-    /**
-     * 인가 컨텍스트를 분석하여 동적 신뢰도를 평가합니다.
-     */
+
+
     @Override
     public TrustAssessment assessContext(AuthorizationContext context) {
         // 1. RAG 패턴: VectorStore 에서 관련 과거 접근 기록을 검색합니다.
@@ -91,9 +90,6 @@ public class PrometheusCoreService implements AiAuthorizationAdvisor {
         }
     }
 
-    /**
-     * 기술적인 리소스 정보를 바탕으로 비즈니스 친화적인 이름과 설명을 제안합니다.
-     */
     @Override
     public ResourceNameSuggestion suggestResourceName(String technicalIdentifier, String serviceOwner) {
         // [수정] AI에 전달할 프롬프트를 모두 한국어로 작성합니다.
@@ -134,11 +130,6 @@ public class PrometheusCoreService implements AiAuthorizationAdvisor {
         return PolicyDto.builder().name("AI-Generated-Policy").description(naturalLanguageQuery).build();
     }
 
-    /**
-     * 특정 사용자에게 할당할 역할을 추천합니다.
-     * 사용자와 유사한 다른 동료들의 권한 보유 패턴을 분석하여,
-     * 해당 사용자에게 필요할 것으로 예측되는 역할을 제안합니다.
-     */
     @Override
     public List<RecommendedRoleDto> recommendRolesForUser(Long userId) {
         // 1. 대상 사용자 정보 및 현재 보유 역할 조회
@@ -204,9 +195,6 @@ public class PrometheusCoreService implements AiAuthorizationAdvisor {
         }
     }
 
-    /**
-     * 시스템의 전체 정책을 분석하여 잠재적인 보안 위험(SoD 위반 등)이나 비효율성을 찾아 보고합니다.
-     */
     @Override
     public List<PolicyAnalysisReport> analyzeSecurityPosture() {
         // 1. 분석할 전체 정책 데이터를 조회
