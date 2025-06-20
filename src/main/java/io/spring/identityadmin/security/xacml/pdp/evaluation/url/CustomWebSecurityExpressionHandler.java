@@ -1,5 +1,6 @@
 package io.spring.identityadmin.security.xacml.pdp.evaluation.url;
 
+import io.spring.identityadmin.ai.AiAuthorizationAdvisor;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import io.spring.identityadmin.security.xacml.pip.context.ContextHandler;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
@@ -30,6 +31,7 @@ public class CustomWebSecurityExpressionHandler extends DefaultHttpSecurityExpre
     private final RiskEngine riskEngine;
     private final ContextHandler contextHandler;
     private final AttributeInformationPoint attributePIP;
+    private final AiAuthorizationAdvisor advisor;
 
     /**
      * WebExpressionAuthorizationManager에 의해 호출되는 실제 진입점입니다.
@@ -46,7 +48,7 @@ public class CustomWebSecurityExpressionHandler extends DefaultHttpSecurityExpre
         AuthorizationContext authorizationContext = contextHandler.create(auth, request);
 
         // 3. 우리의 커스텀 기능을 포함하는 CustomWebSecurityExpressionRoot를 인스턴스화합니다.
-        CustomWebSecurityExpressionRoot root = new CustomWebSecurityExpressionRoot(auth, request, riskEngine, attributePIP, authorizationContext);
+        CustomWebSecurityExpressionRoot root = new CustomWebSecurityExpressionRoot(auth, request, riskEngine, attributePIP, advisor, authorizationContext);
 
         // 4. ExpressionRoot에 표준 헬퍼 컴포넌트들을 설정합니다.
         root.setPermissionEvaluator(getPermissionEvaluator());

@@ -1,5 +1,7 @@
 package io.spring.identityadmin.security.xacml.pdp.evaluation.url;
 
+import io.spring.identityadmin.ai.AiAuthorizationAdvisor;
+import io.spring.identityadmin.ai.dto.TrustAssessment;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
 import io.spring.identityadmin.security.xacml.pip.risk.RiskEngine;
@@ -14,15 +16,19 @@ public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
 
     private final RiskEngine riskEngine;
     private final AttributeInformationPoint attributePIP;
+    private final AiAuthorizationAdvisor advisor; // RiskEngine 대신 주입
     private final AuthorizationContext authorizationContext;
+    private TrustAssessment trustAssessment; // 평가 결과를 캐싱
 
     public CustomWebSecurityExpressionRoot(Authentication authentication, HttpServletRequest request,
                                            RiskEngine riskEngine, AttributeInformationPoint attributePIP,
+                                           AiAuthorizationAdvisor advisor, // RiskEngine 대신 주입
                                            AuthorizationContext authorizationContext) {
         super(() -> authentication, request);
         this.riskEngine = riskEngine;
         this.attributePIP = attributePIP;
         this.authorizationContext = authorizationContext;
+        this.advisor = advisor;
     }
 
     public int getRiskScore() {
@@ -30,9 +36,17 @@ public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
         return riskEngine.calculateRiskScore(this.authorizationContext);
     }
 
-    /**
-     * SpEL 표현식에서 #root.getAttribute('key') 형태로 동적 속성을 조회하는 메서드.
-     */
+    public double getTrustScore() {
+        if (this.trustAssessment == null) {
+            this.trustAssessment = advisor.assessContext(this.authorizationContext);
+        }
+        return this.trustAssessment.score();
+    }
+
+    public AiAuthorizationAdvisor getAi() {
+        return this.advisor;
+    }
+
     public Object getAttribute(String key) {
         // 1. 이미 컨텍스트에 로드된 속성이면 바로 반환
         if (authorizationContext.attributes().containsKey(key)) {
