@@ -1,4 +1,4 @@
-package io.spring.identityadmin.ai.service;
+package io.spring.identityadmin.service;
 
 import io.spring.identityadmin.ai.service.dto.PolicyAnalysisReport;
 import io.spring.identityadmin.ai.service.dto.RecommendedRoleDto;

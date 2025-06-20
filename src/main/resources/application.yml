@@ -7,6 +7,33 @@ spring:
       auto-commit: false
     driver-class-name: org.postgresql.Driver
 
+  ai:
+    openai:
+      # 1. API 키 설정 (환경변수 사용을 강력히 권장)
+      api-key: ${OPENAI_API_KEY}
+
+      # 2. 채팅 모델 설정
+      chat:
+        options:
+          # 사용 가능한 모델: gpt-4o, gpt-4-turbo, gpt-3.5-turbo 등
+          model: GPT-4o-mini
+          temperature: 0.7
+
+      # 3. 임베딩 모델 설정
+      embedding:
+        options:
+          # 사용 가능한 모델: text-embedding-3-small, text-embedding-3-large
+          model: text-embedding-3-small
+
+    vectorstore:
+      pgvector:
+        table-name: iam_vectors
+        index-type: HNSW
+        distance-type: COSINE_DISTANCE
+        dimensions: 1536
+        initialize-schema: true
+        max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
+
   jpa:
     database: POSTGRESQL
     database-platform: org.hibernate.dialect.PostgreSQLDialect
