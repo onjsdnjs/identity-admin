@@ -1,5 +1,6 @@
 package io.spring.identityadmin.resource;
 
+import com.google.common.collect.Lists;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
 import io.spring.identityadmin.ai.AINativeIAMAdvisor;
 import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
@@ -13,11 +14,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -31,6 +34,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     private final PermissionCatalogService permissionCatalogService;
     private final AINativeIAMAdvisor aINativeIAMAdvisor;
 
+    @Async
     @Override
     @Transactional
     public void refreshAndSynchronizeResources() {
@@ -59,39 +63,70 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
                 .filter(discovered -> !existingResourcesMap.containsKey(discovered.getResourceIdentifier()))
                 .collect(Collectors.toList());
 
-        if (!newResources.isEmpty()) {
-            log.info("{}개의 새로운 리소스에 대한 AI 추천을 요청합니다...", newResources.size());
-
-            // 2. AI에 전달할 형태로 데이터를 가공합니다.
-            List<Map<String, String>> resourcesToSuggest = newResources.stream()
-                    .map(r -> Map.of(
-                            "identifier", r.getResourceIdentifier(),
-                            "owner", r.getServiceOwner()))
-                    .collect(Collectors.toList());
-
-            // 3. 단 한 번의 AI 호출로 모든 추천 결과를 받아옵니다.
-            Map<String, ResourceNameSuggestion> suggestionsMap = aINativeIAMAdvisor.suggestResourceNamesInBatch(resourcesToSuggest);
-
-            // 4. 받아온 추천 결과를 각 리소스에 적용합니다.
-            newResources.forEach(resource -> {
-                ResourceNameSuggestion suggestion = suggestionsMap.get(resource.getResourceIdentifier());
-                if (suggestion != null) {
-                    resource.setFriendlyName(suggestion.friendlyName());
-                    resource.setDescription(suggestion.description());
-                } else {
-                    log.warn("AI가 리소스 '{}'에 대한 추천을 반환하지 않았습니다. 기본값을 사용합니다.", resource.getResourceIdentifier());
-                    // AI 추천 실패 시 스캐너가 생성한 기본 이름이 그대로 사용됨
-                }
-            });
-
-            // 5. 모든 신규 리소스를 한번에 저장합니다.
-            managedResourceRepository.saveAll(newResources);
-            log.info("{}개의 새로운 리소스가 AI 추천과 함께 데이터베이스에 저장되었습니다.", newResources.size());
-        } else {
+        if (newResources.isEmpty()) {
             log.info("새로 발견된 리소스가 없습니다.");
+
+        } else if (newResources.size() == 1) {
+            // ----- 1개일 경우: 단일 처리 -----
+            ManagedResource singleResource = newResources.getFirst();
+            log.info("1개의 새로운 리소스 '{}'에 대한 AI 추천을 요청합니다...", singleResource.getResourceIdentifier());
+            processSingleResource(singleResource);
+
+        } else {
+            // 리소스를 20개 단위의 작은 배치로 나눕니다.
+            int batchSize = 20;
+            List<List<ManagedResource>> resourceBatches = Lists.partition(newResources, batchSize);
+            log.info("{}개의 새로운 리소스를 {}개의 배치로 나누어 병렬 처리합니다...", newResources.size(), resourceBatches.size());
+
+            // 각 배치를 비동기 병렬로 처리합니다.
+            List<CompletableFuture<Void>> futures = resourceBatches.stream()
+                    .map(batch -> CompletableFuture.runAsync(() -> processResourceBatch(batch)))
+                    .toList();
+
+            // 모든 병렬 작업이 완료될 때까지 기다립니다.
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            log.info("모든 AI 추천 배치 작업이 완료되었습니다.");
         }
 
         log.info("리소스 동기화 프로세스가 완료되었습니다.");
+    }
+
+    @Transactional
+    public void processSingleResource(ManagedResource resource) {
+        try {
+            ResourceNameSuggestion suggestion = aINativeIAMAdvisor.suggestResourceName(
+                    resource.getResourceIdentifier(),
+                    resource.getServiceOwner()
+            );
+            resource.setFriendlyName(suggestion.friendlyName());
+            resource.setDescription(suggestion.description());
+            managedResourceRepository.save(resource);
+            log.info("AI 추천 적용 완료: '{}' -> '{}'", resource.getResourceIdentifier(), suggestion.friendlyName());
+        } catch (Exception e) {
+            log.warn("AI 리소스 이름 추천 실패: {}. 기본값을 사용합니다.", resource.getResourceIdentifier(), e);
+            managedResourceRepository.save(resource); // 추천 실패 시에도 리소스는 저장
+        }
+    }
+
+    @Transactional
+    public void processResourceBatch(List<ManagedResource> batch) {
+        List<Map<String, String>> resourcesToSuggest = batch.stream()
+                .map(r -> Map.of("identifier", r.getResourceIdentifier(), "owner", r.getServiceOwner()))
+                .collect(Collectors.toList());
+
+        Map<String, ResourceNameSuggestion> suggestionsMap = aINativeIAMAdvisor.suggestResourceNamesInBatch(resourcesToSuggest);
+
+        batch.forEach(resource -> {
+            ResourceNameSuggestion suggestion = suggestionsMap.get(resource.getResourceIdentifier());
+            if (suggestion != null) {
+                resource.setFriendlyName(suggestion.friendlyName());
+                resource.setDescription(suggestion.description());
+            }
+        });
+
+        managedResourceRepository.saveAll(batch);
+        log.info("{}개의 리소스 배치 처리가 완료되었습니다.", batch.size());
     }
 
     /*@Override

@@ -46,6 +46,7 @@ dependencies {
     // Lombok - annotationProcessor를 먼저 선언
     annotationProcessor 'org.projectlombok:lombok'
     compileOnly 'org.projectlombok:lombok'
+    implementation("com.google.guava:guava:33.4.8-jre")
 
     // Spring Boot Configuration Processor
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
