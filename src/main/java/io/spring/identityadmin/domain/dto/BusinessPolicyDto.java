@@ -26,4 +26,10 @@ public class BusinessPolicyDto {
 
     // 효과 (허용/거부)
     private Policy.Effect effect = Policy.Effect.ALLOW; // 기본값은 허용
+
+    private String customConditionSpel; // 관리자가 입력한 추가 SpEL 조건
+
+    private boolean aiRiskAssessmentEnabled; // AI 리스크 평가 활성화 여부
+
+    private double requiredTrustScore; // AI 평가 통과에 필요한 최소 신뢰도 점수
 }

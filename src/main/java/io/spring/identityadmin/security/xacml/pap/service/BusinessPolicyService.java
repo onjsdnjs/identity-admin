@@ -9,6 +9,9 @@ import io.spring.identityadmin.domain.entity.policy.Policy;
  */
 public interface BusinessPolicyService {
 
+
+    Policy createBusinessPolicy(BusinessPolicyDto dto);
+
     /**
      * 비즈니스 규칙 DTO를 받아 새로운 정책을 생성하고 저장한다.
      * @param dto 사용자가 UI에서 입력한 비즈니스 정책 정보
