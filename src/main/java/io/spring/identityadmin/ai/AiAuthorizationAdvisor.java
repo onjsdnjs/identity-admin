@@ -1,9 +1,9 @@
-package io.spring.identityadmin.ai.service;
+package io.spring.identityadmin.ai;
 
-import io.spring.identityadmin.ai.service.dto.PolicyAnalysisReport;
-import io.spring.identityadmin.ai.service.dto.RecommendedRoleDto;
-import io.spring.identityadmin.ai.service.dto.ResourceNameSuggestion;
-import io.spring.identityadmin.ai.service.dto.TrustAssessment;
+import io.spring.identityadmin.ai.dto.PolicyAnalysisReport;
+import io.spring.identityadmin.ai.dto.RecommendedRoleDto;
+import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
+import io.spring.identityadmin.ai.dto.TrustAssessment;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 
