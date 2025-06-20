@@ -18,5 +18,5 @@ public interface ContextHandler {
      */
     AuthorizationContext create(Authentication authentication, MethodInvocation invocation);
 
-    AuthorizationContext buildContext(HttpServletRequest request, Object resource)
+    AuthorizationContext buildContext(HttpServletRequest request, Object resource);
 }
