@@ -222,15 +222,18 @@
                     <div class="space-y-6">
                         <div>
                             <label class="font-semibold text-dark-secondary mb-2">이 주체들이 (IF)</label>
-                            <div id="subjects-canvas" class="canvas-zone" ondrop="handleDrop(event, 'subject')" ondragover="allowDrop(event)" ondragleave="handleDragLeave(event)"></div>
+                            <div id="subjects-canvas" class="canvas-zone" data-canvas-type="subject">
+                            </div>
                         </div>
                         <div>
                             <label class="font-semibold text-dark-secondary mb-2">이러한 권한으로 (WHAT)</label>
-                            <div id="permissions-canvas" class="canvas-zone" ondrop="handleDrop(event, 'permission')" ondragover="allowDrop(event)" ondragleave="handleDragLeave(event)"></div>
+                            <div id="permissions-canvas" class="canvas-zone" data-canvas-type="permission">
+                            </div>
                         </div>
                         <div>
                             <label class="font-semibold text-dark-secondary mb-2">아래 조건이 만족될 때 (WHEN)</label>
-                            <div id="conditions-canvas" class="canvas-zone" ondrop="handleDrop(event, 'condition')" ondragover="allowDrop(event)" ondragleave="handleDragLeave(event)"></div>
+                            <div id="conditions-canvas" class="canvas-zone" data-canvas-type="condition">
+                            </div>
                         </div>
                     </div>
                 </div>
