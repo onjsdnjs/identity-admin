@@ -14,4 +14,6 @@ public class ManagedResourceDto {
     private String parameterTypes;
     private String returnType;
     private boolean isManaged;
+    private Long permissionId;
+    private String permissionName;
 }

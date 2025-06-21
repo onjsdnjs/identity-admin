@@ -1,5 +1,6 @@
 package io.spring.identityadmin.domain.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
@@ -46,6 +47,7 @@ public class ManagedResource {
     @Builder.Default
     private Status status = Status.NEEDS_DEFINITION;
 
+    @JsonIgnore
     @OneToOne(mappedBy = "managedResource", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private Permission permission;
 
