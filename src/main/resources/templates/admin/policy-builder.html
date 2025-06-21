@@ -1,157 +1,388 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <head>
-    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='시각적 정책 빌더')}"></th:block>
+    <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='지능형 정책 빌더')}"></th:block>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
     <style>
-        .palette-item {
-            cursor: pointer;
-            transition: all 0.2s;
-            background: rgba(30, 41, 59, 0.4);
-            border: 1px solid transparent;
-        }
-        .palette-item:hover {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: rgba(99, 102, 241, 0.3);
-            transform: translateX(5px);
-        }
-        .canvas-zone {
-            min-height: 8rem;
-            border-style: dashed;
-            background: rgba(30, 41, 59, 0.4);
-            border-color: rgba(71, 85, 105, 0.5);
-        }
-        .policy-chip {
-            animation: popIn 0.3s ease-out;
-            background: rgba(99, 102, 241, 0.2);
-            color: #818cf8;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-        }
-        @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-        .dark-card {
-            background-color: rgba(15, 23, 42, 0.8);
+        /* 팔레트 아이템 - 다크 테마 스타일 */
+        .palette-section {
+            background: rgba(15, 23, 42, 0.8);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(71, 85, 105, 0.3);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
         }
-        .text-gradient {
-            background: -webkit-linear-gradient(135deg, #a5b4fc, #818cf8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+
+        .palette-item {
+            background: rgba(30, 41, 59, 0.6);
+            border: 2px solid rgba(71, 85, 105, 0.3);
+            border-radius: 0.75rem;
+            padding: 0.875rem 1rem;
+            margin-bottom: 0.5rem;
+            cursor: move;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .palette-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.3);
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+        }
+
+        .palette-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            background: rgba(30, 41, 59, 0.3);
+        }
+
+        .palette-item.disabled:hover {
+            transform: none;
+            border-color: rgba(71, 85, 105, 0.3);
+        }
+
+        /* 캔버스 영역 - 워크벤치 스타일 매칭 */
+        .canvas-zone {
+            min-height: 10rem;
+            background: rgba(30, 41, 59, 0.4);
+            border: 2px dashed rgba(71, 85, 105, 0.5);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .canvas-zone.drag-over {
+            background: rgba(99, 102, 241, 0.1);
+            border-color: rgba(99, 102, 241, 0.5);
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+        }
+
+        /* 정책 칩 - 현대적 스타일 */
+        .policy-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.2));
+            color: #a5b4fc;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0.25rem;
+            animation: chipFadeIn 0.3s ease-out;
+            transition: all 0.3s ease;
+        }
+
+        @keyframes chipFadeIn {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .policy-chip:hover {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(79, 70, 229, 0.3));
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .policy-chip button {
+            background: none;
+            border: none;
+            color: #f87171;
+            font-size: 1.125rem;
+            cursor: pointer;
+            padding: 0 0 0 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .policy-chip button:hover {
+            color: #fca5a5;
+            transform: scale(1.2);
+        }
+
+        /* 컨텍스트 인지 표시 */
+        .context-indicator {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(34, 197, 94, 0.2);
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            padding: 0.375rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* 검색 입력 필드 */
+        .search-input {
+            width: 100%;
+            background: rgba(30, 41, 59, 0.6);
+            border: 2px solid rgba(71, 85, 105, 0.3);
+            color: #e2e8f0;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            transition: all 0.3s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #6366f1;
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+        }
+
+        /* 섹션 헤더 */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+        }
+
+        .section-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.625rem;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.2));
         }
     </style>
 </head>
 <body class="flex flex-col min-h-screen font-sans">
 
 <div th:insert="~{fragments/header :: header}"></div>
-<div id="toast-container" class="fixed top-5 right-5 z-50 w-full max-w-xs sm:max-w-sm"></div>
+<div id="toast-container" class="fixed top-5 right-5 z-50"></div>
 
-<div class="flex flex-1">
-    <aside th:insert="~{fragments/admin-menu :: menu}" class="hidden md:block"></aside>
+<div class="flex flex-1 overflow-hidden">
+    <aside th:insert="~{fragments/admin-menu :: menu}"></aside>
 
-    <main class="flex-1 p-6 md:p-10">
-        <div class="max-w-7xl mx-auto">
-            <h1 class="text-3xl font-bold text-gradient mb-6">시각적 정책 빌더</h1>
+    <main class="flex-1 p-6 lg:p-8 overflow-y-auto">
+        <div class="dark-card relative">
+            <!-- 컨텍스트 인지 표시 (리소스에서 왔을 때만) -->
+            <div th:if="${resourceContext}" class="context-indicator">
+                <i class="fas fa-link"></i>
+                <span>리소스 컨텍스트 인지됨</span>
+            </div>
+
+            <!-- 헤더 -->
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gradient">지능형 정책 빌더</h1>
+                <p class="text-dark-muted mt-2">드래그 앤 드롭으로 정교한 접근 제어 정책을 시각적으로 구성합니다.</p>
+            </div>
 
             <div class="grid grid-cols-12 gap-6">
-
+                <!-- 왼쪽: 팔레트 영역 -->
                 <div class="col-span-3 space-y-4">
-                    <div class="dark-card rounded-lg p-4">
-                        <h3 class="font-bold text-lg" style="color: #e2e8f0;">주체 (Who)</h3>
-                        <input type="search" placeholder="사용자/그룹 검색..."
-                               class="w-full my-2 p-2 rounded"
-                               style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;">
-                        <div id="subjects-palette" class="max-h-60 overflow-y-auto">
-                            <div th:each="user : ${allUsers}" class="palette-item p-2 rounded" data-type="subject" th:data-info="${'USER:' + user.id + ':' + user.name}">
-                                <i class="fas fa-user mr-2" style="color: #94a3b8;"></i> <span th:text="${user.name}" style="color: #e2e8f0;"></span>
+                    <!-- 주체 팔레트 -->
+                    <div class="palette-section">
+                        <div class="section-header">
+                            <div class="section-icon">
+                                <i class="fas fa-users text-indigo-400"></i>
                             </div>
-                            <div th:each="group : ${allGroups}" class="palette-item p-2 rounded" data-type="subject" th:data-info="${'GROUP:' + group.id + ':' + group.name}">
-                                <i class="fas fa-users mr-2" style="color: #94a3b8;"></i> <span th:text="${group.name}" style="color: #e2e8f0;"></span>
+                            <h3 class="font-bold text-lg text-dark-primary">주체 (Who)</h3>
+                        </div>
+                        <input type="search" placeholder="사용자/그룹 검색..." class="search-input mb-3">
+                        <div id="subjects-palette" class="max-h-60 overflow-y-auto dark-scroll pr-2">
+                            <div th:each="user : ${allUsers}"
+                                 class="palette-item"
+                                 draggable="true"
+                                 th:data-info="${'USER:' + user.id + ':' + user.name}">
+                                <i class="fas fa-user text-blue-400"></i>
+                                <span class="text-dark-primary" th:text="${user.name}"></span>
+                            </div>
+                            <div th:each="group : ${allGroups}"
+                                 class="palette-item"
+                                 draggable="true"
+                                 th:data-info="${'GROUP:' + group.id + ':' + group.name}">
+                                <i class="fas fa-users text-purple-400"></i>
+                                <span class="text-dark-primary" th:text="${group.name}"></span>
                             </div>
                         </div>
                     </div>
-                    <div class="dark-card rounded-lg p-4">
-                        <h3 class="font-bold text-lg" style="color: #e2e8f0;">권한 (What)</h3>
-                        <input type="search" placeholder="권한 검색..."
-                               class="w-full my-2 p-2 rounded"
-                               style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;">
-                        <div id="permissions-palette" class="max-h-60 overflow-y-auto">
-                            <div th:each="perm : ${allPermissions}" class="palette-item p-2 rounded" data-type="permission" th:data-info="${perm.id + ':' + perm.friendlyName}">
-                                <i class="fas fa-key mr-2" style="color: #94a3b8;"></i>
-                                <span th:text="${perm.friendlyName}" style="color: #e2e8f0;"></span>
+
+                    <!-- 권한 팔레트 -->
+                    <div class="palette-section">
+                        <div class="section-header">
+                            <div class="section-icon">
+                                <i class="fas fa-key text-green-400"></i>
+                            </div>
+                            <h3 class="font-bold text-lg text-dark-primary">권한 (What)</h3>
+                        </div>
+                        <input type="search" placeholder="권한 검색..." class="search-input mb-3">
+                        <div id="permissions-palette" class="max-h-60 overflow-y-auto dark-scroll pr-2">
+                            <!-- 사전 선택된 권한 강조 -->
+                            <div th:if="${preselectedPermission}">
+                                <div class="palette-item border-2 border-green-500/50 bg-green-500/10"
+                                     draggable="true"
+                                     th:data-info="${preselectedPermission.id + ':' + preselectedPermission.friendlyName}">
+                                    <i class="fas fa-check-circle text-green-400"></i>
+                                    <span class="text-green-400 font-semibold" th:text="${preselectedPermission.friendlyName}"></span>
+                                </div>
+                                <div class="text-xs text-dark-muted mt-1 mb-3 px-2">↑ 현재 리소스의 권한</div>
+                            </div>
+
+                            <div th:each="perm : ${allPermissions}"
+                                 th:if="${!preselectedPermission or perm.id != preselectedPermission.id}"
+                                 class="palette-item"
+                                 draggable="true"
+                                 th:data-info="${perm.id + ':' + perm.friendlyName}">
+                                <i class="fas fa-key text-yellow-400"></i>
+                                <span class="text-dark-primary" th:text="${perm.friendlyName}"></span>
                             </div>
                         </div>
                     </div>
-                    <div class="dark-card rounded-lg p-4">
-                        <h3 class="font-bold text-lg" style="color: #e2e8f0;">조건 (When)</h3>
-                        <div id="conditions-palette" class="max-h-60 overflow-y-auto">
-                            <div th:each="cond : ${allConditions}" class="palette-item p-2 rounded" data-type="condition" th:data-info="${cond.id + ':' + cond.name}">
-                                <i class="fas fa-clock mr-2" style="color: #94a3b8;"></i> <span th:text="${cond.name}" style="color: #e2e8f0;"></span>
+
+                    <!-- 조건 팔레트 -->
+                    <div class="palette-section">
+                        <div class="section-header">
+                            <div class="section-icon">
+                                <i class="fas fa-filter text-orange-400"></i>
+                            </div>
+                            <h3 class="font-bold text-lg text-dark-primary">조건 (When)</h3>
+                        </div>
+                        <div id="conditions-palette" class="max-h-60 overflow-y-auto dark-scroll pr-2">
+                            <div th:each="cond : ${allConditions}"
+                                 class="palette-item"
+                                 th:classappend="${resourceContext and !cond.compatible} ? 'disabled' : ''"
+                                 draggable="true"
+                                 th:data-info="${cond.id + ':' + cond.name}"
+                                 th:data-required-variables="${cond.requiredVariables}"
+                                 th:title="${resourceContext and !cond.compatible} ? '이 조건은 현재 리소스에서 사용할 수 없습니다' : ''">
+                                <i class="fas fa-clock text-orange-400"></i>
+                                <span class="text-dark-primary" th:text="${cond.name}"></span>
+                                <span th:if="${resourceContext and !cond.compatible}"
+                                      class="ml-auto text-xs text-red-400">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                </span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="col-span-6 dark-card rounded-lg p-6">
-                    <h2 class="text-xl font-bold mb-4 text-gradient">정책 구성</h2>
-                    <div class="space-y-6">
-                        <div>
-                            <label class="font-semibold" style="color: #cbd5e1;">이 주체들이 (IF)</label>
-                            <div id="subjects-canvas" class="canvas-zone mt-2 p-4 rounded-lg flex flex-wrap gap-2">
-                                <span style="color: #94a3b8;">왼쪽에서 주체를 선택하세요.</span>
+                <!-- 가운데: 정책 구성 영역 -->
+                <div class="col-span-6">
+                    <div class="dark-card rounded-xl p-6">
+                        <h2 class="text-xl font-bold text-gradient mb-6">정책 구성</h2>
+
+                        <div class="space-y-6">
+                            <!-- 주체 캔버스 -->
+                            <div>
+                                <label class="block text-sm font-semibold text-dark-secondary mb-2">
+                                    이 주체들이 (IF)
+                                </label>
+                                <div id="subjects-canvas" class="canvas-zone"
+                                     ondrop="handleDrop(event, 'subject')"
+                                     ondragover="allowDrop(event)"
+                                     ondragleave="handleDragLeave(event)">
+                                    <p class="text-dark-muted text-center">
+                                        <i class="fas fa-hand-pointer mr-2"></i>
+                                        왼쪽에서 주체를 드래그하여 여기에 놓으세요
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label class="font-semibold" style="color: #cbd5e1;">이러한 권한으로 (WHAT)</label>
-                            <div id="permissions-canvas" class="canvas-zone mt-2 p-4 rounded-lg flex flex-wrap gap-2">
-                                <span style="color: #94a3b8;">왼쪽에서 권한을 선택하세요.</span>
+
+                            <!-- 권한 캔버스 -->
+                            <div>
+                                <label class="block text-sm font-semibold text-dark-secondary mb-2">
+                                    이러한 권한으로 (WHAT)
+                                </label>
+                                <div id="permissions-canvas" class="canvas-zone"
+                                     ondrop="handleDrop(event, 'permission')"
+                                     ondragover="allowDrop(event)"
+                                     ondragleave="handleDragLeave(event)">
+                                    <p class="text-dark-muted text-center">
+                                        <i class="fas fa-hand-pointer mr-2"></i>
+                                        왼쪽에서 권한을 드래그하여 여기에 놓으세요
+                                    </p>
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label class="font-semibold" style="color: #cbd5e1;">아래 조건이 만족될 때 (WHEN)</label>
-                            <div id="conditions-canvas" class="canvas-zone mt-2 p-4 rounded-lg flex flex-wrap gap-2">
-                                <span style="color: #94a3b8;">왼쪽에서 조건을 선택하세요.</span>
+
+                            <!-- 조건 캔버스 -->
+                            <div>
+                                <label class="block text-sm font-semibold text-dark-secondary mb-2">
+                                    아래 조건이 만족될 때 (WHEN)
+                                </label>
+                                <div id="conditions-canvas" class="canvas-zone"
+                                     ondrop="handleDrop(event, 'condition')"
+                                     ondragover="allowDrop(event)"
+                                     ondragleave="handleDragLeave(event)">
+                                    <p class="text-dark-muted text-center">
+                                        <i class="fas fa-hand-pointer mr-2"></i>
+                                        왼쪽에서 조건을 드래그하여 여기에 놓으세요
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="col-span-3 dark-card rounded-lg p-6">
-                    <h2 class="text-xl font-bold mb-4 text-gradient">속성 및 저장</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label for="policy-name" class="font-semibold" style="color: #cbd5e1;">정책 이름</label>
-                            <input type="text" id="policy-name"
-                                   class="w-full mt-1 p-2 rounded-md"
-                                   style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;"
-                                   placeholder="예: 영업팀 보고서 접근 정책">
-                        </div>
-                        <div>
-                            <label for="policy-desc" class="font-semibold" style="color: #cbd5e1;">설명</label>
-                            <textarea id="policy-desc"
-                                      class="w-full mt-1 p-2 rounded-md"
-                                      style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0; resize: vertical;"
-                                      rows="3"></textarea>
-                        </div>
-                        <div>
-                            <label class="font-semibold" style="color: #cbd5e1;">효과</label>
-                            <select id="policy-effect"
-                                    class="w-full mt-1 p-2 rounded-md"
-                                    style="background: rgba(30, 41, 59, 0.6); border: 2px solid rgba(71, 85, 105, 0.5); color: #e2e8f0;">
-                                <option value="ALLOW">허용 (ALLOW)</option>
-                                <option value="DENY">거부 (DENY)</option>
-                            </select>
-                        </div>
-                        <div class="border-t pt-4" style="border-color: rgba(71, 85, 105, 0.3);">
-                            <h3 class="font-semibold" style="color: #cbd5e1;">실시간 미리보기</h3>
-                            <div id="policy-preview" class="mt-2 p-3 text-sm rounded-md space-y-4" style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.3);">
+                <!-- 오른쪽: 속성 및 저장 영역 -->
+                <div class="col-span-3">
+                    <div class="dark-card rounded-xl p-6">
+                        <h2 class="text-xl font-bold text-gradient mb-6">정책 속성</h2>
+
+                        <div class="space-y-4">
+                            <!-- 정책 이름 -->
+                            <div>
+                                <label for="policy-name" class="dark-label">정책 이름</label>
+                                <input type="text" id="policy-name"
+                                       class="dark-input"
+                                       placeholder="예: 개발팀 소스코드 접근 정책">
                             </div>
-                        </div>
-                        <div>
-                            <button id="save-policy-btn"
-                                    class="w-full py-3 font-bold rounded-lg transition"
-                                    style="background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);">
-                                <i class="fas fa-save mr-2"></i> 정책 저장하기
-                            </button>
+
+                            <!-- 설명 -->
+                            <div>
+                                <label for="policy-desc" class="dark-label">설명</label>
+                                <textarea id="policy-desc"
+                                          class="dark-input"
+                                          rows="3"
+                                          placeholder="정책의 목적과 적용 범위를 설명하세요"></textarea>
+                            </div>
+
+                            <!-- 효과 -->
+                            <div>
+                                <label class="dark-label">효과</label>
+                                <select id="policy-effect" class="dark-select">
+                                    <option value="ALLOW">허용 (ALLOW)</option>
+                                    <option value="DENY">거부 (DENY)</option>
+                                </select>
+                            </div>
+
+                            <div class="dark-divider"></div>
+
+                            <!-- 실시간 미리보기 -->
+                            <div>
+                                <h3 class="font-semibold text-dark-secondary mb-3">
+                                    <i class="fas fa-eye mr-2"></i>실시간 미리보기
+                                </h3>
+                                <div id="policy-preview"
+                                     class="p-4 rounded-lg bg-slate-800/50 border border-slate-700 min-h-[120px]">
+                                    <p class="text-dark-muted text-sm text-center">
+                                        정책을 구성하면 여기에 미리보기가 표시됩니다
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- 저장 버튼 -->
+                            <div class="pt-4">
+                                <button id="save-policy-btn" class="dark-btn-primary w-full justify-center">
+                                    <i class="fas fa-save mr-2"></i>
+                                    정책 생성하기
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -160,8 +391,12 @@
     </main>
 </div>
 
-<div th:insert="~{fragments/footer :: footer}" class="mt-auto"></div>
 <script th:src="@{/js/toast.js}"></script>
 <script th:src="@{/js/policy-builder.js}"></script>
+
+<script th:inline="javascript">
+    const resourceContext = /*[[${resourceContext}]]*/ null;
+    const preselectedPermission = /*[[${preselectedPermission}]]*/ null;
+</script>
 </body>
 </html>

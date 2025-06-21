@@ -12,6 +12,7 @@ import org.springframework.core.annotation.AnnotationUtils;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -61,7 +62,6 @@ public class MethodResourceScanner implements ResourceScanner {
 
             try {
                 for (Method method : targetClass.getDeclaredMethods()) {
-                    // public 메서드만 스캔
                     if (!Modifier.isPublic(method.getModifiers())) {
                         continue;
                     }
@@ -70,6 +70,14 @@ public class MethodResourceScanner implements ResourceScanner {
                     Protectable protectableAnnotation = AnnotationUtils.findAnnotation(method, Protectable.class);
                     if (protectableAnnotation == null) {
                         continue;
+                    }
+
+                    List<String> contextVariables = new ArrayList<>();
+                    for (Parameter parameter : method.getParameters()) {
+                        PdpContextVariable pdpVar = parameter.getAnnotation(PdpContextVariable.class);
+                        if (pdpVar != null) {
+                            contextVariables.add("#" + pdpVar.value());
+                        }
                     }
 
                     String params = Arrays.stream(method.getParameterTypes())

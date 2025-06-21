@@ -34,6 +34,8 @@ public class ManagedResource {
     private String returnType;
     private String apiDocsUrl;
     private String sourceCodeLocation;
+    @Column(length = 1024)
+    private String availableContextVariables;
 
     /**
      * [신규/대체] 리소스의 현재 상태를 나타내는 Enum.
