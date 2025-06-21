@@ -213,9 +213,22 @@ class PolicyWizardApp {
             return;
         }
 
+        let permissionIds = [];
+        if (window.preselectedPermission) {
+            permissionIds.push(window.preselectedPermission.id);
+        } else {
+            // 또는 2단계에서 선택한 권한 ID들을 수집
+            permissionIds = Array.from(document.querySelectorAll('input[name="permissions"]:checked')).map(chk => Number(chk.value));
+        }
+
+        if (permissionIds.length === 0) {
+            showToast('하나 이상의 권한을 선택해야 합니다.', 'error');
+            return;
+        }
+
         this.ui.setLoading(this.ui.elements.commitBtn, true, '정책 생성 및 적용');
         try {
-            const payload = { policyName, policyDescription, selectedRoleIds };
+            const payload = { policyName, policyDescription, selectedRoleIds, permissionIds };
             const result = await this.api.commitPolicy(payload);
             showToast(result.message || '요청이 성공적으로 처리되었습니다.', 'success');
             setTimeout(() => { window.location.href = '/admin/roles'; }, 1500);

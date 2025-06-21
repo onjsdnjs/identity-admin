@@ -19,6 +19,7 @@ import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -72,7 +73,10 @@ public class CustomMethodSecurityExpressionHandler extends DefaultMethodSecurity
 
         // 3. PRP를 통해 동적 규칙(SpEL) 조회
         Method method = mi.getMethod();
-        String methodIdentifier = method.getDeclaringClass().getName() + "." + method.getName();
+        String params = Arrays.stream(method.getParameterTypes())
+                .map(Class::getSimpleName)
+                .collect(Collectors.joining(","));
+        String methodIdentifier = String.format("%s.%s(%s)", method.getDeclaringClass().getName(), method.getName(), params);
         List<Policy> policies = policyRetrievalPoint.findMethodPolicies(methodIdentifier);
 
         // 4. 조회된 정책을 기반으로 최종 SpEL 표현식 생성 (기본값: denyAll)

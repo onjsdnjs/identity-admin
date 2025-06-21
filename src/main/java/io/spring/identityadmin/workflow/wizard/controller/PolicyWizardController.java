@@ -139,7 +139,7 @@ public class PolicyWizardController {
             @RequestBody CommitWizardRequest request) {
 
         wizardService.updatePolicyDetails(contextId, request.getPolicyName(), request.getPolicyDescription());
-        wizardService.commitPolicy(contextId, request.getSelectedRoleIds());
+        wizardService.commitPolicy(contextId, request.getSelectedRoleIds(), request.getPermissionIds());
 
         Map<String, Object> response = Map.of("success", true, "message", "권한이 역할에 성공적으로 할당되었습니다.");
         return ResponseEntity.ok(response);

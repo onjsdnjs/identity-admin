@@ -171,219 +171,119 @@
 
     <main class="flex-1 p-6 lg:p-8 overflow-y-auto">
         <div class="dark-card relative">
-            <!-- 컨텍스트 인지 표시 (리소스에서 왔을 때만) -->
             <div th:if="${resourceContext}" class="context-indicator">
                 <i class="fas fa-link"></i>
                 <span>리소스 컨텍스트 인지됨</span>
             </div>
 
-            <!-- 헤더 -->
             <div class="mb-8">
                 <h1 class="text-3xl font-bold text-gradient">지능형 정책 빌더</h1>
-                <p class="text-dark-muted mt-2">드래그 앤 드롭으로 정교한 접근 제어 정책을 시각적으로 구성합니다.</p>
+                <p class="text-dark-muted mt-2">AI와 시각적 도구를 사용하여 정교한 접근 제어 정책을 구성합니다.</p>
+            </div>
+
+            <div class="dark-card p-6 mb-6">
+                <h2 class="text-xl font-bold mb-4 text-gradient"><i class="fas fa-magic-sparkles mr-2"></i>AI로 정책 생성하기</h2>
+                <textarea id="natural-language-input" class="dark-input w-full" rows="3" placeholder="예시) 개발팀은 평일 업무시간에만 '고객 데이터 조회' 권한을 가집니다."></textarea>
+                <button id="generate-by-ai-btn" class="dark-btn-primary w-full mt-3"><i class="fas fa-cogs mr-2"></i>AI로 정책 초안 생성</button>
             </div>
 
             <div class="grid grid-cols-12 gap-6">
-                <!-- 왼쪽: 팔레트 영역 -->
                 <div class="col-span-3 space-y-4">
-                    <!-- 주체 팔레트 -->
                     <div class="palette-section">
-                        <div class="section-header">
-                            <div class="section-icon">
-                                <i class="fas fa-users text-indigo-400"></i>
-                            </div>
-                            <h3 class="font-bold text-lg text-dark-primary">주체 (Who)</h3>
-                        </div>
-                        <input type="search" placeholder="사용자/그룹 검색..." class="search-input mb-3">
+                        <h3 class="font-bold text-lg text-dark-primary mb-3">주체 (Who)</h3>
                         <div id="subjects-palette" class="max-h-60 overflow-y-auto dark-scroll pr-2">
-                            <div th:each="user : ${allUsers}"
-                                 class="palette-item"
-                                 draggable="true"
-                                 th:data-info="${'USER:' + user.id + ':' + user.name}">
-                                <i class="fas fa-user text-blue-400"></i>
-                                <span class="text-dark-primary" th:text="${user.name}"></span>
-                            </div>
-                            <div th:each="group : ${allGroups}"
-                                 class="palette-item"
-                                 draggable="true"
-                                 th:data-info="${'GROUP:' + group.id + ':' + group.name}">
-                                <i class="fas fa-users text-purple-400"></i>
-                                <span class="text-dark-primary" th:text="${group.name}"></span>
-                            </div>
+                            <div th:each="user : ${allUsers}" class="palette-item" draggable="true" th:data-info="${'USER:' + user.id + ':' + user.name}" data-type="subject"><i class="fas fa-user text-blue-400"></i><span th:text="${user.name}"></span></div>
+                            <div th:each="group : ${allGroups}" class="palette-item" draggable="true" th:data-info="${'GROUP:' + group.id + ':' + group.name}" data-type="subject"><i class="fas fa-users text-purple-400"></i><span th:text="${group.name}"></span></div>
                         </div>
                     </div>
-
-                    <!-- 권한 팔레트 -->
                     <div class="palette-section">
-                        <div class="section-header">
-                            <div class="section-icon">
-                                <i class="fas fa-key text-green-400"></i>
-                            </div>
-                            <h3 class="font-bold text-lg text-dark-primary">권한 (What)</h3>
-                        </div>
-                        <input type="search" placeholder="권한 검색..." class="search-input mb-3">
+                        <h3 class="font-bold text-lg text-dark-primary mb-3">권한 (What)</h3>
                         <div id="permissions-palette" class="max-h-60 overflow-y-auto dark-scroll pr-2">
-                            <!-- 사전 선택된 권한 강조 -->
-                            <div th:if="${preselectedPermission}">
-                                <div class="palette-item border-2 border-green-500/50 bg-green-500/10"
-                                     draggable="true"
-                                     th:data-info="${preselectedPermission.id + ':' + preselectedPermission.friendlyName}">
-                                    <i class="fas fa-check-circle text-green-400"></i>
-                                    <span class="text-green-400 font-semibold" th:text="${preselectedPermission.friendlyName}"></span>
-                                </div>
-                                <div class="text-xs text-dark-muted mt-1 mb-3 px-2">↑ 현재 리소스의 권한</div>
+                            <div th:if="${preselectedPermission != null}" class="palette-item border-2 border-green-500/50 bg-green-500/10" draggable="true" th:data-info="${preselectedPermission.id + ':' + preselectedPermission.friendlyName}" data-type="permission">
+                                <i class="fas fa-check-circle text-green-400"></i><span class="text-green-400 font-semibold" th:text="${preselectedPermission.friendlyName}"></span>
                             </div>
-
-                            <div th:each="perm : ${allPermissions}"
-                                 th:if="${preselectedPermission == null or perm.id != preselectedPermission.id}"
-                                 class="palette-item"
-                                 draggable="true"
-                                 th:data-info="${perm.id + ':' + perm.friendlyName}">
-                                <i class="fas fa-key text-yellow-400"></i>
-                                <span class="text-dark-primary" th:text="${perm.friendlyName}"></span>
+                            <div th:each="perm : ${allPermissions}" th:if="${preselectedPermission == null or perm.id != preselectedPermission.id}" class="palette-item" draggable="true" th:data-info="${perm.id + ':' + perm.friendlyName}" data-type="permission">
+                                <i class="fas fa-key text-yellow-400"></i><span th:text="${perm.friendlyName}"></span>
                             </div>
                         </div>
                     </div>
-
-                    <!-- 조건 팔레트 -->
                     <div class="palette-section">
-                        <div class="section-header">
-                            <div class="section-icon">
-                                <i class="fas fa-filter text-orange-400"></i>
-                            </div>
-                            <h3 class="font-bold text-lg text-dark-primary">조건 (When)</h3>
-                        </div>
+                        <h3 class="font-bold text-lg text-dark-primary mb-3">조건 (When)</h3>
                         <div id="conditions-palette" class="max-h-60 overflow-y-auto dark-scroll pr-2">
-                            <div th:each="cond : ${allConditions}"
-                                 class="palette-item"
-                                 th:classappend="${resourceContext and !cond.compatible} ? 'disabled' : ''"
-                                 draggable="true"
-                                 th:data-info="${cond.id + ':' + cond.name}"
-                                 th:data-required-variables="${cond.requiredVariables}"
-                                 th:title="${resourceContext and !cond.compatible} ? '이 조건은 현재 리소스에서 사용할 수 없습니다' : ''">
-                                <i class="fas fa-clock text-orange-400"></i>
-                                <span class="text-dark-primary" th:text="${cond.name}"></span>
-                                <span th:if="${resourceContext and !cond.compatible}"
-                                      class="ml-auto text-xs text-red-400">
-                                    <i class="fas fa-exclamation-circle"></i>
-                                </span>
+                            <div th:each="cond : ${allConditions}" class="palette-item" th:classappend="${!cond.isCompatible} ? 'disabled' : ''" th:draggable="${cond.isCompatible}" th:data-info="${cond.id + ':' + cond.name}" th:data-required-variables="${#strings.listJoin(cond.requiredVariables, ',')}" th:title="${!cond.isCompatible ? '현재 리소스 컨텍스트에서는 사용할 수 없는 조건입니다.' : cond.description}" data-type="condition">
+                                <i class="fas fa-clock text-orange-400"></i><span th:text="${cond.name}"></span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 가운데: 정책 구성 영역 -->
-                <div class="col-span-6">
-                    <div class="dark-card rounded-xl p-6">
-                        <h2 class="text-xl font-bold text-gradient mb-6">정책 구성</h2>
-
-                        <div class="space-y-6">
-                            <!-- 주체 캔버스 -->
-                            <div>
-                                <label class="block text-sm font-semibold text-dark-secondary mb-2">
-                                    이 주체들이 (IF)
-                                </label>
-                                <div id="subjects-canvas" class="canvas-zone"
-                                     ondrop="handleDrop(event, 'subject')"
-                                     ondragover="allowDrop(event)"
-                                     ondragleave="handleDragLeave(event)">
-                                    <p class="text-dark-muted text-center">
-                                        <i class="fas fa-hand-pointer mr-2"></i>
-                                        왼쪽에서 주체를 드래그하여 여기에 놓으세요
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- 권한 캔버스 -->
-                            <div>
-                                <label class="block text-sm font-semibold text-dark-secondary mb-2">
-                                    이러한 권한으로 (WHAT)
-                                </label>
-                                <div id="permissions-canvas" class="canvas-zone"
-                                     ondrop="handleDrop(event, 'permission')"
-                                     ondragover="allowDrop(event)"
-                                     ondragleave="handleDragLeave(event)">
-                                    <p class="text-dark-muted text-center">
-                                        <i class="fas fa-hand-pointer mr-2"></i>
-                                        왼쪽에서 권한을 드래그하여 여기에 놓으세요
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- 조건 캔버스 -->
-                            <div>
-                                <label class="block text-sm font-semibold text-dark-secondary mb-2">
-                                    아래 조건이 만족될 때 (WHEN)
-                                </label>
-                                <div id="conditions-canvas" class="canvas-zone"
-                                     ondrop="handleDrop(event, 'condition')"
-                                     ondragover="allowDrop(event)"
-                                     ondragleave="handleDragLeave(event)">
-                                    <p class="text-dark-muted text-center">
-                                        <i class="fas fa-hand-pointer mr-2"></i>
-                                        왼쪽에서 조건을 드래그하여 여기에 놓으세요
-                                    </p>
-                                </div>
-                            </div>
+                <div class="col-span-6 dark-card p-6">
+                    <h2 class="text-xl font-bold text-gradient mb-6">정책 구성</h2>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="font-semibold text-dark-secondary mb-2">이 주체들이 (IF)</label>
+                            <div id="subjects-canvas" class="canvas-zone" ondrop="handleDrop(event, 'subject')" ondragover="allowDrop(event)" ondragleave="handleDragLeave(event)"></div>
+                        </div>
+                        <div>
+                            <label class="font-semibold text-dark-secondary mb-2">이러한 권한으로 (WHAT)</label>
+                            <div id="permissions-canvas" class="canvas-zone" ondrop="handleDrop(event, 'permission')" ondragover="allowDrop(event)" ondragleave="handleDragLeave(event)"></div>
+                        </div>
+                        <div>
+                            <label class="font-semibold text-dark-secondary mb-2">아래 조건이 만족될 때 (WHEN)</label>
+                            <div id="conditions-canvas" class="canvas-zone" ondrop="handleDrop(event, 'condition')" ondragover="allowDrop(event)" ondragleave="handleDragLeave(event)"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 오른쪽: 속성 및 저장 영역 -->
-                <div class="col-span-3">
-                    <div class="dark-card rounded-xl p-6">
-                        <h2 class="text-xl font-bold text-gradient mb-6">정책 속성</h2>
+                <div class="col-span-3 dark-card p-6 flex flex-col">
+                    <h2 class="text-xl font-bold text-gradient mb-6">속성 및 저장</h2>
+                    <div class="space-y-4 flex-grow">
+                        <div>
+                            <label for="policy-name" class="dark-label">정책 이름</label>
+                            <input type="text" id="policy-name" class="dark-input" placeholder="예: 개발팀 소스코드 접근 정책">
+                        </div>
+                        <div>
+                            <label for="policy-desc" class="dark-label">설명</label>
+                            <textarea id="policy-desc" class="dark-input" rows="3" placeholder="정책의 목적과 적용 범위를 설명하세요"></textarea>
+                        </div>
+                        <div>
+                            <label class="dark-label">효과</label>
+                            <select id="policy-effect" class="dark-select">
+                                <option value="ALLOW">허용 (ALLOW)</option>
+                                <option value="DENY">거부 (DENY)</option>
+                            </select>
+                        </div>
 
-                        <div class="space-y-4">
-                            <!-- 정책 이름 -->
-                            <div>
-                                <label for="policy-name" class="dark-label">정책 이름</label>
-                                <input type="text" id="policy-name"
-                                       class="dark-input"
-                                       placeholder="예: 개발팀 소스코드 접근 정책">
-                            </div>
+                        <div class="dark-divider"></div>
 
-                            <!-- 설명 -->
-                            <div>
-                                <label for="policy-desc" class="dark-label">설명</label>
-                                <textarea id="policy-desc"
-                                          class="dark-input"
-                                          rows="3"
-                                          placeholder="정책의 목적과 적용 범위를 설명하세요"></textarea>
-                            </div>
-
-                            <!-- 효과 -->
-                            <div>
-                                <label class="dark-label">효과</label>
-                                <select id="policy-effect" class="dark-select">
-                                    <option value="ALLOW">허용 (ALLOW)</option>
-                                    <option value="DENY">거부 (DENY)</option>
-                                </select>
-                            </div>
-
-                            <div class="dark-divider"></div>
-
-                            <!-- 실시간 미리보기 -->
-                            <div>
-                                <h3 class="font-semibold text-dark-secondary mb-3">
-                                    <i class="fas fa-eye mr-2"></i>실시간 미리보기
-                                </h3>
-                                <div id="policy-preview"
-                                     class="p-4 rounded-lg bg-slate-800/50 border border-slate-700 min-h-[120px]">
-                                    <p class="text-dark-muted text-sm text-center">
-                                        정책을 구성하면 여기에 미리보기가 표시됩니다
-                                    </p>
-                                </div>
-                            </div>
-
-                            <!-- 저장 버튼 -->
-                            <div class="pt-4">
-                                <button id="save-policy-btn" class="dark-btn-primary w-full justify-center">
-                                    <i class="fas fa-save mr-2"></i>
-                                    정책 생성하기
-                                </button>
+                        <div class="space-y-2">
+                            <h3 class="font-semibold text-dark-secondary"><i class="fas fa-robot mr-2 text-gradient"></i>AI 동적 분석</h3>
+                            <label for="ai-risk-assessment-enabled" class="flex items-center space-x-2 cursor-pointer text-sm">
+                                <input type="checkbox" id="ai-risk-assessment-enabled" class="modern-checkbox">
+                                <span class="text-dark-primary">AI 실시간 리스크 평가 활성화</span>
+                            </label>
+                            <div id="trust-score-slider-container" class="hidden pl-2 pt-2">
+                                <label for="required-trust-score" class="text-xs font-medium text-dark-muted">
+                                    허용 신뢰도: <span id="trust-score-value" class="font-bold text-indigo-400">70</span>점 이상
+                                </label>
+                                <input type="range" id="required-trust-score" min="0" max="100" value="70" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
                             </div>
                         </div>
+
+                        <div class="dark-divider"></div>
+
+                        <div>
+                            <label for="custom-condition-spel" class="font-semibold text-dark-secondary">
+                                <i class="fas fa-code mr-2"></i>추가 조건 (전문가용)
+                            </label>
+                            <textarea id="custom-condition-spel" class="dark-input font-mono text-xs mt-1" rows="2" placeholder="e.g., #request.remoteAddr == '1.2.3.4'"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <button id="save-policy-btn" class="dark-btn-primary w-full justify-center">
+                            <i class="fas fa-save mr-2"></i>정책 생성하기
+                        </button>
                     </div>
                 </div>
             </div>
@@ -391,12 +291,12 @@
     </main>
 </div>
 
+<div th:insert="~{fragments/footer :: footer}"></div>
 <script th:src="@{/js/toast.js}"></script>
-<script th:src="@{/js/policy-builder.js}"></script>
-
 <script th:inline="javascript">
     const resourceContext = /*[[${resourceContext}]]*/ null;
     const preselectedPermission = /*[[${preselectedPermission}]]*/ null;
 </script>
+<script th:src="@{/js/policy-builder.js}"></script>
 </body>
 </html>

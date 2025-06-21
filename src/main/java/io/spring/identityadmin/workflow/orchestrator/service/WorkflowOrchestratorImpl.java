@@ -37,7 +37,11 @@ public class WorkflowOrchestratorImpl implements WorkflowOrchestrator {
 
         // 2. 워크플로우 실행: 생성된 컨텍스트와 요청에 담긴 역할 ID들을 사용하여
         //    Permission-Role 관계를 설정합니다.
-        permissionWizardService.commitPolicy(contextId, request.getSelectedRoleIds());
+        permissionWizardService.commitPolicy(
+                contextId,
+                request.getSelectedRoleIds(),
+                request.getInitialRequest().getPermissionIds() // request 객체에서 permissionIds를 가져와 전달
+        );
         log.info("Workflow completed. Role-permission assignments have been committed.");
 
         // 3. 결과 반환

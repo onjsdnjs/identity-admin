@@ -21,12 +21,12 @@ public @interface Protectable {
      * 예: "ORDER_APPROVE", "USER_DELETE"
      * @return 권한 이름
      */
-    String name();
+    String name() default "";
 
     /**
      * 권한 관리자가 이 권한의 용도를 이해할 수 있도록 돕는 설명.
      * 이 설명은 '리소스 워크벤치'에 기본값으로 표시됩니다.
      * @return 권한 설명
      */
-    String description();
+    String description() default "";
 }

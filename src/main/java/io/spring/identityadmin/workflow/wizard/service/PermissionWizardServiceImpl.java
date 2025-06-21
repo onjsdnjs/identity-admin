@@ -126,11 +126,8 @@ public class PermissionWizardServiceImpl implements PermissionWizardService {
      */
     @Override
     @Transactional
-    public void commitPolicy(String contextId, List<Long> selectedRoleIds) {
+    public void commitPolicy(String contextId, List<Long> selectedRoleIds, Set<Long> permissionIds) {
         log.info("Committing permission-to-role assignment for wizard context: {}", contextId);
-        WizardContext context = userContextService.getWizardProgress(contextId);
-
-        Set<Long> permissionIds = context.permissionIds();
 
         if (CollectionUtils.isEmpty(selectedRoleIds) || CollectionUtils.isEmpty(permissionIds)) {
             throw new IllegalStateException("역할과 권한이 반드시 선택되어야 합니다.");

@@ -54,13 +54,13 @@ public class GroupServiceImpl implements GroupService {
         return groupRepository.save(group);
     }
 
-    @Protectable(name = "그룹 조회", description = "그룹을 조회 합니다.")
+    @Protectable
     public Optional<Group> getGroup(Long id) {
         return groupRepository.findByIdWithRoles(id);
     }
 
     @Cacheable(value = "groups", key = "'allGroups'")
-    @Protectable(name = "그룹 목록 조회", description = "그룹 목록을 조회 합니다.")
+    @Protectable
     public List<Group> getAllGroups() {
         return groupRepository.findAllWithRolesAndUsers();
     }
@@ -73,6 +73,7 @@ public class GroupServiceImpl implements GroupService {
                     @CacheEvict(value = "groups", key = "#id")
             }
     )
+    @Protectable
     public void deleteGroup(Long id) {
         groupRepository.deleteById(id);
     }
@@ -85,6 +86,7 @@ public class GroupServiceImpl implements GroupService {
             },
             put = { @CachePut(value = "groups", key = "#result.id") }
     )
+    @Protectable
     public Group updateGroup(Group group, List<Long> selectedRoleIds) {
         Group existingGroup = groupRepository.findByIdWithRoles(group.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Group not found with ID: " + group.getId()));
