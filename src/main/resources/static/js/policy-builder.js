@@ -63,14 +63,27 @@
                 this.updatePreview(state);
             }
             renderChipZone(type, map) {
-                const canvasEl = this.elements[type + 'Canvas'];
+                // 올바른 요소 이름 매핑
+                const canvasElId = type + 'sCanvas'; // subjects -> subjectsCanvas
+                const canvasEl = this.elements[canvasElId];
                 const koreanTypeName = { subject: '주체', permission: '권한', condition: '조건' }[type];
-                canvasEl.innerHTML = '';
-                if (map.size === 0) {
-                    canvasEl.innerHTML = `<p class="text-dark-muted text-center"><i class="fas fa-hand-pointer mr-2"></i>왼쪽에서 ${koreanTypeName}을(를) 드래그하여 여기에 놓으세요</p>`;
+
+                console.log(`Rendering ${type} zone (${canvasElId}) with ${map.size} items`); // 디버깅
+                console.log('Canvas element:', canvasEl); // 디버깅
+
+                if (!canvasEl) {
+                    console.error(`Canvas element not found: ${canvasElId}`);
                     return;
                 }
+
+                canvasEl.innerHTML = '';
+                if (map.size === 0) {
+                    canvasEl.innerHTML = `<div class="canvas-placeholder"><i class="fas fa-hand-pointer"></i><span>왼쪽에서 ${koreanTypeName}을(를) 드래그하여 여기에 놓으세요</span></div>`;
+                    return;
+                }
+
                 map.forEach((value, key) => {
+                    console.log(`Creating chip for ${type}: ${key} - ${value.name}`); // 디버깅
                     const chip = document.createElement('span');
                     chip.className = 'policy-chip';
                     chip.dataset.key = key;
@@ -82,14 +95,42 @@
                 const subjectsHtml = Array.from(state.subjects.values()).map(s => `<span class="policy-chip-preview">${s.name}</span>`).join(' 또는 ') || '<span class="text-gray-400">모든 주체</span>';
                 const permissionsHtml = Array.from(state.permissions.values()).map(p => `<span class="policy-chip-preview">${p.name}</span>`).join(' 그리고 ') || '<span class="text-gray-400">모든 권한</span>';
                 const conditionsHtml = Array.from(state.conditions.values()).map(c => `<span class="policy-chip-preview condition">${c.name}</span>`).join(' 그리고 ');
-                const aiConditionHtml = state.aiRiskAssessmentEnabled ? `<span class="policy-chip-preview ai">AI 신뢰도 ${state.requiredTrustScore * 100}점 이상</span>` : '';
+                const aiConditionHtml = state.aiRiskAssessmentEnabled ? `<span class="policy-chip-preview ai">AI 신뢰도 ${Math.round(state.requiredTrustScore * 100)}점 이상</span>` : '';
                 let fullConditionHtml = [conditionsHtml, aiConditionHtml].filter(Boolean).join(' 그리고 ');
-                if (fullConditionHtml) {
-                    fullConditionHtml = `<div class="flex items-start gap-2 mt-2"><span class="font-bold text-gray-300 w-16 shrink-0">조건:</span><div class="flex flex-wrap gap-1">${fullConditionHtml}</div></div>`;
-                }
+
                 const effect = this.elements.policyEffectSelect.value;
-                const effectHtml = `<span class="font-bold ${effect === 'ALLOW' ? 'text-green-400' : 'text-red-400'}">${effect}</span>`;
-                this.elements.policyPreview.innerHTML = `<div class="space-y-1"><div class="flex items-start gap-2"><span class="font-bold text-gray-300 w-16 shrink-0">주체:</span><div class="flex flex-wrap gap-1">${subjectsHtml}</div></div><div class="flex items-start gap-2 mt-2"><span class="font-bold text-gray-300 w-16 shrink-0">권한:</span><div class="flex flex-wrap gap-1">${permissionsHtml}</div></div>${fullConditionHtml}<div class="flex items-start gap-2 mt-2"><span class="font-bold text-gray-300 w-16 shrink-0">결과:</span><div>${effectHtml}</div></div></div>`;
+                const effectHtml = `<span class="font-bold ${effect === 'ALLOW' ? 'text-green-400' : 'text-red-400'}">${effect === 'ALLOW' ? '허용' : '거부'}</span>`;
+
+                // 더 자세하고 읽기 쉬운 미리보기 생성
+                this.elements.policyPreview.innerHTML = `
+                    <div class="preview-section">
+                        <div class="preview-label">👥 주체 (누가)</div>
+                        <div>${subjectsHtml}</div>
+                    </div>
+                    <div class="preview-section">
+                        <div class="preview-label">🔑 권한 (무엇을)</div>
+                        <div>${permissionsHtml}</div>
+                    </div>
+                    ${fullConditionHtml ? `
+                    <div class="preview-section">
+                        <div class="preview-label">⏰ 조건 (언제)</div>
+                        <div>${fullConditionHtml}</div>
+                    </div>
+                    ` : ''}
+                    <div class="preview-section">
+                        <div class="preview-label">⚡ 결과</div>
+                        <div class="text-lg">${effectHtml}</div>
+                    </div>
+                    <div class="mt-4 p-3 rounded-lg bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/30">
+                        <div class="text-sm text-indigo-300 font-semibold mb-2">📋 정책 요약</div>
+                        <div class="text-indigo-100">
+                            ${Array.from(state.subjects.values()).map(s => s.name).join(', ') || '모든 사용자'}가 
+                            ${Array.from(state.permissions.values()).map(p => p.name).join(', ') || '모든 리소스'}에 대해 
+                            ${fullConditionHtml ? `${Array.from(state.conditions.values()).map(c => c.name).join(', ')} 조건 하에서` : ''}
+                            <strong>${effect === 'ALLOW' ? '접근이 허용' : '접근이 거부'}</strong>됩니다.
+                        </div>
+                    </div>
+                `;
             }
             setLoading(button, isLoading) {
                 if (!button) return;
@@ -143,15 +184,33 @@
             queryDOMElements() {
                 const ids = ['naturalLanguageInput', 'generateByAiBtn', 'aiEnabledCheckbox', 'trustScoreContainer', 'trustScoreSlider', 'trustScoreValueSpan', 'customSpelInput', 'subjectsPalette', 'permissionsPalette', 'conditionsPalette', 'subjectsCanvas', 'permissionsCanvas', 'conditionsCanvas', 'policyNameInput', 'policyDescTextarea', 'policyEffectSelect', 'savePolicyBtn', 'policyPreview'];
                 const elements = {};
-                ids.forEach(id => elements[id] = document.getElementById(id));
+                ids.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        elements[id] = element;
+                        console.log(`Found element: ${id}`); // 디버깅
+                    } else {
+                        console.warn(`Element not found: ${id}`); // 디버깅
+                    }
+                });
                 return elements;
             }
 
             init() {
-                if (!this.elements.savePolicyBtn) return;
+                console.log('PolicyBuilderApp initializing...'); // 디버깅
+
+                if (!this.elements.savePolicyBtn) {
+                    console.error('Save policy button not found!'); // 디버깅
+                    return;
+                }
+
+                console.log('Found elements:', Object.keys(this.elements)); // 디버깅
+
                 this.bindEventListeners();
                 this.initializeFromContext();
                 this.ui.renderAll(this.state);
+
+                console.log('PolicyBuilderApp initialized successfully'); // 디버깅
             }
 
             bindEventListeners() {
@@ -163,19 +222,34 @@
 
                 // 드래그 앤 드롭 리스너 등록
                 ['subjectsPalette', 'permissionsPalette', 'conditionsPalette'].forEach(id => {
-                    this.elements[id]?.addEventListener('dragstart', this.handleDragStart.bind(this));
+                    const element = this.elements[id];
+                    if (element) {
+                        element.addEventListener('dragstart', this.handleDragStart.bind(this));
+                        console.log(`Dragstart listener added to ${id}`);
+                    } else {
+                        console.error(`Palette element not found: ${id}`);
+                    }
                 });
+
                 ['subjectsCanvas', 'permissionsCanvas', 'conditionsCanvas'].forEach(id => {
                     const canvas = this.elements[id];
                     if (canvas) {
-                        const type = id.replace('Canvas', '');
+                        // 올바른 타입 매핑
+                        let type;
+                        if (id === 'subjectsCanvas') type = 'subject';
+                        else if (id === 'permissionsCanvas') type = 'permission';
+                        else if (id === 'conditionsCanvas') type = 'condition';
+
                         canvas.addEventListener('drop', (e) => this.handleDrop(e, type));
                         canvas.addEventListener('dragover', this.allowDrop.bind(this));
                         canvas.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                        console.log(`Drop listeners added to ${id} (type: ${type})`);
+                    } else {
+                        console.error(`Canvas element not found: ${id}`);
                     }
                 });
-                // 칩 제거 리스너 등록 (이벤트 위임)
-                document.querySelector('.col-span-6.dark-card')?.addEventListener('click', (e) => {
+                // 칩 제거 리스너 등록 (이벤트 위임) - 전체 문서에서 감지
+                document.addEventListener('click', (e) => {
                     if (e.target.classList.contains('remove-chip-btn')) {
                         this.handleChipRemove(e.target.dataset.type, e.target.dataset.key);
                     }
@@ -186,13 +260,22 @@
 
             handleDragStart(e) {
                 const item = e.target.closest('.palette-item');
+                console.log('Drag start on item:', item); // 디버깅
+
                 if (item?.classList.contains('disabled')) {
+                    console.log('Item is disabled, preventing drag'); // 디버깅
                     e.preventDefault();
                     return;
                 }
                 if (item) {
-                    e.dataTransfer.setData("text/plain", item.dataset.info);
-                    e.dataTransfer.setData("element-type", item.dataset.type);
+                    const info = item.dataset.info;
+                    const type = item.dataset.type;
+                    console.log(`Drag start: info=${info}, type=${type}`); // 디버깅
+
+                    e.dataTransfer.setData("text/plain", info);
+                    e.dataTransfer.setData("element-type", type);
+                } else {
+                    console.log('No palette item found'); // 디버깅
                 }
             }
 
@@ -209,14 +292,27 @@
                 e.preventDefault();
                 e.currentTarget.classList.remove('drag-over');
                 const elementType = e.dataTransfer.getData("element-type");
-                if (elementType !== type) return;
+
+                console.log(`Drop event: ${elementType} -> ${type}`); // 디버깅
+
+                if (elementType !== type) {
+                    console.log('Type mismatch, ignoring drop'); // 디버깅
+                    return;
+                }
 
                 const info = e.dataTransfer.getData("text/plain");
+                console.log(`Drop data: ${info}`); // 디버깅
+
                 const [id, ...nameParts] = info.split(':');
                 const name = nameParts.join(':');
                 const key = (type === 'subject') ? info : id;
 
+                console.log(`Adding to state: type=${type}, key=${key}, name=${name}`); // 디버깅
+
                 this.state.add(type, key, { id, name });
+
+                console.log(`State after add:`, this.state.getMap(type)); // 디버깅
+
                 this.ui.renderAll(this.state);
             }
 
