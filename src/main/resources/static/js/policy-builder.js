@@ -29,10 +29,10 @@
                 return map;
             }
             toDto() {
-                this.policyName = document.getElementById('policy-name').value;
-                this.description = document.getElementById('policy-desc').value;
-                this.effect = document.getElementById('policy-effect').value;
-                this.customConditionSpel = document.getElementById('custom-condition-spel').value.trim();
+                this.policyName = document.getElementById('policyNameInput').value;
+                this.description = document.getElementById('policyDescTextarea').value;
+                this.effect = document.getElementById('policyEffectSelect').value;
+                this.customConditionSpel = document.getElementById('customSpelInput').value.trim();
                 return {
                     policyName: this.policyName,
                     description: this.description,

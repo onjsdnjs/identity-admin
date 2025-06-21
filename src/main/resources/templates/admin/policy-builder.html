@@ -2,162 +2,629 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="ko">
 <head>
     <th:block th:replace="~{fragments/common-head :: head-elements(pageTitle='지능형 정책 빌더')}"></th:block>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* 팔레트 아이템 - 다크 테마 스타일 */
-        .palette-section {
-            background: rgba(15, 23, 42, 0.8);
+        /* 최신 현대적 스타일 - 2025 트렌드 */
+
+        /* 전체 레이아웃 개선 */
+        .policy-builder-container {
+            background: linear-gradient(135deg,
+            rgba(5, 8, 16, 0.98) 0%,
+            rgba(10, 15, 28, 0.95) 25%,
+            rgba(15, 23, 42, 0.92) 50%,
+            rgba(10, 15, 28, 0.95) 75%,
+            rgba(5, 8, 16, 0.98) 100%);
+            backdrop-filter: blur(30px);
+            border-radius: 2rem;
+            border: 1px solid rgba(99, 102, 241, 0.1);
+            box-shadow:
+                    0 32px 64px -12px rgba(0, 0, 0, 0.7),
+                    0 0 80px rgba(99, 102, 241, 0.1),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        /* AI 입력 섹션 - 미래형 디자인 */
+        .ai-input-section {
+            background: linear-gradient(135deg,
+            rgba(99, 102, 241, 0.15) 0%,
+            rgba(139, 92, 246, 0.10) 50%,
+            rgba(79, 70, 229, 0.15) 100%);
+            border: 2px solid rgba(99, 102, 241, 0.3);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(71, 85, 105, 0.3);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
         }
 
-        .palette-item {
-            background: rgba(30, 41, 59, 0.6);
-            border: 2px solid rgba(71, 85, 105, 0.3);
-            border-radius: 0.75rem;
-            padding: 0.875rem 1rem;
-            margin-bottom: 0.5rem;
-            cursor: move;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .palette-item:hover {
-            background: rgba(99, 102, 241, 0.1);
-            border-color: rgba(99, 102, 241, 0.3);
-            transform: translateX(5px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-        }
-
-        .palette-item.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            background: rgba(30, 41, 59, 0.3);
-        }
-
-        .palette-item.disabled:hover {
-            transform: none;
-            border-color: rgba(71, 85, 105, 0.3);
-        }
-
-        /* 캔버스 영역 - 워크벤치 스타일 매칭 */
-        .canvas-zone {
-            min-height: 10rem;
-            background: rgba(30, 41, 59, 0.4);
-            border: 2px dashed rgba(71, 85, 105, 0.5);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            transition: all 0.3s ease;
-        }
-
-        .canvas-zone.drag-over {
-            background: rgba(99, 102, 241, 0.1);
-            border-color: rgba(99, 102, 241, 0.5);
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
-        }
-
-        /* 정책 칩 - 현대적 스타일 */
-        .policy-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.2));
-            color: #a5b4fc;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            padding: 0.5rem 1rem;
-            border-radius: 9999px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin: 0.25rem;
-            animation: chipFadeIn 0.3s ease-out;
-            transition: all 0.3s ease;
-        }
-
-        @keyframes chipFadeIn {
-            from { opacity: 0; transform: scale(0.8); }
-            to { opacity: 1; transform: scale(1); }
-        }
-
-        .policy-chip:hover {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(79, 70, 229, 0.3));
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-        }
-
-        .policy-chip button {
-            background: none;
-            border: none;
-            color: #f87171;
-            font-size: 1.125rem;
-            cursor: pointer;
-            padding: 0 0 0 0.5rem;
-            transition: all 0.2s;
-        }
-
-        .policy-chip button:hover {
-            color: #fca5a5;
-            transform: scale(1.2);
-        }
-
-        /* 컨텍스트 인지 표시 */
-        .context-indicator {
+        .ai-input-section::before {
+            content: '';
             position: absolute;
-            top: 1rem;
-            right: 1rem;
-            background: rgba(34, 197, 94, 0.2);
-            color: #4ade80;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            padding: 0.375rem 0.75rem;
-            border-radius: 9999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        /* 검색 입력 필드 */
-        .search-input {
+            top: 0;
+            left: -100%;
             width: 100%;
-            background: rgba(30, 41, 59, 0.6);
-            border: 2px solid rgba(71, 85, 105, 0.3);
-            color: #e2e8f0;
-            padding: 0.5rem 1rem;
-            border-radius: 0.5rem;
-            font-size: 0.875rem;
-            transition: all 0.3s;
+            height: 100%;
+            background: linear-gradient(90deg,
+            transparent,
+            rgba(99, 102, 241, 0.3),
+            transparent);
+            animation: shimmer 3s infinite;
         }
 
-        .search-input:focus {
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        .ai-textarea {
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(71, 85, 105, 0.4);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            color: #e2e8f0;
+            font-size: 1rem;
+            line-height: 1.6;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(10px);
+            resize: none;
+        }
+
+        .ai-textarea:focus {
             outline: none;
             border-color: #6366f1;
-            background: rgba(30, 41, 59, 0.8);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+            background: rgba(15, 23, 42, 0.95);
+            box-shadow:
+                    0 0 0 4px rgba(99, 102, 241, 0.15),
+                    0 0 30px rgba(99, 102, 241, 0.2);
+            transform: translateY(-2px);
         }
 
-        /* 섹션 헤더 */
-        .section-header {
+        .ai-generate-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%);
+            border: none;
+            border-radius: 1rem;
+            padding: 1rem 2rem;
+            color: white;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
+        }
+
+        .ai-generate-btn:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 12px 35px rgba(99, 102, 241, 0.6);
+        }
+
+        .ai-generate-btn:active {
+            transform: translateY(-1px) scale(0.98);
+        }
+
+        /* 팔레트 섹션 - 현대적 카드 디자인 */
+        .palette-section {
+            background: linear-gradient(135deg,
+            rgba(15, 23, 42, 0.9) 0%,
+            rgba(30, 41, 59, 0.7) 100%);
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            border-radius: 1.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .palette-section:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .palette-header {
             display: flex;
             align-items: center;
             gap: 0.75rem;
-            margin-bottom: 1rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid rgba(71, 85, 105, 0.2);
         }
 
-        .section-icon {
+        .palette-icon {
             width: 2.5rem;
             height: 2.5rem;
+            border-radius: 0.75rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            border-radius: 0.625rem;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(79, 70, 229, 0.2));
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(79, 70, 229, 0.2));
+            color: #a5b4fc;
+            font-size: 1.125rem;
+        }
+
+        .palette-title {
+            font-size: 1.125rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* 팔레트 아이템 - 3D 효과 */
+        .palette-item {
+            background: linear-gradient(135deg,
+            rgba(30, 41, 59, 0.8) 0%,
+            rgba(51, 65, 85, 0.6) 100%);
+            border: 2px solid rgba(71, 85, 105, 0.3);
+            border-radius: 1rem;
+            padding: 1rem 1.25rem;
+            margin-bottom: 0.75rem;
+            cursor: grab;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.875rem;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .palette-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg,
+            rgba(99, 102, 241, 0.1),
+            rgba(139, 92, 246, 0.05));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .palette-item:hover {
+            background: linear-gradient(135deg,
+            rgba(99, 102, 241, 0.2) 0%,
+            rgba(139, 92, 246, 0.15) 100%);
+            border-color: rgba(99, 102, 241, 0.5);
+            transform: translateX(8px) translateY(-2px);
+            box-shadow:
+                    0 8px 25px rgba(99, 102, 241, 0.3),
+                    -4px 0 15px rgba(99, 102, 241, 0.2);
+        }
+
+        .palette-item:hover::before {
+            opacity: 1;
+        }
+
+        .palette-item:active {
+            cursor: grabbing;
+            transform: translateX(4px) translateY(-1px) scale(0.98);
+        }
+
+        .palette-item.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: rgba(30, 41, 59, 0.4);
+            transform: none !important;
+            filter: grayscale(0.7);
+        }
+
+        .palette-item.preselected {
+            border: 2px solid rgba(34, 197, 94, 0.6);
+            background: linear-gradient(135deg,
+            rgba(34, 197, 94, 0.15) 0%,
+            rgba(22, 163, 74, 0.1) 100%);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+        }
+
+        /* 캔버스 영역 - 드롭존 개선 */
+        .canvas-zone {
+            min-height: 8rem;
+            background: linear-gradient(135deg,
+            rgba(15, 23, 42, 0.6) 0%,
+            rgba(30, 41, 59, 0.4) 100%);
+            border: 3px dashed rgba(71, 85, 105, 0.4);
+            border-radius: 1.25rem;
+            padding: 1.5rem;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            backdrop-filter: blur(15px);
+        }
+
+        .canvas-zone::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center,
+            rgba(99, 102, 241, 0.1) 0%,
+            transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            border-radius: 1rem;
+        }
+
+        .canvas-zone.drag-over {
+            background: linear-gradient(135deg,
+            rgba(99, 102, 241, 0.2) 0%,
+            rgba(139, 92, 246, 0.15) 100%);
+            border-color: rgba(99, 102, 241, 0.8);
+            border-style: solid;
+            transform: scale(1.02);
+            box-shadow:
+                    0 0 40px rgba(99, 102, 241, 0.4),
+                    inset 0 0 30px rgba(99, 102, 241, 0.1);
+        }
+
+        .canvas-zone.drag-over::before {
+            opacity: 1;
+        }
+
+        .canvas-placeholder {
+            text-align: center;
+            color: #64748b;
+            font-size: 0.925rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 5rem;
+            gap: 0.5rem;
+        }
+
+        .canvas-placeholder i {
+            font-size: 1.5rem;
+            opacity: 0.6;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* 정책 칩 - 현대적 알약 형태 */
+        .policy-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.625rem;
+            background: linear-gradient(135deg,
+            rgba(99, 102, 241, 0.25) 0%,
+            rgba(139, 92, 246, 0.2) 50%,
+            rgba(79, 70, 229, 0.25) 100%);
+            color: #c7d2fe;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            padding: 0.625rem 1.125rem;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0.375rem;
+            animation: chipSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
+        }
+
+        @keyframes chipSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.8) translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        .policy-chip:hover {
+            background: linear-gradient(135deg,
+            rgba(99, 102, 241, 0.35) 0%,
+            rgba(139, 92, 246, 0.3) 50%,
+            rgba(79, 70, 229, 0.35) 100%);
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .remove-chip-btn {
+            background: none;
+            border: none;
+            color: #f87171;
+            font-size: 1.25rem;
+            cursor: pointer;
+            padding: 0;
+            margin-left: 0.25rem;
+            transition: all 0.2s ease;
+            border-radius: 50%;
+            width: 1.25rem;
+            height: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .remove-chip-btn:hover {
+            color: #fca5a5;
+            background: rgba(239, 68, 68, 0.2);
+            transform: scale(1.2);
+        }
+
+        /* 속성 패널 - 현대적 폼 */
+        .properties-panel {
+            background: linear-gradient(135deg,
+            rgba(15, 23, 42, 0.9) 0%,
+            rgba(30, 41, 59, 0.8) 100%);
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .modern-input {
+            background: rgba(15, 23, 42, 0.8);
+            border: 2px solid rgba(71, 85, 105, 0.4);
+            border-radius: 0.875rem;
+            padding: 0.875rem 1.125rem;
+            color: #e2e8f0;
+            font-size: 0.925rem;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .modern-input:focus {
+            outline: none;
+            border-color: #6366f1;
+            background: rgba(15, 23, 42, 0.95);
+            box-shadow:
+                    0 0 0 3px rgba(99, 102, 241, 0.15),
+                    0 4px 15px rgba(99, 102, 241, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .modern-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* AI 토글 - 현대적 스위치 */
+        .ai-toggle-container {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            border-radius: 1rem;
+            padding: 1.25rem;
+            margin: 1rem 0;
+        }
+
+        .modern-checkbox {
+            appearance: none;
+            width: 3rem;
+            height: 1.5rem;
+            background: rgba(71, 85, 105, 0.5);
+            border-radius: 1rem;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .modern-checkbox::before {
+            content: '';
+            position: absolute;
+            top: 0.125rem;
+            left: 0.125rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            background: white;
+            border-radius: 50%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .modern-checkbox:checked {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        }
+
+        .modern-checkbox:checked::before {
+            transform: translateX(1.5rem);
+        }
+
+        /* 슬라이더 - 현대적 디자인 */
+        .modern-slider {
+            appearance: none;
+            width: 100%;
+            height: 0.5rem;
+            background: rgba(71, 85, 105, 0.5);
+            border-radius: 1rem;
+            outline: none;
+            margin: 1rem 0;
+        }
+
+        .modern-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 1.25rem;
+            height: 1.25rem;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .modern-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.6);
+        }
+
+        /* 저장 버튼 - 현대적 CTA */
+        .save-button {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            border: none;
+            border-radius: 1rem;
+            padding: 1rem 2rem;
+            color: white;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4);
+        }
+
+        .save-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.6s ease;
+        }
+
+        .save-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 35px rgba(34, 197, 94, 0.6);
+        }
+
+        .save-button:hover::before {
+            left: 100%;
+        }
+
+        /* 프리뷰 패널 */
+        .preview-panel {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(71, 85, 105, 0.3);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            backdrop-filter: blur(15px);
+        }
+
+        .preview-content {
+            font-size: 0.875rem;
+            line-height: 1.6;
+            color: #cbd5e1;
+        }
+
+        .policy-chip-preview {
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            padding: 0.25rem 0.625rem;
+            border-radius: 1rem;
+            font-size: 0.8125rem;
+            font-weight: 500;
+        }
+
+        .policy-chip-preview.condition {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+        }
+
+        .policy-chip-preview.ai {
+            background: rgba(139, 92, 246, 0.2);
+            color: #c4b5fd;
+        }
+
+        /* 컨텍스트 인디케이터 */
+        .context-indicator {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(22, 163, 74, 0.2));
+            color: #4ade80;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.8125rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            backdrop-filter: blur(10px);
+            animation: pulse-glow 2s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 0 10px rgba(34, 197, 94, 0.3);
+            }
+            50% {
+                box-shadow: 0 0 20px rgba(34, 197, 94, 0.6);
+            }
+        }
+
+        /* 반응형 디자인 */
+        @media (max-width: 1024px) {
+            .policy-builder-container {
+                margin: 1rem;
+                border-radius: 1.5rem;
+            }
+
+            .palette-section {
+                padding: 1rem;
+            }
+
+            .properties-panel {
+                padding: 1.5rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .policy-builder-container {
+                margin: 0.5rem;
+                padding: 1rem;
+            }
+
+            .ai-input-section {
+                padding: 1.5rem;
+            }
+
+            .palette-item {
+                padding: 0.75rem 1rem;
+                font-size: 0.875rem;
+            }
+
+            .canvas-zone {
+                min-height: 6rem;
+                padding: 1rem;
+            }
+        }
+
+        /* 로딩 상태 */
+        .loading-state {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
         }
     </style>
 </head>
@@ -169,124 +636,216 @@
 <div class="flex flex-1 overflow-hidden">
     <aside th:insert="~{fragments/admin-menu :: menu}"></aside>
 
-    <main class="flex-1 p-6 lg:p-8 overflow-y-auto">
-        <div class="dark-card relative">
+    <main class="flex-1 p-4 lg:p-6 overflow-y-auto">
+        <div class="policy-builder-container relative">
             <div th:if="${resourceContext}" class="context-indicator">
                 <i class="fas fa-link"></i>
                 <span>리소스 컨텍스트 인지됨</span>
             </div>
 
+            <!-- 헤더 섹션 -->
             <div class="mb-8">
-                <h1 class="text-3xl font-bold text-gradient">지능형 정책 빌더</h1>
-                <p class="text-dark-muted mt-2">AI와 시각적 도구를 사용하여 정교한 접근 제어 정책을 구성합니다.</p>
+                <h1 class="text-4xl font-bold text-gradient mb-2">지능형 정책 빌더</h1>
+                <p class="text-lg text-dark-muted">AI와 시각적 도구를 사용하여 정교한 접근 제어 정책을 구성합니다.</p>
             </div>
 
-            <div class="dark-card p-6 mb-6">
-                <h2 class="text-xl font-bold mb-4 text-gradient"><i class="fas fa-magic-sparkles mr-2"></i>AI로 정책 생성하기</h2>
-                <textarea id="natural-language-input" class="dark-input w-full" rows="3" placeholder="예시) 개발팀은 평일 업무시간에만 '고객 데이터 조회' 권한을 가집니다."></textarea>
-                <button id="generate-by-ai-btn" class="dark-btn-primary w-full mt-3"><i class="fas fa-cogs mr-2"></i>AI로 정책 초안 생성</button>
+            <!-- AI 입력 섹션 -->
+            <div class="ai-input-section">
+                <h2 class="text-2xl font-bold mb-4 text-gradient">
+                    <i class="fas fa-magic mr-3"></i>AI로 정책 생성하기
+                </h2>
+                <textarea
+                        id="naturalLanguageInput"
+                        class="ai-textarea w-full"
+                        rows="3"
+                        placeholder="예시) 개발팀은 평일 업무시간에만 '고객 데이터 조회' 권한을 가집니다."></textarea>
+                <button id="generateByAiBtn" class="ai-generate-btn w-full mt-4">
+                    <i class="fas fa-robot mr-3"></i>AI로 정책 초안 생성
+                </button>
             </div>
 
+            <!-- 메인 콘텐츠 그리드 -->
             <div class="grid grid-cols-12 gap-6">
-                <div class="col-span-3 space-y-4">
+                <!-- 팔레트 영역 -->
+                <div class="col-span-12 lg:col-span-3 space-y-4">
+                    <!-- 주체 팔레트 -->
                     <div class="palette-section">
-                        <h3 class="font-bold text-lg text-dark-primary mb-3">주체 (Who)</h3>
-                        <div id="subjects-palette" class="max-h-60 overflow-y-auto dark-scroll pr-2">
-                            <div th:each="user : ${allUsers}" class="palette-item" draggable="true" th:data-info="${'USER:' + user.id + ':' + user.name}" data-type="subject"><i class="fas fa-user text-blue-400"></i><span th:text="${user.name}"></span></div>
-                            <div th:each="group : ${allGroups}" class="palette-item" draggable="true" th:data-info="${'GROUP:' + group.id + ':' + group.name}" data-type="subject"><i class="fas fa-users text-purple-400"></i><span th:text="${group.name}"></span></div>
+                        <div class="palette-header">
+                            <div class="palette-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <h3 class="palette-title">주체 (Who)</h3>
+                        </div>
+                        <div id="subjectsPalette" class="max-h-64 overflow-y-auto dark-scroll pr-2">
+                            <div th:each="user : ${allUsers}"
+                                 class="palette-item"
+                                 draggable="true"
+                                 th:data-info="${'USER:' + user.id + ':' + user.name}"
+                                 data-type="subject">
+                                <i class="fas fa-user text-blue-400"></i>
+                                <span th:text="${user.name}"></span>
+                            </div>
+                            <div th:each="group : ${allGroups}"
+                                 class="palette-item"
+                                 draggable="true"
+                                 th:data-info="${'GROUP:' + group.id + ':' + group.name}"
+                                 data-type="subject">
+                                <i class="fas fa-users text-purple-400"></i>
+                                <span th:text="${group.name}"></span>
+                            </div>
                         </div>
                     </div>
+
+                    <!-- 권한 팔레트 -->
                     <div class="palette-section">
-                        <h3 class="font-bold text-lg text-dark-primary mb-3">권한 (What)</h3>
-                        <div id="permissions-palette" class="max-h-60 overflow-y-auto dark-scroll pr-2">
-                            <div th:if="${preselectedPermission != null}" class="palette-item border-2 border-green-500/50 bg-green-500/10" draggable="true" th:data-info="${preselectedPermission.id + ':' + preselectedPermission.friendlyName}" data-type="permission">
-                                <i class="fas fa-check-circle text-green-400"></i><span class="text-green-400 font-semibold" th:text="${preselectedPermission.friendlyName}"></span>
+                        <div class="palette-header">
+                            <div class="palette-icon">
+                                <i class="fas fa-key"></i>
                             </div>
-                            <div th:each="perm : ${allPermissions}" th:if="${preselectedPermission == null or perm.id != preselectedPermission.id}" class="palette-item" draggable="true" th:data-info="${perm.id + ':' + perm.friendlyName}" data-type="permission">
-                                <i class="fas fa-key text-yellow-400"></i><span th:text="${perm.friendlyName}"></span>
+                            <h3 class="palette-title">권한 (What)</h3>
+                        </div>
+                        <div id="permissionsPalette" class="max-h-64 overflow-y-auto dark-scroll pr-2">
+                            <div th:if="${preselectedPermission != null}"
+                                 class="palette-item preselected"
+                                 draggable="true"
+                                 th:data-info="${preselectedPermission.id + ':' + preselectedPermission.friendlyName}"
+                                 data-type="permission">
+                                <i class="fas fa-check-circle text-green-400"></i>
+                                <span class="text-green-400 font-semibold" th:text="${preselectedPermission.friendlyName}"></span>
+                            </div>
+                            <div th:each="perm : ${allPermissions}"
+                                 th:if="${preselectedPermission == null or perm.id != preselectedPermission.id}"
+                                 class="palette-item"
+                                 draggable="true"
+                                 th:data-info="${perm.id + ':' + perm.friendlyName}"
+                                 data-type="permission">
+                                <i class="fas fa-key text-yellow-400"></i>
+                                <span th:text="${perm.friendlyName}"></span>
                             </div>
                         </div>
                     </div>
+
+                    <!-- 조건 팔레트 -->
                     <div class="palette-section">
-                        <h3 class="font-bold text-lg text-dark-primary mb-3">조건 (When)</h3>
-                        <div id="conditions-palette" class="max-h-60 overflow-y-auto dark-scroll pr-2">
-                            <div th:each="cond : ${allConditions}" class="palette-item" th:classappend="${!cond.isCompatible} ? 'disabled' : ''" th:draggable="${cond.isCompatible}" th:data-info="${cond.id + ':' + cond.name}" th:data-required-variables="${#strings.listJoin(cond.requiredVariables, ',')}" th:title="${!cond.isCompatible ? '현재 리소스 컨텍스트에서는 사용할 수 없는 조건입니다.' : cond.description}" data-type="condition">
-                                <i class="fas fa-clock text-orange-400"></i><span th:text="${cond.name}"></span>
+                        <div class="palette-header">
+                            <div class="palette-icon">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <h3 class="palette-title">조건 (When)</h3>
+                        </div>
+                        <div id="conditionsPalette" class="max-h-64 overflow-y-auto dark-scroll pr-2">
+                            <div th:each="cond : ${allConditions}"
+                                 class="palette-item"
+                                 th:classappend="${!cond.isCompatible} ? 'disabled' : ''"
+                                 th:draggable="${cond.isCompatible}"
+                                 th:data-info="${cond.id + ':' + cond.name}"
+                                 th:data-required-variables="${#strings.listJoin(cond.requiredVariables, ',')}"
+                                 th:title="${!cond.isCompatible ? '현재 리소스 컨텍스트에서는 사용할 수 없는 조건입니다.' : cond.description}"
+                                 data-type="condition">
+                                <i class="fas fa-clock text-orange-400"></i>
+                                <span th:text="${cond.name}"></span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="col-span-6 dark-card p-6">
-                    <h2 class="text-xl font-bold text-gradient mb-6">정책 구성</h2>
-                    <div class="space-y-6">
-                        <div>
-                            <label class="font-semibold text-dark-secondary mb-2">이 주체들이 (IF)</label>
-                            <div id="subjects-canvas" class="canvas-zone" data-canvas-type="subject">
+                <!-- 캔버스 영역 -->
+                <div class="col-span-12 lg:col-span-6">
+                    <div class="dark-card p-6">
+                        <h2 class="text-2xl font-bold text-gradient mb-6">정책 구성</h2>
+                        <div class="space-y-6">
+                            <div>
+                                <label class="modern-label">이 주체들이 (IF)</label>
+                                <div id="subjectsCanvas" class="canvas-zone" data-canvas-type="subject">
+                                    <div class="canvas-placeholder">
+                                        <i class="fas fa-hand-pointer"></i>
+                                        <span>왼쪽에서 주체를 드래그하여 여기에 놓으세요</span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label class="font-semibold text-dark-secondary mb-2">이러한 권한으로 (WHAT)</label>
-                            <div id="permissions-canvas" class="canvas-zone" data-canvas-type="permission">
+                            <div>
+                                <label class="modern-label">이러한 권한으로 (WHAT)</label>
+                                <div id="permissionsCanvas" class="canvas-zone" data-canvas-type="permission">
+                                    <div class="canvas-placeholder">
+                                        <i class="fas fa-hand-pointer"></i>
+                                        <span>왼쪽에서 권한을 드래그하여 여기에 놓으세요</span>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div>
-                            <label class="font-semibold text-dark-secondary mb-2">아래 조건이 만족될 때 (WHEN)</label>
-                            <div id="conditions-canvas" class="canvas-zone" data-canvas-type="condition">
+                            <div>
+                                <label class="modern-label">아래 조건이 만족될 때 (WHEN)</label>
+                                <div id="conditionsCanvas" class="canvas-zone" data-canvas-type="condition">
+                                    <div class="canvas-placeholder">
+                                        <i class="fas fa-hand-pointer"></i>
+                                        <span>왼쪽에서 조건을 드래그하여 여기에 놓으세요</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div class="col-span-3 dark-card p-6 flex flex-col">
-                    <h2 class="text-xl font-bold text-gradient mb-6">속성 및 저장</h2>
-                    <div class="space-y-4 flex-grow">
-                        <div>
-                            <label for="policy-name" class="dark-label">정책 이름</label>
-                            <input type="text" id="policy-name" class="dark-input" placeholder="예: 개발팀 소스코드 접근 정책">
-                        </div>
-                        <div>
-                            <label for="policy-desc" class="dark-label">설명</label>
-                            <textarea id="policy-desc" class="dark-input" rows="3" placeholder="정책의 목적과 적용 범위를 설명하세요"></textarea>
-                        </div>
-                        <div>
-                            <label class="dark-label">효과</label>
-                            <select id="policy-effect" class="dark-select">
-                                <option value="ALLOW">허용 (ALLOW)</option>
-                                <option value="DENY">거부 (DENY)</option>
-                            </select>
-                        </div>
+                <!-- 속성 및 저장 패널 -->
+                <div class="col-span-12 lg:col-span-3">
+                    <div class="properties-panel">
+                        <h2 class="text-xl font-bold text-gradient mb-6">속성 및 저장</h2>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="policyNameInput" class="modern-label">정책 이름</label>
+                                <input type="text" id="policyNameInput" class="modern-input w-full" placeholder="예: 개발팀 소스코드 접근 정책">
+                            </div>
+                            <div>
+                                <label for="policyDescTextarea" class="modern-label">설명</label>
+                                <textarea id="policyDescTextarea" class="modern-input w-full" rows="3" placeholder="정책의 목적과 적용 범위를 설명하세요"></textarea>
+                            </div>
+                            <div>
+                                <label for="policyEffectSelect" class="modern-label">효과</label>
+                                <select id="policyEffectSelect" class="modern-input w-full">
+                                    <option value="ALLOW">허용 (ALLOW)</option>
+                                    <option value="DENY">거부 (DENY)</option>
+                                </select>
+                            </div>
 
-                        <div class="dark-divider"></div>
-
-                        <div class="space-y-2">
-                            <h3 class="font-semibold text-dark-secondary"><i class="fas fa-robot mr-2 text-gradient"></i>AI 동적 분석</h3>
-                            <label for="ai-risk-assessment-enabled" class="flex items-center space-x-2 cursor-pointer text-sm">
-                                <input type="checkbox" id="ai-risk-assessment-enabled" class="modern-checkbox">
-                                <span class="text-dark-primary">AI 실시간 리스크 평가 활성화</span>
-                            </label>
-                            <div id="trust-score-slider-container" class="hidden pl-2 pt-2">
-                                <label for="required-trust-score" class="text-xs font-medium text-dark-muted">
-                                    허용 신뢰도: <span id="trust-score-value" class="font-bold text-indigo-400">70</span>점 이상
+                            <!-- AI 동적 분석 섹션 -->
+                            <div class="ai-toggle-container">
+                                <h3 class="font-semibold text-dark-secondary mb-3">
+                                    <i class="fas fa-robot mr-2 text-gradient"></i>AI 동적 분석
+                                </h3>
+                                <label for="aiEnabledCheckbox" class="flex items-center justify-between cursor-pointer">
+                                    <span class="text-sm text-dark-primary">AI 실시간 리스크 평가</span>
+                                    <input type="checkbox" id="aiEnabledCheckbox" class="modern-checkbox">
                                 </label>
-                                <input type="range" id="required-trust-score" min="0" max="100" value="70" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
+                                <div id="trustScoreContainer" class="hidden mt-4">
+                                    <label for="trustScoreSlider" class="text-sm font-medium text-dark-muted mb-2 block">
+                                        허용 신뢰도: <span id="trustScoreValueSpan" class="font-bold text-indigo-400">70</span>점 이상
+                                    </label>
+                                    <input type="range" id="trustScoreSlider" min="0" max="100" value="70" class="modern-slider">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label for="customSpelInput" class="modern-label">
+                                    <i class="fas fa-code mr-2"></i>추가 조건 (전문가용)
+                                </label>
+                                <textarea id="customSpelInput" class="modern-input w-full font-mono text-xs" rows="2" placeholder="e.g., #request.remoteAddr == '1.2.3.4'"></textarea>
                             </div>
                         </div>
 
-                        <div class="dark-divider"></div>
-
-                        <div>
-                            <label for="custom-condition-spel" class="font-semibold text-dark-secondary">
-                                <i class="fas fa-code mr-2"></i>추가 조건 (전문가용)
-                            </label>
-                            <textarea id="custom-condition-spel" class="dark-input font-mono text-xs mt-1" rows="2" placeholder="e.g., #request.remoteAddr == '1.2.3.4'"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="mt-6">
-                        <button id="save-policy-btn" class="dark-btn-primary w-full justify-center">
+                        <button id="savePolicyBtn" class="save-button mt-6">
                             <i class="fas fa-save mr-2"></i>정책 생성하기
                         </button>
+                    </div>
+
+                    <!-- 실시간 미리보기 -->
+                    <div class="preview-panel">
+                        <h3 class="font-semibold text-dark-secondary mb-3">
+                            <i class="fas fa-eye mr-2"></i>실시간 미리보기
+                        </h3>
+                        <div id="policyPreview" class="preview-content">
+                            <div class="text-center text-dark-muted">
+                                정책 구성 요소를 추가하면 미리보기가 표시됩니다
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

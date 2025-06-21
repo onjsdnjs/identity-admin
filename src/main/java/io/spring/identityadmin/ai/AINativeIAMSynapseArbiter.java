@@ -6,6 +6,7 @@ import io.spring.identityadmin.ai.dto.PolicyAnalysisReport;
 import io.spring.identityadmin.ai.dto.RecommendedRoleDto;
 import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
 import io.spring.identityadmin.ai.dto.TrustAssessment;
+import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.dto.UserDto;
@@ -59,6 +60,81 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         this.policyRepository = policyRepository;
         this.businessPolicyService = businessPolicyService;
         this.modelMapper = modelMapper;
+    }
+
+    /**
+     * [구현 완료] 자연어 요구사항을 분석하여, 시스템이 실행할 수 있는 정책 초안 DTO를 생성합니다.
+     */
+    @Override
+    public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery) {
+        // 1. RAG - Vector DB에서 자연어 쿼리와 관련된 컨텍스트 정보 검색
+        SearchRequest searchRequest = SearchRequest.builder()
+                .query(naturalLanguageQuery)
+                .topK(10)
+                .build();
+        List<Document> contextDocs = vectorStore.similaritySearch(searchRequest);
+        String contextInfo = contextDocs.stream()
+                .map(Document::getText)
+                .collect(Collectors.joining("\n---\n"));
+
+        // 2. AI에 전달할 프롬프트 구성
+        String systemPrompt = """
+            당신은 사용자의 자연어 요청을 분석하여, IAM 시스템이 이해할 수 있는 구조화된 BusinessPolicyDto JSON 객체로 변환하는 AI 에이전트입니다.
+            요청을 분석하여 주체(subjects), 리소스(resources), 행위(actions), 그리고 SpEL 형식의 조건(condition)을 추출해야 합니다.
+            제공된 '참고 컨텍스트'를 최대한 활용하여, '개발팀'과 같은 자연어를 'GROUP_2'와 같은 시스템 식별자 ID로 변환하여 응답해야 합니다.
+            이름(policyName)과 설명(description) 필드는 자연어 요청을 기반으로 창의적으로 생성해주세요.
+            응답은 반드시 아래 명시된 JSON 형식으로만 제공해야 합니다.
+            """;
+
+        String userPromptTemplate = """
+            **자연어 요구사항:**
+            "{query}"
+            
+            **참고 컨텍스트 (시스템 데이터):**
+            {context}
+            
+            **출력 JSON 형식 (BusinessPolicyDto):**
+            {
+              "policyName": "AI가 생성한 정책 이름",
+              "description": "AI가 생성한 정책 설명",
+              "subjectUserIds": [사용자 ID 목록],
+              "subjectGroupIds": [그룹 ID 목록],
+              "businessResourceIds": [리소스 ID 목록],
+              "businessActionIds": [행위 ID 목록],
+              "conditions": { "조건템플릿_ID": ["파라미터1", "파라미터2"] },
+              "effect": "ALLOW",
+              "aiRiskAssessmentEnabled": false,
+              "requiredTrustScore": 0.7,
+              "customConditionSpel": ""
+            }
+            """;
+
+        // 3. ChatClient를 사용하여 AI 모델에 JSON 생성 요청
+        String jsonResponse = chatClient.prompt()
+                .system(systemPrompt)
+                .user(userSpec -> userSpec
+                        .text(userPromptTemplate)
+                        .param("query", naturalLanguageQuery)
+                        .param("context", contextInfo)
+                )
+                .call()
+                .content();
+
+        try {
+            // 4. AI가 생성한 JSON 응답을 DTO 객체로 변환하고, UI에 필요한 추가 정보와 함께 반환
+            BusinessPolicyDto policyData = objectMapper.readValue(jsonResponse, BusinessPolicyDto.class);
+
+            // TODO: policyData의 ID 목록을 가지고 실제 이름들을 DB에서 조회하여 Map을 만드는 로직 필요
+            Map<String, String> subjectIdToNameMap = Map.of();
+            Map<String, String> permissionIdToNameMap = Map.of();
+            Map<String, String> conditionIdToNameMap = Map.of();
+
+            return new AiGeneratedPolicyDraftDto(policyData, subjectIdToNameMap, permissionIdToNameMap, conditionIdToNameMap);
+
+        } catch (Exception e) {
+            log.error("AI 정책 생성 또는 파싱에 실패했습니다. AI Response: {}", jsonResponse, e);
+            throw new IllegalStateException("AI를 통한 정책 생성에 실패했습니다.", e);
+        }
     }
 
     @Override

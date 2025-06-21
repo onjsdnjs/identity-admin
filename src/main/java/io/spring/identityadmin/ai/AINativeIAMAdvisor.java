@@ -3,6 +3,7 @@ import io.spring.identityadmin.ai.dto.PolicyAnalysisReport;
 import io.spring.identityadmin.ai.dto.RecommendedRoleDto;
 import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
 import io.spring.identityadmin.ai.dto.TrustAssessment;
+import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 
@@ -21,6 +22,8 @@ public interface AINativeIAMAdvisor {
      * @return AI가 생성한 PolicyDto 객체
      */
     PolicyDto generatePolicyFromText(String naturalLanguageQuery);
+
+    AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery);
 
     /**
      * 실시간으로 수집된 모든 인가 컨텍스트를 종합적으로 분석하여, 현재 접근 요청의 신뢰도를 평가하고 최종 판단을 내립니다.
@@ -56,4 +59,5 @@ public interface AINativeIAMAdvisor {
      * @return 기술 식별자를 Key로, 제안된 이름/설명을 Value로 갖는 Map
      */
     Map<String, ResourceNameSuggestion> suggestResourceNamesInBatch(List<Map<String, String>> resourcesToSuggest);
+
 }
