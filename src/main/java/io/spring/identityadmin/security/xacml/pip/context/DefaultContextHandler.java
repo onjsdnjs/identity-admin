@@ -1,84 +1,128 @@
 package io.spring.identityadmin.security.xacml.pip.context;
 
+import io.spring.identityadmin.domain.entity.UserGroup;
 import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.repository.UserRepository;
 import io.spring.identityadmin.security.core.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.aopalliance.intercept.MethodInvocation; // MethodInvocation 임포트
+import lombok.extern.slf4j.Slf4j;
+import org.aopalliance.intercept.MethodInvocation;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
+/**
+ * [최종 수정]
+ * 인가 결정을 위한 표준 컨텍스트(AuthorizationContext)를 생성하는 구현체.
+ * URL 기반 요청과 메서드 기반 요청을 명확히 구분하여 처리하고,
+ * 사용자 정보를 조회하여 컨텍스트를 풍부하게 만듭니다.
+ */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class DefaultContextHandler implements ContextHandler {
 
     private final UserRepository userRepository;
 
-    @Override
-    public AuthorizationContext buildContext(HttpServletRequest request, Object resource) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        CustomUserDetails userDetails = (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails)
-                ? (CustomUserDetails) authentication.getPrincipal() : null;
-
-        Users subject = (userDetails != null) ? userDetails.getUsers() : null;
-
-        // [수정] subject가 null이 아닐 경우, DB 에서 최신 역할/그룹 정보를 조회하여 컨텍스트에 추가
-        if (subject != null) {
-            Users userWithDetails = userRepository.findByIdWithGroupsAndRoles(subject.getId())
-                    .orElse(subject);
-
-            // 역할과 그룹 정보를 attributes 맵에 추가
-            Map<String, Object> attributes = new HashMap<>();
-            attributes.put("userRoles", userWithDetails.getRoleNames());
-            attributes.put("userGroups", userWithDetails.getUserGroups());
-
-            // TODO: 리소스 민감도 등급 등 추가 정보 로드 로직
-            // attributes.put("resourceSensitivity", getResourceSensitivity(resource));
-
-            return new AuthorizationContext(authentication, subject,
-                    new ResourceDetails(resource.toString()),
-                    new EnvironmentDetails(request.getRemoteAddr()),
-                    attributes);
-        }
-
-        // 인증되지 않은 사용자의 경우
-        return new AuthorizationContext(authentication, null,
-                new ResourceDetails(resource.toString()),
-                new EnvironmentDetails(request.getRemoteAddr()),
-                new HashMap<>());
-    }
-
+    /**
+     * URL 기반 보안(Web Security)을 위한 컨텍스트를 생성합니다.
+     */
     @Override
     public AuthorizationContext create(Authentication authentication, HttpServletRequest request) {
-        // 기존 URL 기반 컨텍스트 생성 로직은 그대로 유지
-        ResourceDetails resource = new ResourceDetails("URL", request.getRequestURI());
-        EnvironmentDetails environment = new EnvironmentDetails(request.getRemoteAddr(), LocalDateTime.now(), request);
+        // 1. 주체(Subject) 정보 추출
+        Users subjectEntity = getSubjectEntity(authentication);
 
-        return new AuthorizationContext(authentication, resource, request.getMethod(), environment);
+        // 2. 리소스(Resource) 정보 추출
+        ResourceDetails resourceDetails = new ResourceDetails("URL", request.getRequestURI());
+
+        // 3. 환경(Environment) 정보 추출
+        EnvironmentDetails environmentDetails = new EnvironmentDetails(request.getRemoteAddr(), LocalDateTime.now(), request);
+
+        // 4. 추가 속성(Attributes) 정보 추출
+        Map<String, Object> attributes = createAttributesForSubject(subjectEntity);
+
+        return new AuthorizationContext(
+                authentication,
+                subjectEntity,
+                resourceDetails,
+                request.getMethod(),
+                environmentDetails,
+                attributes
+        );
     }
 
     /**
-     * [신규] 메서드 기반 보안을 위한 컨텍스트 생성 로직 구현
+     * 메서드 기반 보안(Method Security)을 위한 컨텍스트를 생성합니다.
      */
     @Override
     public AuthorizationContext create(Authentication authentication, MethodInvocation invocation) {
+        // 1. 주체(Subject) 정보 추출
+        Users subjectEntity = getSubjectEntity(authentication);
+
+        // 2. 리소스(Resource) 정보 추출
         Method method = invocation.getMethod();
-        String resourceIdentifier = method.getDeclaringClass().getName() + "." + method.getName();
+        String params = Arrays.stream(method.getParameterTypes())
+                .map(Class::getName)
+                .collect(Collectors.joining(","));
+        String resourceIdentifier = String.format("%s.%s(%s)", method.getDeclaringClass().getName(), method.getName(), params);
+        ResourceDetails resourceDetails = new ResourceDetails("METHOD", resourceIdentifier);
 
-        ResourceDetails resource = new ResourceDetails("METHOD", resourceIdentifier);
+        // 3. 환경(Environment) 정보 추출 (메서드 호출 시점에는 HttpServletRequest가 없음)
+        EnvironmentDetails environmentDetails = new EnvironmentDetails(null, LocalDateTime.now(), null);
 
-        // 메서드 호출 시점에는 HttpServletRequest가 없으므로 IP, 원본 요청 등은 null
-        EnvironmentDetails environment = new EnvironmentDetails(null, LocalDateTime.now(), null);
+        // 4. 추가 속성(Attributes) 정보 추출
+        Map<String, Object> attributes = createAttributesForSubject(subjectEntity);
 
-        // 메서드 호출은 'INVOKE'라는 행동으로 정의
-        return new AuthorizationContext(authentication, resource, "INVOKE", environment);
+        return new AuthorizationContext(
+                authentication,
+                subjectEntity,
+                resourceDetails,
+                "INVOKE", // action (String)
+                environmentDetails,
+                attributes
+        );
+    }
+
+    /**
+     * Authentication 객체로부터 Users 엔티티를 안전하게 조회합니다.
+     */
+    private Users getSubjectEntity(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof CustomUserDetails userDetails)) {
+            return null;
+        }
+        return userDetails.getUsers();
+    }
+
+    /**
+     * Users 엔티티를 기반으로 AI 분석에 사용될 추가 속성(역할, 그룹 등) 맵을 생성합니다.
+     */
+    private Map<String, Object> createAttributesForSubject(Users subject) {
+        if (subject == null) {
+            return new HashMap<>();
+        }
+
+        // findByIdWithGroupsRolesAndPermissions는 UserRepository에 존재하는 유효한 메서드입니다.
+        Users userWithDetails = userRepository.findByIdWithGroupsRolesAndPermissions(subject.getId())
+                .orElse(subject);
+
+        Map<String, Object> attributes = new HashMap<>();
+
+        // Users 엔티티에 getRoleNames()는 존재하므로 그대로 사용합니다.
+        attributes.put("userRoles", userWithDetails.getRoleNames());
+
+        // [핵심 수정] getGroupNames() 메서드가 없으므로, userGroups를 직접 스트리밍하여 그룹 이름 목록을 생성합니다.
+        List<String> groupNames = userWithDetails.getUserGroups().stream()
+                .map(UserGroup::getGroup)
+                .map(group -> group != null ? group.getName() : null)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+        attributes.put("userGroups", groupNames);
+
+        return attributes;
     }
 }

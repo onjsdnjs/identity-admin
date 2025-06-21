@@ -1,5 +1,6 @@
 package io.spring.identityadmin.security.xacml.pip.context;
 
+import io.spring.identityadmin.domain.entity.Users;
 import org.springframework.security.core.Authentication;
 
 import java.util.Map;
@@ -11,11 +12,8 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public record AuthorizationContext(
         Authentication subject,    // 주체 (누가)
+        Users subjectEntity,    // 실제 주체 (누가)
         ResourceDetails resource,    // 자원 (무엇을)
         String action,             // 행동 (어떻게)
         EnvironmentDetails environment, // 환경 (어떤 상황에서)
-        Map<String, Object> attributes /* PIP를 통해 동적으로 로드된 추가 속성 */) {
-    public AuthorizationContext(Authentication subject, ResourceDetails resource, String action, EnvironmentDetails environment) {
-        this(subject, resource, action, environment, new ConcurrentHashMap<>());
-    }
-}
+        Map<String, Object> attributes /* PIP를 통해 동적으로 로드된 추가 속성 */) { }

@@ -1,5 +1,7 @@
 package io.spring.identityadmin.resource;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +33,7 @@ import java.util.stream.Collectors;
 public class MethodResourceScanner implements ResourceScanner {
 
     private final ApplicationContext applicationContext;
+    private final ObjectMapper objectMapper;
 
     @Override
     public List<ManagedResource> scan() {
@@ -80,6 +83,13 @@ public class MethodResourceScanner implements ResourceScanner {
                         }
                     }
 
+                    String variablesAsJson = "[]";
+                    try {
+                        variablesAsJson = objectMapper.writeValueAsString(contextVariables);
+                    } catch (JsonProcessingException e) {
+                        log.error("컨텍스트 변수 목록을 JSON 으로 변환하는 데 실패했습니다: {}", contextVariables, e);
+                    }
+
                     String params = Arrays.stream(method.getParameterTypes())
                             .map(Class::getSimpleName)
                             .collect(Collectors.joining(","));
@@ -99,6 +109,7 @@ public class MethodResourceScanner implements ResourceScanner {
                             .returnType(method.getReturnType().getSimpleName())
                             .sourceCodeLocation(sourceCodeLocation)
                             .status(ManagedResource.Status.NEEDS_DEFINITION)
+                            .availableContextVariables(variablesAsJson)
                             .build());
                 }
             } catch (Exception e) {

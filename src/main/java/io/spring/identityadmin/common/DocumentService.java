@@ -2,6 +2,7 @@ package io.spring.identityadmin.common;
 
 import io.spring.identityadmin.repository.DocumentRepository;
 import io.spring.identityadmin.domain.entity.Document;
+import io.spring.identityadmin.resource.PdpContextVariable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -19,6 +20,11 @@ import java.util.Optional;
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
+
+    public Document getDocumentById(Long id, @PdpContextVariable("owner") String username) {
+        return null;
+    }
+
 
     /**
      * 특정 문서의 소유자가 현재 사용자인지 확인합니다.
