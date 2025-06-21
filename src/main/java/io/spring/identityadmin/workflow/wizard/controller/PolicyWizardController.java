@@ -50,11 +50,15 @@ public class PolicyWizardController {
      */
     @PostMapping("/start")
     public String startWizard(@ModelAttribute InitiateGrantRequestDto request, RedirectAttributes ra) {
-        String policyName = "마법사 생성 정책 - " + System.currentTimeMillis();
-        String policyDescription = "권한 부여 마법사를 통해 생성된 정책입니다.";
-        var initiation = wizardService.beginCreation(request, policyName, policyDescription);
-        log.info("Redirecting to wizard page with contextId: {}", initiation.contextId());
-        return "redirect:/admin/policy-wizard/" + initiation.contextId();
+        String policyName = "신규 권한 할당 정책 - " + System.currentTimeMillis();
+        String policyDescription = "마법사를 통해 생성된 신규 권한 할당 정책입니다.";
+
+        WizardContext createdContext = wizardService.beginCreation(request, policyName, policyDescription);
+
+        ra.addFlashAttribute("wizardContext", createdContext);
+        ra.addFlashAttribute("fromWorkbench", true);
+
+        return "redirect:/admin/policy-wizard/" + createdContext.contextId();
     }
 
     /**

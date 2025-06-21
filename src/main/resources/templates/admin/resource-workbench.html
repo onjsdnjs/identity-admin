@@ -475,23 +475,26 @@
                     </tr>
                     <th:block th:if="${resourcePage != null}">
                         <tr th:each="res : ${resourcePage.content}">
+
                             <td class="table-cell-top text-center">
-                                <span class="status-badge"
-                                      th:classappend="${res.status.name() == 'NEEDS_DEFINITION' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
-                                                       res.status.name() == 'PERMISSION_CREATED' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                                                       res.status.name() == 'POLICY_CONNECTED' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                                                       'bg-slate-500/20 text-slate-400 border-slate-500/30'}">
-                                    <i th:class="${res.status.name() == 'NEEDS_DEFINITION' ? 'fas fa-question-circle' :
-                                                   res.status.name() == 'PERMISSION_CREATED' ? 'fas fa-check-circle' :
-                                                   res.status.name() == 'POLICY_CONNECTED' ? 'fas fa-link' : 'fas fa-ban'}"></i>
-                                    <span th:text="${res.status.name() == 'NEEDS_DEFINITION' ? '정의 필요' :
-                                                     res.status.name() == 'PERMISSION_CREATED' ? '권한 생성됨' :
-                                                     res.status.name() == 'POLICY_CONNECTED' ? '정책 연결됨' : '관리 제외'}"></span>
-                                </span>
+            <span class="status-badge"
+                  th:classappend="${res.status?.name() == 'NEEDS_DEFINITION' ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                                   res.status?.name() == 'PERMISSION_CREATED' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                                   res.status?.name() == 'POLICY_CONNECTED' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                                   'bg-slate-500/20 text-slate-400 border-slate-500/30'}">
+                <i th:class="${res.status?.name() == 'NEEDS_DEFINITION' ? 'fas fa-question-circle' :
+                               res.status?.name() == 'PERMISSION_CREATED' ? 'fas fa-check-circle' :
+                               res.status?.name() == 'POLICY_CONNECTED' ? 'fas fa-link' : 'fas fa-ban'}"></i>
+                <span th:text="${res.status != null ?
+                                (res.status.name() == 'NEEDS_DEFINITION' ? '정의 필요' :
+                                 res.status.name() == 'PERMISSION_CREATED' ? '권한 생성됨' :
+                                 res.status.name() == 'POLICY_CONNECTED' ? '정책 연결됨' : '관리 제외')
+                                : '상태 미지정'}"></span>
+            </span>
                             </td>
-                            <td class="table-cell-top">
-                                <!-- '권한 생성/연결' 액션을 위한 form. 이름/설명 필드는 이 form에 속함 -->
-                                <form th:id="|form-define-and-grant-${res.id}|" th:action="@{/admin/workbench/resources/{id}/define-and-grant(id=${res.id})}" method="post">
+
+                            <td class="table-cell-top resource-inputs-cell">
+                                <div class="input-container" th:attr="data-resource-id=${res.id}">
                                     <input type="text" name="friendlyName" th:value="${res.friendlyName}"
                                            class="modern-input font-semibold mb-3"
                                            placeholder="관리용 이름 입력" required>
@@ -500,17 +503,19 @@
                                               rows="2"
                                               placeholder="관리용 상세 설명 입력"
                                               th:text="${res.description}"></textarea>
-                                </form>
+                                </div>
                             </td>
+
                             <td class="table-cell-top">
                                 <div class="mb-2">
-                                    <span class="resource-type-badge"
-                                          th:text="${res.resourceType}"
-                                          th:classappend="${res.resourceType.name() == 'URL' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}"></span>
+                <span class="resource-type-badge"
+                      th:text="${res.resourceType}"
+                      th:classappend="${res.resourceType?.name() == 'URL' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'}"></span>
                                 </div>
                                 <div class="resource-identifier" th:text="${res.resourceIdentifier}"></div>
                                 <p class="resource-description mt-2" th:text="${res.description}"></p>
                             </td>
+
                             <td class="table-cell-top">
                                 <div class="flex flex-wrap items-center gap-2 mb-3">
                                     <a th:if="${res.sourceCodeLocation}" href="#" class="modern-action-link" th:title="${res.sourceCodeLocation}">
@@ -525,23 +530,24 @@
                                     최초 발견: <span class="date-value" th:text="${#temporals.format(res.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
                                 </div>
                             </td>
+
                             <td class="table-cell-top">
                                 <div class="space-y-2">
-                                    <!-- 상태에 따른 버튼 표시 로직 -->
-                                    <div th:if="${res.status.name() == 'NEEDS_DEFINITION' or res.status.name() == 'PERMISSION_CREATED'}">
-                                        <button type="submit" th:form="|form-define-and-grant-${res.id}|"
-                                                class="action-badge-primary w-full text-center">
+                                    <div th:if="${res.status?.name() == 'NEEDS_DEFINITION' or res.status?.name() == 'PERMISSION_CREATED'}">
+                                        <button type="button" class="action-badge-primary w-full text-center"
+                                                th:attr="data-resource-id=${res.id}"
+                                                onclick="defineAndSetupPolicy(this)">
                                             <i class="fas fa-magic"></i>
-                                            <span>권한 생성 & 연결</span>
+                                            <span>권한 정의 & 정책 설정</span>
                                         </button>
                                     </div>
 
-                                    <div th:if="${res.status.name() == 'POLICY_CONNECTED'}"
+                                    <div th:if="${res.status?.name() == 'POLICY_CONNECTED'}"
                                          class="text-xs text-center p-2 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
                                         <i class="fas fa-link mr-1"></i> 정책에 연결됨
                                     </div>
 
-                                    <div th:if="${res.status.name() != 'EXCLUDED'}">
+                                    <div th:if="${res.status?.name() != 'EXCLUDED'}">
                                         <form th:action="@{/admin/workbench/resources/{id}/exclude(id=${res.id})}" method="post">
                                             <button type="submit" class="action-badge-secondary w-full text-center">
                                                 <i class="fas fa-ban"></i>
@@ -550,7 +556,7 @@
                                         </form>
                                     </div>
 
-                                    <div th:if="${res.status.name() == 'EXCLUDED'}">
+                                    <div th:if="${res.status?.name() == 'EXCLUDED'}">
                                         <form th:action="@{/admin/workbench/resources/{id}/restore(id=${res.id})}" method="post">
                                             <button type="submit" class="action-badge-restore w-full text-center">
                                                 <i class="fas fa-undo"></i>
@@ -587,6 +593,40 @@
             </nav>
         </div>
     </main>
+    <div id="policySetupModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
+        <div class="fixed inset-0 bg-black/80 backdrop-blur-sm"></div>
+        <div class="relative dark-card rounded-2xl p-8 max-w-3xl w-full mx-auto shadow-2xl">
+            <div class="text-center mb-8">
+                <h2 class="text-2xl font-bold text-gradient mb-2">정책 설정 방식 선택</h2>
+                <p class="text-dark-secondary">
+                    생성될 '<span id="modal-permission-name" class="text-indigo-400 font-semibold"></span>' 권한에 대한 정책을 어떻게 설정하시겠습니까?
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="dark-card p-6 rounded-xl border-2 border-transparent hover:border-indigo-500/50 transition-all duration-300 cursor-pointer h-full"
+                     onclick="selectQuickGrant()">
+                    <h3 class="text-lg font-bold text-dark-primary mb-2">빠른 권한 부여 (마법사)</h3>
+                    <p class="text-sm text-dark-muted leading-relaxed">기존 역할에 이 권한을 즉시 부여하는 가장 빠른 방법입니다. 복잡한 조건은 설정할 수 없습니다.</p>
+                </div>
+                <div class="dark-card p-6 rounded-xl border-2 border-transparent hover:border-purple-500/50 transition-all duration-300 cursor-pointer h-full"
+                     onclick="selectAdvancedPolicy()">
+                    <h3 class="text-lg font-bold text-dark-primary mb-2">지능형 정책 설정 (빌더)</h3>
+                    <p class="text-sm text-dark-muted leading-relaxed">AI 리스크 평가, 특정 시간/IP 등 동적이고 세밀한 조건을 포함한 정책을 설정합니다.</p>
+                </div>
+            </div>
+            <div class="flex justify-center">
+                <button type="button" onclick="closePolicySetupModal()" class="dark-btn-secondary">나중에 설정하기</button>
+            </div>
+        </div>
+    </div>
+
+    <form id="quickGrantForm" method="post" th:action="@{/admin/policy-wizard/start}" class="hidden">
+        <input type="hidden" name="permissionId" id="quickGrantPermissionId">
+    </form>
+    <form id="advancedPolicyForm" method="post" th:action="@{/admin/policy-builder/from-resource}" class="hidden">
+        <input type="hidden" name="resourceId" id="advancedPolicyResourceId">
+        <input type="hidden" name="permissionId" id="advancedPolicyPermissionId">
+    </form>
 </div>
 <script th:src="@{/js/toast.js}"></script>
 <script th:src="@{/js/resource-workbench.js}"></script>
@@ -602,45 +642,5 @@
         }
     });
 </script>
-<button type="button" class="action-badge-primary w-full text-center"
-        th:attr="data-resource-id=${res.id}"
-        onclick="defineAndSetupPolicy(this)">
-    <i class="fas fa-magic"></i>
-    <span>권한 정의 & 정책 설정</span>
-</button>
-<div id="policySetupModal" class="fixed inset-0 z-50 hidden flex items-center justify-center">
-    <div class="fixed inset-0 bg-black/80 backdrop-blur-sm"></div>
-    <div class="relative dark-card rounded-2xl p-8 max-w-3xl w-full mx-auto shadow-2xl">
-        <div class="text-center mb-8">
-            <h2 class="text-2xl font-bold text-gradient mb-2">정책 설정 방식 선택</h2>
-            <p class="text-dark-secondary">
-                생성될 '<span id="modal-permission-name" class="text-indigo-400 font-semibold"></span>' 권한에 대한 정책을 어떻게 설정하시겠습니까?
-            </p>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div class="dark-card p-6 rounded-xl border-2 border-transparent hover:border-indigo-500/50 transition-all duration-300 cursor-pointer h-full"
-                 onclick="selectQuickGrant()">
-                <h3 class="text-lg font-bold text-dark-primary mb-2">빠른 권한 부여 (마법사)</h3>
-                <p class="text-sm text-dark-muted leading-relaxed">기존 역할에 이 권한을 즉시 부여하는 가장 빠른 방법입니다. 복잡한 조건은 설정할 수 없습니다.</p>
-            </div>
-            <div class="dark-card p-6 rounded-xl border-2 border-transparent hover:border-purple-500/50 transition-all duration-300 cursor-pointer h-full"
-                 onclick="selectAdvancedPolicy()">
-                <h3 class="text-lg font-bold text-dark-primary mb-2">지능형 정책 설정 (빌더)</h3>
-                <p class="text-sm text-dark-muted leading-relaxed">AI 리스크 평가, 특정 시간/IP 등 동적이고 세밀한 조건을 포함한 정책을 설정합니다.</p>
-            </div>
-        </div>
-        <div class="flex justify-center">
-            <button type="button" onclick="closePolicySetupModal()" class="dark-btn-secondary">나중에 설정하기</button>
-        </div>
-    </div>
-</div>
-
-<form id="quickGrantForm" method="post" th:action="@{/admin/granting-wizard/start/from-resource}" class="hidden">
-    <input type="hidden" name="permissionId" id="quickGrantPermissionId">
-</form>
-<form id="advancedPolicyForm" method="post" th:action="@{/admin/policy-builder/from-resource}" class="hidden">
-    <input type="hidden" name="resourceId" id="advancedPolicyResourceId">
-    <input type="hidden" name="permissionId" id="advancedPolicyPermissionId">
-</form>
 </body>
 </html>

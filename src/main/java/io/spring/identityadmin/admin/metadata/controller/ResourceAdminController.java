@@ -15,11 +15,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import java.util.Map;
 import java.util.Set;
 
 @Controller
@@ -57,18 +59,34 @@ public class ResourceAdminController {
         return "redirect:/admin/workbench/resources";
     }
 
+    /**
+     * [신규 및 핵심 수정]
+     * JavaScript의 fetch 요청을 처리하기 위한 API 엔드포인트입니다.
+     * @ResponseBody 를 통해 JSON을 반환합니다.
+     */
     @PostMapping("/{id}/define")
-    public String defineResource(@PathVariable Long id, @ModelAttribute ResourceMetadataDto metadataDto, RedirectAttributes ra) {
+    @ResponseBody // 이 어노테이션이 JSON 응답을 가능하게 합니다.
+    public ResponseEntity<Map<String, Object>> defineResourceAsPermissionApi(@PathVariable Long id, @ModelAttribute ResourceMetadataDto metadataDto) {
         try {
-            resourceRegistryService.defineResourceAsPermission(id, metadataDto);
-            ra.addFlashAttribute("message", "리소스 (ID: " + id + ")가 성공적으로 권한으로 정의되었습니다.");
+            // 1. 리소스를 권한으로 정의하고, 생성된 Permission 엔티티를 받습니다.
+            Permission newPermission = resourceRegistryService.defineResourceAsPermission(id, metadataDto);
+
+            // 2. 클라이언트(JavaScript)에 필요한 정보를 담아 JSON으로 응답합니다.
+            Map<String, Object> response = Map.of(
+                    "success", true,
+                    "message", "리소스가 성공적으로 권한으로 정의되었습니다.",
+                    "permissionId", newPermission.getId(),
+                    "permissionName", newPermission.getFriendlyName()
+            );
+            return ResponseEntity.ok(response);
+
         } catch (Exception e) {
-            ra.addFlashAttribute("errorMessage", "권한 정의 중 오류 발생: " + e.getMessage());
+            log.error("권한 정의 API 처리 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         }
-        return "redirect:/admin/workbench/resources";
     }
 
-    @PostMapping("/{id}/define-and-grant")
+   /* @PostMapping("/{id}/define-and-grant")
     public String defineAndGrantPermission(@PathVariable Long id, @ModelAttribute ResourceMetadataDto metadataDto, RedirectAttributes ra) {
         Permission newPermission = resourceRegistryService.defineResourceAsPermission(id, metadataDto);
         log.info("Resource defined as permission '{}'. Initiating grant wizard.", newPermission.getName());
@@ -86,7 +104,7 @@ public class ResourceAdminController {
 
         // [수정] 리다이렉트 URL 수정
         return "redirect:/admin/policy-wizard/" + createdContext.contextId();
-    }
+    }*/
 
     @PostMapping("/{id}/exclude")
     public String excludeResource(@PathVariable Long id, RedirectAttributes ra) {

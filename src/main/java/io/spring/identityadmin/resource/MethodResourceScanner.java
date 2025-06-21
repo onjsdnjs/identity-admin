@@ -78,16 +78,18 @@ public class MethodResourceScanner implements ResourceScanner {
                     List<String> contextVariables = new ArrayList<>();
                     for (Parameter parameter : method.getParameters()) {
                         PdpContextVariable pdpVar = parameter.getAnnotation(PdpContextVariable.class);
-                        if (pdpVar != null) {
+                        if (pdpVar != null && !pdpVar.value().isBlank()) {
                             contextVariables.add("#" + pdpVar.value());
                         }
                     }
 
                     String variablesAsJson = "[]";
                     try {
-                        variablesAsJson = objectMapper.writeValueAsString(contextVariables);
+                        if (!contextVariables.isEmpty()) {
+                            variablesAsJson = objectMapper.writeValueAsString(contextVariables);
+                        }
                     } catch (JsonProcessingException e) {
-                        log.error("컨텍스트 변수 목록을 JSON 으로 변환하는 데 실패했습니다: {}", contextVariables, e);
+                        log.error("컨텍스트 변수 목록을 JSON으로 변환하는 데 실패했습니다.", e);
                     }
 
                     String params = Arrays.stream(method.getParameterTypes())

@@ -235,7 +235,7 @@
                             </div>
 
                             <div th:each="perm : ${allPermissions}"
-                                 th:if="${!preselectedPermission or perm.id != preselectedPermission.id}"
+                                 th:if="${preselectedPermission == null or perm.id != preselectedPermission.id}"
                                  class="palette-item"
                                  draggable="true"
                                  th:data-info="${perm.id + ':' + perm.friendlyName}">

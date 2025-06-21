@@ -15,9 +15,11 @@ import io.spring.identityadmin.repository.ManagedResourceRepository;
 import io.spring.identityadmin.security.xacml.pap.dto.VisualPolicyDto;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyBuilderService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -28,6 +30,7 @@ import java.util.regex.Pattern;
 @Controller
 @RequestMapping("/admin/policy-builder")
 @RequiredArgsConstructor
+@Slf4j
 public class PolicyBuilderController {
 
     private final PolicyBuilderService policyBuilderService;
@@ -119,9 +122,16 @@ public class PolicyBuilderController {
         Map<String, Object> resourceContext = new HashMap<>();
         resourceContext.put("resourceIdentifier", resource.getResourceIdentifier());
         try {
-            List<String> variables = objectMapper.readValue(resource.getAvailableContextVariables(), new TypeReference<>() {});
+            List<String> variables = List.of();
+            if (StringUtils.hasText(resource.getAvailableContextVariables())) {
+                try {
+                    variables = objectMapper.readValue(resource.getAvailableContextVariables(), new TypeReference<>() {});
+                } catch (IOException e) {
+                    log.error("리소스 ID {}의 컨텍스트 변수 파싱 실패", resourceId, e);
+                }
+            }
             resourceContext.put("availableVariables", variables);
-        } catch (IOException | NullPointerException e) {
+        } catch (NullPointerException e) {
             resourceContext.put("availableVariables", List.of());
         }
 
