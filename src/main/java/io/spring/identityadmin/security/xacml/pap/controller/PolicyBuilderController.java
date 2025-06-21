@@ -4,9 +4,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.identityadmin.admin.iam.service.GroupService;
 import io.spring.identityadmin.admin.iam.service.PermissionService;
+import io.spring.identityadmin.admin.iam.service.RoleService;
 import io.spring.identityadmin.admin.iam.service.UserManagementService;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
 import io.spring.identityadmin.domain.dto.ConditionTemplateDto;
+import io.spring.identityadmin.domain.dto.GroupMetadataDto;
 import io.spring.identityadmin.domain.entity.ConditionTemplate;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.policy.Policy;
@@ -16,6 +18,7 @@ import io.spring.identityadmin.security.xacml.pap.dto.VisualPolicyDto;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyBuilderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.ModelMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -36,11 +39,13 @@ public class PolicyBuilderController {
     private final PolicyBuilderService policyBuilderService;
     private final UserManagementService userManagementService;
     private final GroupService groupService;
+    private final RoleService roleService;
     private final PermissionCatalogService permissionCatalogService;
     private final ConditionTemplateRepository conditionTemplateRepository;
     private final ManagedResourceRepository managedResourceRepository;
     private final ObjectMapper objectMapper;
     private final PermissionService permissionService;
+    private final ModelMapper modelMapper;
     private static final Pattern SPEL_VARIABLE_PATTERN = Pattern.compile("#(\\w+)");
 
     /**
@@ -49,8 +54,15 @@ public class PolicyBuilderController {
      */
     @GetMapping
     public String policyBuilder(Model model) {
+        // 1. UserListDto는 이미 DTO 이므로 그대로 사용합니다.
         model.addAttribute("allUsers", userManagementService.getUsers());
-        model.addAttribute("allGroups", groupService.getAllGroups());
+
+        // 2. List<Group>을 List<GroupMetadataDto>로 변환합니다.
+        List<GroupMetadataDto> groupDtos = groupService.getAllGroups().stream()
+                .map(group -> modelMapper.map(group, GroupMetadataDto.class))
+                .toList();
+        model.addAttribute("allGroups", groupDtos);
+//        model.addAttribute("allRoles", roleService.getRolesWithoutExpression());
         model.addAttribute("allPermissions", permissionCatalogService.getAvailablePermissions());
 
         // [핵심 수정] 컨텍스트 인지형 조건 목록 생성
