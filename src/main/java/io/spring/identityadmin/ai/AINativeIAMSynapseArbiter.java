@@ -2,10 +2,7 @@ package io.spring.identityadmin.ai;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.spring.identityadmin.ai.dto.PolicyAnalysisReport;
-import io.spring.identityadmin.ai.dto.RecommendedRoleDto;
-import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
-import io.spring.identityadmin.ai.dto.TrustAssessment;
+import io.spring.identityadmin.ai.dto.*;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
@@ -99,6 +96,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             제공된 '참고 컨텍스트'를 최대한 활용하여, '개발팀'과 같은 자연어를 'ROLE_ID'와 같은 시스템 식별자 ID로 변환하여 응답해야 합니다.
             이름(policyName)과 설명(description) 필드는 자연어 요청을 기반으로 창의적으로 생성해주세요.
             응답은 반드시 아래 명시된 JSON 형식으로만 제공해야 하며, 다른 어떤 설명도 추가하지 마십시오.
+            [매우 중요] `roleIds`, `permissionIds` 배열에는 반드시 이름이 아닌 '숫자 ID' 를 포함해야 합니다.
+            `conditions` 맵의 키 또한 '숫자 ID' 여야 합니다.
             **출력 JSON 형식 (BusinessPolicyDto):**
             {
               "policyName": "AI가 생성한 정책 이름", "description": "AI가 생성한 정책 설명",
@@ -116,7 +115,13 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                 .content();
 
         try {
-            BusinessPolicyDto policyData = objectMapper.readValue(jsonResponse, BusinessPolicyDto.class);
+            // 1. AI의 응답을 유연한 중간 DTO(AiResponseDto)로 먼저 변환합니다.
+            AiResponseDto aiResponse = objectMapper.readValue(jsonResponse, AiResponseDto.class);
+
+            // 2. 중간 DTO를 시스템이 사용하는 최종 DTO(BusinessPolicyDto)로 번역합니다.
+            BusinessPolicyDto policyData = translateAiResponseToBusinessDto(aiResponse);
+
+            // 3. UI에 필요한 이름 정보들을 조회하여 최종 DTO를 만듭니다.
             Map<String, String> roleIdToNameMap = getRoleNames(policyData.getRoleIds());
             Map<String, String> permissionIdToNameMap = getPermissionNames(policyData.getPermissionIds());
             Map<String, String> conditionIdToNameMap = getConditionTemplateNames(policyData.getConditions());
@@ -126,6 +131,68 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         } catch (Exception e) {
             log.error("AI 정책 생성 또는 파싱에 실패했습니다. AI Response: {}", jsonResponse, e);
             throw new IllegalStateException("AI를 통한 정책 생성에 실패했습니다.", e);
+        }
+    }
+
+    /**
+     * [신규] AI 응답 DTO를 시스템 내부용 DTO로 변환하는 헬퍼 메서드.
+     * 역할/권한 이름이 문자열로 들어와도 DB 조회를 통해 ID로 변환합니다.
+     */
+    private BusinessPolicyDto translateAiResponseToBusinessDto(AiResponseDto aiResponse) {
+        Set<Long> resolvedRoleIds = aiResponse.roleIds().stream()
+                .map(this::resolveRoleId)
+                .collect(Collectors.toSet());
+
+        Set<Long> resolvedPermissionIds = aiResponse.permissionIds().stream()
+                .map(this::resolvePermissionId)
+                .collect(Collectors.toSet());
+
+        Map<Long, List<String>> resolvedConditions = aiResponse.conditions().entrySet().stream()
+                .collect(Collectors.toMap(
+                        entry -> resolveConditionTemplateId(entry.getKey()),
+                        Map.Entry::getValue
+                ));
+
+        BusinessPolicyDto dto = new BusinessPolicyDto();
+        dto.setPolicyName(aiResponse.policyName());
+        dto.setDescription(aiResponse.description());
+        dto.setRoleIds(resolvedRoleIds);
+        dto.setPermissionIds(resolvedPermissionIds);
+        dto.setConditional(aiResponse.conditional());
+        dto.setConditions(resolvedConditions);
+        dto.setAiRiskAssessmentEnabled(aiResponse.aiRiskAssessmentEnabled());
+        dto.setRequiredTrustScore(aiResponse.requiredTrustScore());
+        dto.setCustomConditionSpel(aiResponse.customConditionSpel());
+        dto.setEffect(aiResponse.effect());
+
+        return dto;
+    }
+
+    // --- ID 변환 헬퍼 메서드들 ---
+    private Long resolveRoleId(Object idOrName) {
+        if (idOrName instanceof Number) {
+            return ((Number) idOrName).longValue();
+        }
+        String name = idOrName.toString();
+        return roleRepository.findByRoleName(name).map(Role::getId)
+                .orElseThrow(() -> new IllegalArgumentException("AI가 반환한 역할을 찾을 수 없습니다: " + name));
+    }
+
+    private Long resolvePermissionId(Object idOrName) {
+        if (idOrName instanceof Number) {
+            return ((Number) idOrName).longValue();
+        }
+        String name = idOrName.toString();
+        return permissionRepository.findByName(name).map(Permission::getId)
+                .orElseThrow(() -> new IllegalArgumentException("AI가 반환한 권한을 찾을 수 없습니다: " + name));
+    }
+
+    private Long resolveConditionTemplateId(String idOrName) {
+        try {
+            return Long.parseLong(idOrName);
+        } catch (NumberFormatException e) {
+            // 이름으로 찾는 로직 추가 (필요시)
+            throw new IllegalArgumentException("AI가 반환한 조건 템플릿을 찾을 수 없습니다: " + idOrName);
         }
     }
 
