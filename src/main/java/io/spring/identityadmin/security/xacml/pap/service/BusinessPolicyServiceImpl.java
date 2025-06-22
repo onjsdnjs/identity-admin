@@ -69,12 +69,6 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
         updateRolePermissionMappings(dto.getRoleIds(), dto.getPermissionIds());
         log.info("'{}' 정책 생성을 위한 RBAC 관계 설정 완료. 대상 역할: {}, 대상 권한: {}", dto.getPolicyName(), dto.getRoleIds(), dto.getPermissionIds());
 
-        // 2. 조건부 정책(ABAC)이 필요한 경우에만 Policy 엔티티를 생성합니다.
-        if (!dto.isConditional()) {
-            log.info("단순 역할-권한 할당이므로, 별도의 조건부 정책은 생성되지 않았습니다.");
-            return null;
-        }
-
         Policy policy = new Policy();
         translateAndApplyDtoToPolicy(policy, dto);
 
@@ -112,9 +106,11 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
         policy.setEffect(dto.getEffect());
         policy.setPriority(100);
 
+        // 기존 Target과 Rule을 모두 초기화하고 DTO 기반으로 새로 설정
         policy.getTargets().clear();
         policy.getRules().clear();
 
+        // 1. 정책 대상(Target) 설정
         Set<Permission> permissions = new HashSet<>(permissionRepository.findAllById(dto.getPermissionIds()));
         Set<PolicyTarget> targets = permissions.stream()
                 .map(Permission::getManagedResource)
@@ -125,13 +121,21 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
                         .httpMethod(mr.getHttpMethod() != null ? mr.getHttpMethod().name() : "ANY")
                         .build())
                 .collect(Collectors.toSet());
+        // Policy의 편의 메서드를 사용하여 양방향 관계 설정
         targets.forEach(policy::addTarget);
 
+        // 2. SpEL 규칙(Rule) 및 조건(Condition) 생성
         String spelCondition = buildSpelCondition(dto);
         if (StringUtils.hasText(spelCondition)) {
-            PolicyRule rule = PolicyRule.builder().description("지능형 빌더에서 생성/수정된 동적 규칙").build();
-            PolicyCondition condition = PolicyCondition.builder().expression(spelCondition).build();
-            rule.getConditions().add(condition);
+            PolicyRule rule = PolicyRule.builder()
+                    .description("지능형 빌더에서 생성/수정된 동적 규칙")
+                    .build();
+
+            PolicyCondition condition = PolicyCondition.builder()
+                    .expression(spelCondition)
+                    .build();
+
+            rule.addCondition(condition);
             policy.addRule(rule);
         }
     }

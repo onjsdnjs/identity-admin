@@ -27,4 +27,9 @@ public class PolicyRule implements Serializable {
     @OneToMany(mappedBy = "rule", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @Builder.Default
     private Set<PolicyCondition> conditions = new HashSet<>();
+
+    public void addCondition(PolicyCondition condition) {
+        this.conditions.add(condition);
+        condition.setRule(this);
+    }
 }
