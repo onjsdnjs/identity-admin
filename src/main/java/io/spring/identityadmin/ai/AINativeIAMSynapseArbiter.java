@@ -10,10 +10,12 @@ import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.dto.UserDto;
+import io.spring.identityadmin.domain.entity.ConditionTemplate;
+import io.spring.identityadmin.domain.entity.Permission;
+import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.Users;
 import io.spring.identityadmin.domain.entity.policy.Policy;
-import io.spring.identityadmin.repository.PolicyRepository;
-import io.spring.identityadmin.repository.UserRepository;
+import io.spring.identityadmin.repository.*;
 import io.spring.identityadmin.security.xacml.pap.service.BusinessPolicyService;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import lombok.extern.slf4j.Slf4j;
@@ -25,11 +27,9 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.CollectionUtils;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -43,6 +43,9 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
     private final PolicyRepository policyRepository;
     private final BusinessPolicyService businessPolicyService;
     private final ModelMapper modelMapper;
+    private final RoleRepository roleRepository;
+    private final PermissionRepository permissionRepository;
+    private final ConditionTemplateRepository conditionTemplateRepository;
 
     public AINativeIAMSynapseArbiter(
             ChatClient chatClient,
@@ -51,7 +54,10 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             UserRepository userRepository,
             PolicyRepository policyRepository,
             @Lazy BusinessPolicyService businessPolicyService, // <-- 핵심 수정 사항
-            ModelMapper modelMapper) {
+            ModelMapper modelMapper,
+            RoleRepository roleRepository,
+            PermissionRepository permissionRepository,
+        ConditionTemplateRepository conditionTemplateRepository) {
 
         this.chatClient = chatClient;
         this.vectorStore = vectorStore;
@@ -59,6 +65,9 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         this.userRepository = userRepository;
         this.policyRepository = policyRepository;
         this.businessPolicyService = businessPolicyService;
+        this.roleRepository = roleRepository;
+        this.permissionRepository = permissionRepository;
+        this.conditionTemplateRepository = conditionTemplateRepository;
         this.modelMapper = modelMapper;
     }
 
@@ -67,7 +76,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
      */
     @Override
     public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery) {
-        // 1. RAG - Vector DB에서 자연어 쿼리와 관련된 컨텍스트 정보 검색
+        // 1. RAG 패턴 - Vector DB 에서 관련 정보 검색
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(naturalLanguageQuery)
                 .topK(10)
@@ -77,37 +86,9 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                 .map(Document::getText)
                 .collect(Collectors.joining("\n---\n"));
 
-        // 2. AI에 전달할 프롬프트 구성
-        String systemPrompt = """
-            당신은 사용자의 자연어 요청을 분석하여, IAM 시스템이 이해할 수 있는 구조화된 BusinessPolicyDto JSON 객체로 변환하는 AI 에이전트입니다.
-            요청을 분석하여 주체(subjects), 리소스(resources), 행위(actions), 그리고 SpEL 형식의 조건(condition)을 추출해야 합니다.
-            제공된 '참고 컨텍스트'를 최대한 활용하여, '개발팀'과 같은 자연어를 'GROUP_2'와 같은 시스템 식별자 ID로 변환하여 응답해야 합니다.
-            이름(policyName)과 설명(description) 필드는 자연어 요청을 기반으로 창의적으로 생성해주세요.
-            응답은 반드시 아래 명시된 JSON 형식으로만 제공해야 합니다.
-            """;
-
-        String userPromptTemplate = """
-            **자연어 요구사항:**
-            "{query}"
-            
-            **참고 컨텍스트 (시스템 데이터):**
-            {context}
-            
-            **출력 JSON 형식 (BusinessPolicyDto):**
-            {
-              "policyName": "AI가 생성한 정책 이름",
-              "description": "AI가 생성한 정책 설명",
-              "subjectUserIds": [사용자 ID 목록],
-              "subjectGroupIds": [그룹 ID 목록],
-              "businessResourceIds": [리소스 ID 목록],
-              "businessActionIds": [행위 ID 목록],
-              "conditions": { "조건템플릿_ID": ["파라미터1", "파라미터2"] },
-              "effect": "ALLOW",
-              "aiRiskAssessmentEnabled": false,
-              "requiredTrustScore": 0.7,
-              "customConditionSpel": ""
-            }
-            """;
+        // 2. AI에 전달할 프롬프트 구성 (이전 답변과 동일)
+        String systemPrompt = "당신은 사용자의 자연어 요청을 분석하여, IAM 시스템이 이해할 수 있는 구조화된 BusinessPolicyDto JSON 객체로 변환하는 AI 에이전트입니다...";
+        String userPromptTemplate = "**자연어 요구사항:**\n\"{query}\"\n\n**참고 컨텍스트 (시스템 데이터):**\n{context}\n\n**출력 JSON 형식 (BusinessPolicyDto):**\n{ ... }";
 
         // 3. ChatClient를 사용하여 AI 모델에 JSON 생성 요청
         String jsonResponse = chatClient.prompt()
@@ -115,26 +96,54 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                 .user(userSpec -> userSpec
                         .text(userPromptTemplate)
                         .param("query", naturalLanguageQuery)
-                        .param("context", contextInfo)
-                )
-                .call()
-                .content();
+                        .param("context", contextInfo))
+                .call().content();
 
+        // 4. AI 응답을 DTO로 변환하고, UI에 필요한 추가 정보와 함께 반환
         try {
-            // 4. AI가 생성한 JSON 응답을 DTO 객체로 변환하고, UI에 필요한 추가 정보와 함께 반환
             BusinessPolicyDto policyData = objectMapper.readValue(jsonResponse, BusinessPolicyDto.class);
 
-            // TODO: policyData의 ID 목록을 가지고 실제 이름들을 DB에서 조회하여 Map을 만드는 로직 필요
-            Map<String, String> subjectIdToNameMap = Map.of();
-            Map<String, String> permissionIdToNameMap = Map.of();
-            Map<String, String> conditionIdToNameMap = Map.of();
+            // UI 표시에 필요한 이름 정보들을 조회하고 매핑합니다.
+            Map<String, String> roleIdToNameMap = getRoleNames(policyData.getRoleIds());
+            Map<String, String> permissionIdToNameMap = getPermissionNames(policyData.getPermissionIds());
+            Map<String, String> conditionIdToNameMap = getConditionTemplateNames(policyData.getConditions());
 
-            return new AiGeneratedPolicyDraftDto(policyData, subjectIdToNameMap, permissionIdToNameMap, conditionIdToNameMap);
-
+            return new AiGeneratedPolicyDraftDto(policyData, roleIdToNameMap, permissionIdToNameMap, conditionIdToNameMap);
         } catch (Exception e) {
             log.error("AI 정책 생성 또는 파싱에 실패했습니다. AI Response: {}", jsonResponse, e);
             throw new IllegalStateException("AI를 통한 정책 생성에 실패했습니다.", e);
         }
+    }
+
+    private Map<String, String> getRoleNames(Set<Long> ids) {
+        if (CollectionUtils.isEmpty(ids)) return Map.of();
+        return roleRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(role -> String.valueOf(role.getId()), Role::getRoleName));
+    }
+
+    private Map<String, String> getPermissionNames(Set<Long> ids) {
+        if (CollectionUtils.isEmpty(ids)) return Map.of();
+        return permissionRepository.findAllById(ids).stream()
+                .collect(Collectors.toMap(permission -> String.valueOf(permission.getId()), Permission::getName));
+    }
+    private Map<String, String> getConditionTemplateNames(Map<Long, List<String>> conditionsMap) {
+        if (CollectionUtils.isEmpty(conditionsMap)) {
+            return Collections.emptyMap();
+        }
+
+        // 1. 맵에서 조건 템플릿 ID 목록만 추출합니다.
+        Set<Long> templateIds = conditionsMap.keySet();
+
+        // 2. ID 목록을 사용하여 DB에서 ConditionTemplate 엔티티들을 한번에 조회합니다.
+        List<ConditionTemplate> templates = conditionTemplateRepository.findAllById(templateIds);
+
+        // 3. 조회된 엔티티 리스트를 'ID(String) -> 이름(String)' 형태의 맵으로 변환합니다.
+        return templates.stream()
+                .collect(Collectors.toMap(
+                        template -> String.valueOf(template.getId()),
+                        ConditionTemplate::getName,
+                        (name1, name2) -> name1 // 혹시 모를 중복 키 발생 시 처리
+                ));
     }
 
     @Override

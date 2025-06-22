@@ -349,26 +349,83 @@
             async handleGenerateByAI() {
                 const query = this.elements.naturalLanguageInput.value;
                 if (!query.trim()) {
-                    if (typeof showToast === 'function') {
-                        showToast('요구사항을 입력해주세요.', 'error');
-                    } else {
-                        alert('요구사항을 입력해주세요.');
-                    }
+                    showToast('정책으로 만들고 싶은 요구사항을 한국어로 입력해주세요.', 'error');
                     return;
                 }
 
                 this.ui.setLoading(this.elements.generateByAiBtn, true);
                 try {
-                    const dto = await this.api.generatePolicyFromText(query);
-                    // TODO: AI DTO 응답으로 UI 상태 및 필드를 채우는 로직 구현
-                    if (typeof showToast === 'function') {
-                        showToast('AI 정책 초안이 생성되었습니다.', 'success');
-                    } else {
-                        alert('AI 정책 초안이 생성되었습니다.');
-                    }
+                    // 백엔드의 AI 서비스 호출
+                    const draftDto = await this.api.generatePolicyFromText(query);
+
+                    // AI 응답으로 UI 전체를 채우는 함수 호출
+                    this.populateBuilderWithAIData(draftDto);
+
+                    showToast('AI 정책 초안이 생성되었습니다. 내용을 검토 후 저장하세요.', 'success');
+
+                } catch (error) {
+                    console.error("AI 정책 생성 실패:", error);
+                    // api.fetchApi 에서 이미 toast를 보여줌
                 } finally {
                     this.ui.setLoading(this.elements.generateByAiBtn, false);
                 }
+            }
+
+            /**
+             * [구현 완료] AI가 생성한 DTO 데이터로 빌더 UI 전체를 채웁니다.
+             * @param {object} draftDto - AiGeneratedPolicyDraftDto
+             */
+            populateBuilderWithAIData(draftDto) {
+                if (!draftDto || !draftDto.policyData) {
+                    showToast('AI가 정책 초안을 생성하지 못했습니다. 더 명확한 언어로 요청해보세요.', 'error');
+                    return;
+                }
+
+                const data = draftDto.policyData;
+                const maps = draftDto.idToNameMaps || {}; // 이름 매핑 정보
+
+                // 1. 모든 캔버스와 상태를 깨끗하게 초기화
+                ['role', 'permission', 'condition'].forEach(type => this.state.clear(type));
+
+                // 2. 기본 속성 필드 채우기
+                this.elements.policyNameInput.value = data.policyName || '';
+                this.elements.policyDescTextarea.value = data.description || '';
+                this.elements.policyEffectSelect.value = data.effect || 'ALLOW';
+
+                // 3. 역할, 권한, 조건 캔버스 채우기
+                // AI가 반환한 ID 목록을 기반으로, 함께 전달된 이름 매핑 정보를 사용하여 칩을 생성합니다.
+                data.roleIds?.forEach(id => {
+                    const name = maps.roles?.[id] || `역할 ID: ${id}`;
+                    this.state.add('role', String(id), { id, name });
+                });
+
+                data.permissionIds?.forEach(id => {
+                    const name = maps.permissions?.[id] || `권한 ID: ${id}`;
+                    this.state.add('permission', String(id), { id, name });
+                });
+
+                if (data.conditions) {
+                    Object.entries(data.conditions).forEach(([id, params]) => {
+                        const name = maps.conditions?.[id] || `조건 ID: ${id}`;
+                        // TODO: params 처리 로직 추가 필요
+                        this.state.add('condition', String(id), { id, name, params });
+                    });
+                }
+
+                // 4. AI 및 전문가용 설정 필드 채우기
+                this.state.aiRiskAssessmentEnabled = data.aiRiskAssessmentEnabled || false;
+                this.elements.aiEnabledCheckbox.checked = this.state.aiRiskAssessmentEnabled;
+
+                this.state.requiredTrustScore = data.requiredTrustScore || 0.7;
+                this.elements.trustScoreSlider.value = this.state.requiredTrustScore * 100;
+                this.elements.trustScoreValueSpan.textContent = this.elements.trustScoreSlider.value;
+                this.elements.trustScoreContainer.classList.toggle('hidden', !this.state.aiRiskAssessmentEnabled);
+
+                this.state.customConditionSpel = data.customConditionSpel || '';
+                this.elements.customSpelInput.value = this.state.customConditionSpel;
+
+                // 5. 변경된 전체 상태를 기반으로 UI를 한번에 다시 렌더링
+                this.ui.renderAll(this.state);
             }
 
             handleAiToggle() {
