@@ -14,7 +14,6 @@ import io.spring.identityadmin.repository.PermissionRepository;
 import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.repository.RoleRepository;
 import io.spring.identityadmin.security.xacml.pep.CustomDynamicAuthorizationManager;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
@@ -65,14 +64,14 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
         if (CollectionUtils.isEmpty(dto.getRoleIds()) || CollectionUtils.isEmpty(dto.getPermissionIds())) {
             throw new IllegalArgumentException("정책을 생성하려면 최소 하나 이상의 역할과 권한이 선택되어야 합니다.");
         }
-        log.info("'{}' 정책 생성 시작. 대상 역할 ID: {}, 대상 권한 ID: {}", dto.getPolicyName(), dto.getRoleIds(), dto.getPermissionIds());
 
-        // 1. 역할-권한 관계(RBAC)를 먼저 설정합니다.
+        // [핵심] 1. 역할-권한 관계(RBAC)를 먼저 설정합니다.
         updateRolePermissionMappings(dto.getRoleIds(), dto.getPermissionIds());
+        log.info("'{}' 정책 생성을 위한 RBAC 관계 설정 완료. 대상 역할: {}, 대상 권한: {}", dto.getPolicyName(), dto.getRoleIds(), dto.getPermissionIds());
 
         // 2. 조건부 정책(ABAC)이 필요한 경우에만 Policy 엔티티를 생성합니다.
         if (!dto.isConditional()) {
-            log.info("단순 역할-권한 할당이 완료되었습니다. 별도의 조건부 정책은 생성되지 않았습니다.");
+            log.info("단순 역할-권한 할당이므로, 별도의 조건부 정책은 생성되지 않았습니다.");
             return null;
         }
 
@@ -94,10 +93,9 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
                 .orElseThrow(() -> new IllegalArgumentException("Policy not found with id: " + policyId));
         log.info("정책 '{}'(ID: {}) 업데이트 시작.", existingPolicy.getName(), policyId);
 
-        // 1. 역할-권한 관계(RBAC) 업데이트
+        // [핵심] 업데이트 시에도 역할-권한 관계를 먼저 동기화합니다.
         updateRolePermissionMappings(dto.getRoleIds(), dto.getPermissionIds());
 
-        // 2. 조건부 정책(ABAC) 내용 업데이트
         translateAndApplyDtoToPolicy(existingPolicy, dto);
         policyEnrichmentService.enrichPolicyWithFriendlyDescription(existingPolicy);
 
@@ -108,23 +106,19 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
         return updatedPolicy;
     }
 
-    /**
-     * BusinessPolicyDto를 Policy 엔티티로 번역하고 적용하는 핵심 로직
-     */
     private void translateAndApplyDtoToPolicy(Policy policy, BusinessPolicyDto dto) {
         policy.setName(dto.getPolicyName());
         policy.setDescription(dto.getDescription());
         policy.setEffect(dto.getEffect());
-        policy.setPriority(100); // 비즈니스 정책은 높은 우선순위
+        policy.setPriority(100);
 
-        // 기존 Target과 Rule을 모두 초기화하고 DTO 기반으로 새로 설정
         policy.getTargets().clear();
         policy.getRules().clear();
 
-        // 1. 정책 대상(Target) 설정: 선택된 '권한'에 연결된 '기술 리소스'가 대상
         Set<Permission> permissions = new HashSet<>(permissionRepository.findAllById(dto.getPermissionIds()));
         Set<PolicyTarget> targets = permissions.stream()
-                .map(Permission::getManagedResource).filter(Objects::nonNull)
+                .map(Permission::getManagedResource)
+                .filter(Objects::nonNull)
                 .map(mr -> PolicyTarget.builder()
                         .targetType(mr.getResourceType().name())
                         .targetIdentifier(mr.getResourceIdentifier())
@@ -133,23 +127,23 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
                 .collect(Collectors.toSet());
         targets.forEach(policy::addTarget);
 
-        // 2. SpEL 규칙(Rule) 생성: 선택된 '역할' 및 모든 '조건'이 조합됨
         String spelCondition = buildSpelCondition(dto);
         if (StringUtils.hasText(spelCondition)) {
-            PolicyRule rule = PolicyRule.builder().description("고급 빌더에서 생성된 동적 규칙").build();
+            PolicyRule rule = PolicyRule.builder().description("지능형 빌더에서 생성/수정된 동적 규칙").build();
             PolicyCondition condition = PolicyCondition.builder().expression(spelCondition).build();
             rule.getConditions().add(condition);
             policy.addRule(rule);
         }
     }
 
+    /**
+     * [복원 및 유지] DTO에 명시된 역할들에 권한들을 할당(연결)하는 핵심 RBAC 로직
+     */
     private void updateRolePermissionMappings(Set<Long> roleIds, Set<Long> permissionIdsToAdd) {
         if (CollectionUtils.isEmpty(roleIds)) return;
 
         for (Long roleId : roleIds) {
             Role role = roleService.getRole(roleId);
-
-            // 기존 권한 목록에 새로운 권한을 추가 (중복은 Set이 알아서 처리)
             List<Long> currentPermissionIds = role.getRolePermissions().stream()
                     .map(rp -> rp.getPermission().getId())
                     .toList();
@@ -164,38 +158,30 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
     private String buildSpelCondition(BusinessPolicyDto dto) {
         List<String> allConditions = new ArrayList<>();
 
-        // 1. 주체(역할) 조건 생성
-        if (!CollectionUtils.isEmpty(dto.getRoleIds())) {
-            List<Role> roles = roleRepository.findAllById(dto.getRoleIds());
-            String roleCondition = roles.stream()
-                    .map(Role::getRoleName)
-                    .map(name -> String.format("hasAuthority('%s')", name))
-                    .collect(Collectors.joining(" or "));
+        List<Role> roles = roleRepository.findAllById(dto.getRoleIds());
+        String roleCondition = roles.stream()
+                .map(Role::getRoleName)
+                .map(name -> String.format("hasAuthority('%s')", name))
+                .collect(Collectors.joining(" or "));
+        if (StringUtils.hasText(roleCondition)) {
             allConditions.add("(" + roleCondition + ")");
         }
 
-        // 2. AI 리스크 평가 조건
         if (dto.isAiRiskAssessmentEnabled()) {
             allConditions.add(String.format("#ai.assessContext().score >= %.2f", dto.getRequiredTrustScore()));
         }
-
-        // 3. 전문가용 커스텀 SpEL 조건
         if (StringUtils.hasText(dto.getCustomConditionSpel())) {
             allConditions.add("(" + dto.getCustomConditionSpel() + ")");
         }
-
-        // 4. 조건 템플릿 기반 조건
         if (!CollectionUtils.isEmpty(dto.getConditions())) {
             dto.getConditions().forEach((templateId, params) -> {
                 ConditionTemplate template = conditionTemplateRepository.findById(templateId)
                         .orElseThrow(() -> new IllegalArgumentException("조건 템플릿을 찾을 수 없습니다: " + templateId));
-
                 Object[] quotedParams = params.stream().map(p -> "'" + p + "'").toArray();
                 allConditions.add(String.format(template.getSpelTemplate(), quotedParams));
             });
         }
 
-        // 모든 조건들을 'and'로 결합
         return String.join(" and ", allConditions);
     }
 
