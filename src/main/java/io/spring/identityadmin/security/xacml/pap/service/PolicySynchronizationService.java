@@ -1,5 +1,6 @@
 package io.spring.identityadmin.security.xacml.pap.service;
 
+import io.spring.identityadmin.common.event.dto.RolePermissionsChangedEvent;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.policy.Policy;
@@ -8,6 +9,8 @@ import io.spring.identityadmin.repository.PolicyRepository;
 import io.spring.identityadmin.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,15 +30,30 @@ public class PolicySynchronizationService {
     private final PolicyService policyService;
 
     /**
+     * [핵심 구현] 역할-권한 변경 이벤트를 구독하여 정책을 자동으로 동기화합니다.
+     * @param event 역할 변경 이벤트
+     */
+    @Async
+    @EventListener
+    @Transactional
+    public void handleRolePermissionsChange(RolePermissionsChangedEvent event) {
+        log.info("역할(ID: {}) 변경 이벤트 수신. 정책 동기화를 시작합니다.", event.getRoleId());
+
+        // 1. 이벤트로부터 역할 ID를 받아, 관련된 모든 정보(권한, 리소스)를 한 번에 조회합니다.
+        Role role = roleRepository.findByIdWithPermissionsAndResources(event.getRoleId())
+                .orElseThrow(() -> new IllegalArgumentException("동기화할 역할을 찾을 수 없습니다: " + event.getRoleId()));
+
+        synchronizePolicyForRole(role);
+    }
+
+    /**
      * 특정 역할(Role)의 변경사항을 기반으로, 이에 매핑되는 기술 정책(Policy)을
      * 자동으로 생성하거나 업데이트하여 동기화합니다.
      */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void synchronizePolicyForRole(Role role) {
-
+    private void synchronizePolicyForRole(Role role) {
         String policyName = "AUTO_POLICY_FOR_" + role.getRoleName();
 
-        // 1. 대상(Target) DTO 목록 생성: 역할에 포함된 모든 권한의 리소스를 DTO로 변환합니다.
+        // 2. 대상(Target) DTO 목록 생성: 역할이 가진 모든 권한에 연결된 리소스 정보를 추출합니다.
         List<PolicyDto.TargetDto> targetDtos = role.getRolePermissions().stream()
                 .map(rp -> rp.getPermission().getManagedResource())
                 .filter(Objects::nonNull)
@@ -44,51 +62,49 @@ public class PolicySynchronizationService {
                         mr.getResourceIdentifier(),
                         mr.getHttpMethod() != null ? mr.getHttpMethod().name() : "ANY"
                 ))
-                .distinct()
-                .collect(Collectors.toList());
+                .distinct() // 중복된 리소스 대상은 제거
+                .toList();
 
-        // 2. 역할에 포함된 모든 Permission의 이름을 기반으로 'OR' 결합된 SpEL 표현식을 생성합니다.
-        String mergedPermissionsExpression = role.getRolePermissions().stream()
+        // 3. SpEL 규칙(Rule) 생성: 역할이 가진 모든 권한을 OR로 연결합니다.
+        String permissionsExpression = role.getRolePermissions().stream()
                 .map(rp -> rp.getPermission().getName())
                 .map(permissionName -> String.format("hasAuthority('%s')", permissionName))
                 .collect(Collectors.joining(" or "));
 
-        // 역할에 할당된 권한이 없을 경우, 이 정책은 누구도 통과할 수 없도록 'false'로 설정
-        if (!StringUtils.hasText(mergedPermissionsExpression)) {
-            mergedPermissionsExpression = "false";
-        }
+        // 최종 SpEL 조건은 "이 역할을 가졌는가? AND (A권한 OR B권한 OR...)" 형태가 됩니다.
+        String finalCondition = String.format("hasAuthority('%s') and (%s)",
+                role.getRoleName(),
+                StringUtils.hasText(permissionsExpression) ? permissionsExpression : "false" // 권한이 없으면 항상 false
+        );
 
         PolicyDto.ConditionDto conditionDto = PolicyDto.ConditionDto.builder()
-                .expression(mergedPermissionsExpression)
-                .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE)
-                .build();
-
+                .expression(finalCondition)
+                .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE).build();
         PolicyDto.RuleDto ruleDto = PolicyDto.RuleDto.builder()
-                .description("Auto-generated rule for " + role.getRoleName())
-                .conditions(List.of(conditionDto))
-                .build();
+                .description("Auto-sync rule for " + role.getRoleName()).conditions(List.of(conditionDto)).build();
 
-        // 3. 최종 PolicyDto 생성
+        // 4. 최종 PolicyDto를 구성합니다.
         PolicyDto policyDto = PolicyDto.builder()
                 .name(policyName)
-                .description(String.format("'%s' 역할을 위한 자동 생성 정책", role.getRoleDesc()))
+                .description(String.format("'%s' 역할을 위한 자동 동기화 정책", role.getRoleDesc()))
                 .effect(Policy.Effect.ALLOW)
-                .priority(500)
+                .priority(500) // 자동 생성 정책은 중간 우선순위
                 .targets(targetDtos)
                 .rules(List.of(ruleDto))
                 .build();
 
-        // 4. 기존 정책이 있는지 확인하여 ID 설정 (업데이트를 위함)
+        // 5. 기존에 자동 생성된 정책이 있는지 이름으로 찾아, 있으면 업데이트, 없으면 새로 생성합니다.
         policyRepository.findByName(policyName)
-                .ifPresent(existingPolicy -> policyDto.setId(existingPolicy.getId()));
-
-        // 5. PolicyService에 DTO를 전달하여 정책 생성 또는 업데이트를 '요청'합니다.
-        if (policyDto.getId() != null) {
-            policyService.updatePolicy(policyDto);
-        } else {
-            policyService.createPolicy(policyDto);
-        }
-
-        log.info("Policy for role '{}' has been synchronized.", role.getRoleName());
+                .ifPresentOrElse(
+                        existingPolicy -> {
+                            policyDto.setId(existingPolicy.getId());
+                            policyService.updatePolicy(policyDto);
+                            log.info("기존 자동 정책(ID: {})을 역할({}) 변경에 따라 업데이트했습니다.", existingPolicy.getId(), role.getRoleName());
+                        },
+                        () -> {
+                            policyService.createPolicy(policyDto);
+                            log.info("역할({})에 대한 새로운 자동 정책을 생성했습니다.", role.getRoleName());
+                        }
+                );
     }
 }

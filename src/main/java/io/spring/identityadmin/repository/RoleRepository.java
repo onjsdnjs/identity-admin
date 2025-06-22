@@ -30,4 +30,15 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
 
     @Query("SELECT DISTINCT r FROM Role r LEFT JOIN FETCH r.rolePermissions rp LEFT JOIN FETCH rp.permission WHERE r.id IN :ids")
     List<Role> findAllByIdWithPermissions(@Param("ids") Collection<Long> ids);
+
+    /**
+     * 권한 및 권한에 연결된 리소스까지 모두 fetch join 하여 조회합니다.
+     * PolicySynchronizationService 에서 사용됩니다.
+     */
+    @Query("SELECT r FROM Role r " +
+            "LEFT JOIN FETCH r.rolePermissions rp " +
+            "LEFT JOIN FETCH rp.permission p " +
+            "LEFT JOIN FETCH p.managedResource " +
+            "WHERE r.id = :id")
+    Optional<Role> findByIdWithPermissionsAndResources(@Param("id") Long id);
 }

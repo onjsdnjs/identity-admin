@@ -1,6 +1,8 @@
 package io.spring.identityadmin.admin.iam.service.impl;
 
 import io.spring.identityadmin.admin.iam.service.RoleService;
+import io.spring.identityadmin.common.event.dto.RolePermissionsChangedEvent;
+import io.spring.identityadmin.common.event.service.IntegrationEventBus;
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.RolePermission;
@@ -32,6 +34,7 @@ public class RoleServiceImpl implements RoleService {
     private final PermissionRepository permissionRepository;
     private final PolicySynchronizationService policySyncService;
     private final CustomDynamicAuthorizationManager authorizationManager;
+    private final IntegrationEventBus eventBus;
 
     @Transactional(readOnly = true)
     @Cacheable(value = "roles", key = "#id")
@@ -114,10 +117,7 @@ public class RoleServiceImpl implements RoleService {
                 });
 
         Role savedRole = roleRepository.save(existingRole);
-
-        //policySyncService.synchronizePolicyForRole(savedRole);
-        // 변경된 역할-권한 관계가 실시간 인가 결정에 반영되도록 함
-        authorizationManager.reload();
+        eventBus.publish(new RolePermissionsChangedEvent(savedRole.getId()));
 
         return savedRole;
     }
