@@ -752,7 +752,7 @@
                                 <div class="palette-icon"><i class="fas fa-user-shield"></i></div>
                                 <h3 class="palette-title">역할 (Who)</h3>
                             </div>
-                            <div id="rolesPalette" class="max-h-64 overflow-y-auto dark-scroll pr-2">
+                            <div id="roles-palette" class="max-h-64 overflow-y-auto dark-scroll pr-2">
                                 <div th:each="role : ${allRoles}"
                                      class="palette-item"
                                      draggable="true"
@@ -824,7 +824,7 @@
                             <div class="space-y-6">
                                 <div>
                                     <label class="modern-label">이 역할(들)은 (WHO)</label>
-                                    <div id="rolesCanvas" class="canvas-zone" data-canvas-type="role">
+                                    <div id="roles-canvas" class="canvas-zone" data-canvas-type="role">
                                         <div class="canvas-placeholder">
                                             <i class="fas fa-hand-pointer"></i>
                                             <span>왼쪽에서 역할을 드래그하여 여기에 놓으세요</span>
@@ -919,6 +919,7 @@
                         </div>
                     </div>
                 </div>
+                </main>
 
                 <div th:insert="~{fragments/footer :: footer}"></div>
                 <script th:src="@{/js/toast.js}"></script>

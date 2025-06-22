@@ -181,15 +181,36 @@
             }
 
             queryDOMElements() {
-                const ids = ['rolesPalette', 'rolesCanvas','naturalLanguageInput', 'generateByAiBtn', 'aiEnabledCheckbox', 'trustScoreContainer', 'trustScoreSlider', 'trustScoreValueSpan', 'customSpelInput', 'permissionsPalette', 'conditionsPalette', 'permissionsCanvas', 'conditionsCanvas', 'policyNameInput', 'policyDescTextarea', 'policyEffectSelect', 'savePolicyBtn', 'policyPreview'];
+                // HTML의 실제 ID와 JavaScript에서 사용할 키 매핑
+                const idMapping = {
+                    'rolesPalette': 'roles-palette',
+                    'rolesCanvas': 'roles-canvas',
+                    'naturalLanguageInput': 'naturalLanguageInput',
+                    'generateByAiBtn': 'generateByAiBtn',
+                    'aiEnabledCheckbox': 'aiEnabledCheckbox',
+                    'trustScoreContainer': 'trustScoreContainer',
+                    'trustScoreSlider': 'trustScoreSlider',
+                    'trustScoreValueSpan': 'trustScoreValueSpan',
+                    'customSpelInput': 'customSpelInput',
+                    'permissionsPalette': 'permissionsPalette',
+                    'conditionsPalette': 'conditionsPalette',
+                    'permissionsCanvas': 'permissionsCanvas',
+                    'conditionsCanvas': 'conditionsCanvas',
+                    'policyNameInput': 'policyNameInput',
+                    'policyDescTextarea': 'policyDescTextarea',
+                    'policyEffectSelect': 'policyEffectSelect',
+                    'savePolicyBtn': 'savePolicyBtn',
+                    'policyPreview': 'policyPreview'
+                };
+
                 const elements = {};
-                ids.forEach(id => {
-                    const element = document.getElementById(id);
+                Object.entries(idMapping).forEach(([jsKey, htmlId]) => {
+                    const element = document.getElementById(htmlId);
                     if (element) {
-                        elements[id] = element;
-                        console.log(`Found element: ${id}`); // 디버깅
+                        elements[jsKey] = element;
+                        console.log(`Found element: ${htmlId} -> ${jsKey}`);
                     } else {
-                        console.warn(`Element not found: ${id}`); // 디버깅
+                        console.warn(`Element not found: ${htmlId}`);
                     }
                 });
                 return elements;
