@@ -13,7 +13,7 @@
         // --- 1. 상태 관리 클래스 (AI 관련 필드 추가) ---
         class PolicyBuilderState {
             constructor() {
-                this.subjects = new Map();
+                this.roles = new Map();
                 this.permissions = new Map();
                 this.conditions = new Map();
                 this.aiRiskAssessmentEnabled = false;
@@ -24,7 +24,7 @@
             remove(type, key) { this.getMap(type)?.delete(key); }
             clear(type) { this.getMap(type)?.clear(); }
             getMap(type) {
-                const map = { subject: this.subjects, permission: this.permissions, condition: this.conditions }[type];
+                const map = { role: this.roles, permission: this.permissions, condition: this.conditions }[type];
                 if (!map) throw new Error('Invalid state type: ' + type);
                 return map;
             }
@@ -37,8 +37,7 @@
                     policyName: this.policyName,
                     description: this.description,
                     effect: this.effect,
-                    subjectUserIds: Array.from(this.subjects.keys()).filter(k => k.startsWith('USER:')).map(k => Number(k.split(':')[1])),
-                    subjectGroupIds: Array.from(this.subjects.keys()).filter(k => k.startsWith('GROUP:')).map(k => Number(k.split(':')[1])),
+                    roleIds: Array.from(this.roles.keys()).map(Number),
                     businessResourceIds: Array.from(this.permissions.keys()).map(Number), // 예시: Permission ID를 Resource ID로 매핑
                     businessActionIds: [], // 현재 UI에서 별도 선택하지 않음
                     conditions: Array.from(this.conditions.entries()).reduce((acc, [key, val]) => {
@@ -57,16 +56,16 @@
         class PolicyBuilderUI {
             constructor(elements) { this.elements = elements; }
             renderAll(state) {
-                this.renderChipZone('subject', state.subjects);
+                this.renderChipZone('role', state.roles);
                 this.renderChipZone('permission', state.permissions);
                 this.renderChipZone('condition', state.conditions);
                 this.updatePreview(state);
             }
             renderChipZone(type, map) {
                 // 올바른 요소 이름 매핑
-                const canvasElId = type + 'sCanvas'; // subjects -> subjectsCanvas
+                const canvasElId = type + 'sCanvas';
                 const canvasEl = this.elements[canvasElId];
-                const koreanTypeName = { subject: '주체', permission: '권한', condition: '조건' }[type];
+                const koreanTypeName = { role: '역할', permission: '권한', condition: '조건' }[type];
 
                 console.log(`Rendering ${type} zone (${canvasElId}) with ${map.size} items`); // 디버깅
                 console.log('Canvas element:', canvasEl); // 디버깅
@@ -92,7 +91,7 @@
                 });
             }
             updatePreview(state) {
-                const subjectsHtml = Array.from(state.subjects.values()).map(s => `<span class="policy-chip-preview">${s.name}</span>`).join(' 또는 ') || '<span class="text-gray-400">모든 주체</span>';
+                const rolesHtml = Array.from(state.roles.values()).map(r => `<span class="policy-chip-preview">${r.name}</span>`).join(' 또는 ') || '<span class="text-gray-400">모든 역할</span>';
                 const permissionsHtml = Array.from(state.permissions.values()).map(p => `<span class="policy-chip-preview">${p.name}</span>`).join(' 그리고 ') || '<span class="text-gray-400">모든 권한</span>';
                 const conditionsHtml = Array.from(state.conditions.values()).map(c => `<span class="policy-chip-preview condition">${c.name}</span>`).join(' 그리고 ');
                 const aiConditionHtml = state.aiRiskAssessmentEnabled ? `<span class="policy-chip-preview ai">AI 신뢰도 ${Math.round(state.requiredTrustScore * 100)}점 이상</span>` : '';
@@ -104,8 +103,8 @@
                 // 더 자세하고 읽기 쉬운 미리보기 생성
                 this.elements.policyPreview.innerHTML = `
                     <div class="preview-section">
-                        <div class="preview-label">👥 주체 (누가)</div>
-                        <div>${subjectsHtml}</div>
+                        <div class="preview-label">🛡️ 역할 (WHO)</div>
+                        <div>${rolesHtml}</div>
                     </div>
                     <div class="preview-section">
                         <div class="preview-label">🔑 권한 (무엇을)</div>
@@ -124,7 +123,7 @@
                     <div class="mt-4 p-3 rounded-lg bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/30">
                         <div class="text-sm text-indigo-300 font-semibold mb-2">📋 정책 요약</div>
                         <div class="text-indigo-100">
-                            ${Array.from(state.subjects.values()).map(s => s.name).join(', ') || '모든 사용자'}가 
+                            ${Array.from(state.roles.values()).map(s => s.name).join(', ') || '모든 역할'}이 
                             ${Array.from(state.permissions.values()).map(p => p.name).join(', ') || '모든 리소스'}에 대해 
                             ${fullConditionHtml ? `${Array.from(state.conditions.values()).map(c => c.name).join(', ')} 조건 하에서` : ''}
                             <strong>${effect === 'ALLOW' ? '접근이 허용' : '접근이 거부'}</strong>됩니다.
@@ -182,7 +181,7 @@
             }
 
             queryDOMElements() {
-                const ids = ['naturalLanguageInput', 'generateByAiBtn', 'aiEnabledCheckbox', 'trustScoreContainer', 'trustScoreSlider', 'trustScoreValueSpan', 'customSpelInput', 'subjectsPalette', 'permissionsPalette', 'conditionsPalette', 'subjectsCanvas', 'permissionsCanvas', 'conditionsCanvas', 'policyNameInput', 'policyDescTextarea', 'policyEffectSelect', 'savePolicyBtn', 'policyPreview'];
+                const ids = ['rolesPalette', 'rolesCanvas','naturalLanguageInput', 'generateByAiBtn', 'aiEnabledCheckbox', 'trustScoreContainer', 'trustScoreSlider', 'trustScoreValueSpan', 'customSpelInput', 'permissionsPalette', 'conditionsPalette', 'permissionsCanvas', 'conditionsCanvas', 'policyNameInput', 'policyDescTextarea', 'policyEffectSelect', 'savePolicyBtn', 'policyPreview'];
                 const elements = {};
                 ids.forEach(id => {
                     const element = document.getElementById(id);
@@ -221,7 +220,7 @@
                 this.elements.policyEffectSelect.addEventListener('change', () => this.ui.updatePreview(this.state));
 
                 // 드래그 앤 드롭 리스너 등록
-                ['subjectsPalette', 'permissionsPalette', 'conditionsPalette'].forEach(id => {
+                ['rolesPalette', 'permissionsPalette', 'conditionsPalette'].forEach(id => {
                     const element = this.elements[id];
                     if (element) {
                         element.addEventListener('dragstart', this.handleDragStart.bind(this));
@@ -231,12 +230,12 @@
                     }
                 });
 
-                ['subjectsCanvas', 'permissionsCanvas', 'conditionsCanvas'].forEach(id => {
+                ['rolesCanvas', 'permissionsCanvas', 'conditionsCanvas'].forEach(id => {
                     const canvas = this.elements[id];
                     if (canvas) {
                         // 올바른 타입 매핑
                         let type;
-                        if (id === 'subjectsCanvas') type = 'subject';
+                        if (id === 'rolesCanvas') type = 'role';
                         else if (id === 'permissionsCanvas') type = 'permission';
                         else if (id === 'conditionsCanvas') type = 'condition';
 
@@ -305,7 +304,7 @@
 
                 const [id, ...nameParts] = info.split(':');
                 const name = nameParts.join(':');
-                const key = (type === 'subject') ? info : id;
+                const key = id;
 
                 console.log(`Adding to state: type=${type}, key=${key}, name=${name}`); // 디버깅
 
@@ -350,7 +349,7 @@
             async handleSavePolicy() {
                 const dto = this.state.toDto();
                 if (!dto.policyName) return showToast('정책 이름은 필수입니다.', 'error');
-                if (dto.subjectUserIds.length === 0 && dto.subjectGroupIds.length === 0) return showToast('하나 이상의 주체를 선택해야 합니다.', 'error');
+                if (dto.roleIds.length === 0) return showToast('하나 이상의 역할을 선택해야 합니다.', 'error');
                 if (dto.businessResourceIds.length === 0) return showToast('하나 이상의 권한을 선택해야 합니다.', 'error');
 
                 this.ui.setLoading(this.elements.savePolicyBtn, true);

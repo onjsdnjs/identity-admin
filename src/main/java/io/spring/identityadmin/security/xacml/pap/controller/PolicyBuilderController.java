@@ -11,6 +11,7 @@ import io.spring.identityadmin.domain.dto.ConditionTemplateDto;
 import io.spring.identityadmin.domain.dto.GroupMetadataDto;
 import io.spring.identityadmin.domain.entity.ConditionTemplate;
 import io.spring.identityadmin.domain.entity.ManagedResource;
+import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.repository.ConditionTemplateRepository;
 import io.spring.identityadmin.repository.ManagedResourceRepository;
@@ -54,18 +55,10 @@ public class PolicyBuilderController {
      */
     @GetMapping
     public String policyBuilder(Model model) {
-        // 1. UserListDto는 이미 DTO 이므로 그대로 사용합니다.
-        model.addAttribute("allUsers", userManagementService.getUsers());
 
-        // 2. List<Group>을 List<GroupMetadataDto>로 변환합니다.
-        List<GroupMetadataDto> groupDtos = groupService.getAllGroups().stream()
-                .map(group -> modelMapper.map(group, GroupMetadataDto.class))
-                .toList();
-        model.addAttribute("allGroups", groupDtos);
-//        model.addAttribute("allRoles", roleService.getRolesWithoutExpression());
+        List<Role> allRoles = roleService.getRolesWithoutExpression();
+        model.addAttribute("allRoles", allRoles);
         model.addAttribute("allPermissions", permissionCatalogService.getAvailablePermissions());
-
-        // [핵심 수정] 컨텍스트 인지형 조건 목록 생성
         addContextAwareConditionsToModel(model);
 
         model.addAttribute("activePage", "policy-builder");

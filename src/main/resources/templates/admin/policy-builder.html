@@ -749,27 +749,17 @@
                         <!-- 주체 팔레트 -->
                         <div class="palette-section">
                             <div class="palette-header">
-                                <div class="palette-icon">
-                                    <i class="fas fa-users"></i>
-                                </div>
-                                <h3 class="palette-title">주체 (Who)</h3>
+                                <div class="palette-icon"><i class="fas fa-user-shield"></i></div>
+                                <h3 class="palette-title">역할 (Who)</h3>
                             </div>
-                            <div id="subjectsPalette" class="max-h-64 overflow-y-auto dark-scroll pr-2">
-                                <div th:each="user : ${allUsers}"
+                            <div id="rolesPalette" class="max-h-64 overflow-y-auto dark-scroll pr-2">
+                                <div th:each="role : ${allRoles}"
                                      class="palette-item"
                                      draggable="true"
-                                     th:data-info="${'USER:' + user.id + ':' + user.name}"
-                                     data-type="subject">
-                                    <i class="fas fa-user text-blue-400"></i>
-                                    <span th:text="${user.name}"></span>
-                                </div>
-                                <div th:each="group : ${allGroups}"
-                                     class="palette-item"
-                                     draggable="true"
-                                     th:data-info="${'GROUP:' + group.id + ':' + group.name}"
-                                     data-type="subject">
-                                    <i class="fas fa-users text-purple-400"></i>
-                                    <span th:text="${group.name}"></span>
+                                     th:data-info="${role.id + ':' + role.roleName}"
+                                     data-type="role">
+                                    <i class="fas fa-user-shield text-purple-400"></i>
+                                    <span th:text="${role.roleName}"></span>
                                 </div>
                             </div>
                         </div>
@@ -833,11 +823,11 @@
                             <h2 class="text-2xl font-bold text-gradient mb-6">정책 구성</h2>
                             <div class="space-y-6">
                                 <div>
-                                    <label class="modern-label">이 주체들이 (IF)</label>
-                                    <div id="subjectsCanvas" class="canvas-zone" data-canvas-type="subject">
+                                    <label class="modern-label">이 역할(들)은 (WHO)</label>
+                                    <div id="rolesCanvas" class="canvas-zone" data-canvas-type="role">
                                         <div class="canvas-placeholder">
                                             <i class="fas fa-hand-pointer"></i>
-                                            <span>왼쪽에서 주체를 드래그하여 여기에 놓으세요</span>
+                                            <span>왼쪽에서 역할을 드래그하여 여기에 놓으세요</span>
                                         </div>
                                     </div>
                                 </div>
@@ -929,7 +919,6 @@
                         </div>
                     </div>
                 </div>
-                </main>
 
                 <div th:insert="~{fragments/footer :: footer}"></div>
                 <script th:src="@{/js/toast.js}"></script>
@@ -938,5 +927,9 @@
                     const preselectedPermission = /*[[${preselectedPermission}]]*/ null;
                 </script>
                 <script th:src="@{/js/policy-builder.js}"></script>
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
