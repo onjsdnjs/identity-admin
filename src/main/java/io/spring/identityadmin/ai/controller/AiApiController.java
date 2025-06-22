@@ -34,7 +34,7 @@ public class AiApiController {
         log.info("AI 정책 초안 생성 요청 수신: \"{}\"", request.naturalLanguageQuery());
 
         try {
-            AiGeneratedPolicyDraftDto policyDraft = aINativeIAMAdvisor.generatePolicyFromText(request.naturalLanguageQuery());
+            AiGeneratedPolicyDraftDto policyDraft = aINativeIAMAdvisor.generatePolicyFromTextByAi(request.naturalLanguageQuery());
             return ResponseEntity.ok(policyDraft);
         } catch (Exception e) {
             log.error("AI 정책 초안 생성 중 오류 발생", e);
