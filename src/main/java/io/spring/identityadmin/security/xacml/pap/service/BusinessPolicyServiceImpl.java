@@ -115,17 +115,16 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
         policy.setName(dto.getPolicyName());
         policy.setDescription(dto.getDescription());
         policy.setEffect(dto.getEffect());
-        policy.setPriority(100);
+        policy.setPriority(100); // 비즈니스 정책은 높은 우선순위
 
         // 기존 Target과 Rule을 모두 초기화하고 DTO 기반으로 새로 설정
         policy.getTargets().clear();
         policy.getRules().clear();
 
-        // 정책 대상(Target) 설정: 선택된 '권한'에 연결된 '기술 리소스'를 대상으로 설정.
+        // 1. 정책 대상(Target) 설정: 선택된 '권한'에 연결된 '기술 리소스'가 대상
         Set<Permission> permissions = new HashSet<>(permissionRepository.findAllById(dto.getPermissionIds()));
         Set<PolicyTarget> targets = permissions.stream()
-                .map(Permission::getManagedResource)
-                .filter(Objects::nonNull)
+                .map(Permission::getManagedResource).filter(Objects::nonNull)
                 .map(mr -> PolicyTarget.builder()
                         .targetType(mr.getResourceType().name())
                         .targetIdentifier(mr.getResourceIdentifier())
@@ -134,17 +133,11 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
                 .collect(Collectors.toSet());
         targets.forEach(policy::addTarget);
 
-        // SpEL 규칙(Rule) 생성: 선택된 '역할'이 규칙의 조건(hasAuthority)으로 변환됨.
+        // 2. SpEL 규칙(Rule) 생성: 선택된 '역할' 및 모든 '조건'이 조합됨
         String spelCondition = buildSpelCondition(dto);
         if (StringUtils.hasText(spelCondition)) {
-            PolicyRule rule = PolicyRule.builder()
-                    .description("지능형 빌더에서 생성/수정된 동적 규칙")
-                    .build();
-
-            PolicyCondition condition = PolicyCondition.builder()
-                    .expression(spelCondition)
-                    .build();
-
+            PolicyRule rule = PolicyRule.builder().description("고급 빌더에서 생성된 동적 규칙").build();
+            PolicyCondition condition = PolicyCondition.builder().expression(spelCondition).build();
             rule.getConditions().add(condition);
             policy.addRule(rule);
         }
@@ -159,7 +152,7 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
             // 기존 권한 목록에 새로운 권한을 추가 (중복은 Set이 알아서 처리)
             List<Long> currentPermissionIds = role.getRolePermissions().stream()
                     .map(rp -> rp.getPermission().getId())
-                    .collect(Collectors.toList());
+                    .toList();
 
             Set<Long> updatedPermissionIdSet = new HashSet<>(currentPermissionIds);
             updatedPermissionIdSet.addAll(permissionIdsToAdd);
@@ -172,12 +165,12 @@ public class BusinessPolicyServiceImpl implements BusinessPolicyService {
         List<String> allConditions = new ArrayList<>();
 
         // 1. 주체(역할) 조건 생성
-        List<Role> roles = roleRepository.findAllById(dto.getRoleIds());
-        String roleCondition = roles.stream()
-                .map(Role::getRoleName)
-                .map(name -> String.format("hasAuthority('%s')", name))
-                .collect(Collectors.joining(" or "));
-        if (StringUtils.hasText(roleCondition)) {
+        if (!CollectionUtils.isEmpty(dto.getRoleIds())) {
+            List<Role> roles = roleRepository.findAllById(dto.getRoleIds());
+            String roleCondition = roles.stream()
+                    .map(Role::getRoleName)
+                    .map(name -> String.format("hasAuthority('%s')", name))
+                    .collect(Collectors.joining(" or "));
             allConditions.add("(" + roleCondition + ")");
         }
 
