@@ -21,6 +21,8 @@ import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -76,39 +78,51 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
      */
     @Override
     public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery) {
-        // 1. RAG 패턴 - Vector DB 에서 관련 정보 검색
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(naturalLanguageQuery)
                 .topK(10)
                 .build();
         List<Document> contextDocs = vectorStore.similaritySearch(searchRequest);
-        String contextInfo = contextDocs.stream()
-                .map(Document::getText)
-                .collect(Collectors.joining("\n---\n"));
+        String contextInfo = contextDocs.stream().map(Document::getText).collect(Collectors.joining("\n---\n"));
 
-        // 2. AI에 전달할 프롬프트 구성 (이전 답변과 동일)
-        String systemPrompt = "당신은 사용자의 자연어 요청을 분석하여, IAM 시스템이 이해할 수 있는 구조화된 BusinessPolicyDto JSON 객체로 변환하는 AI 에이전트입니다...";
-        String userPromptTemplate = "**자연어 요구사항:**\n\"{query}\"\n\n**참고 컨텍스트 (시스템 데이터):**\n{context}\n\n**출력 JSON 형식 (BusinessPolicyDto):**\n{ ... }";
+        String userPrompt = String.format("""
+            **자연어 요구사항:**
+            "%s"
+            
+            **참고 컨텍스트 (시스템 데이터):**
+            %s
+            """, naturalLanguageQuery, contextInfo);
 
-        // 3. ChatClient를 사용하여 AI 모델에 JSON 생성 요청
+        String systemPrompt = """
+            당신은 사용자의 자연어 요구사항을 분석하여, IAM 시스템이 이해할 수 있는 BusinessPolicyDto JSON 객체로 변환하는 AI 에이전트입니다.
+            요청을 분석하여 주체(역할), 리소스(권한), 행위, 그리고 SpEL 형식의 조건 등을 추출해야 합니다.
+            제공된 '참고 컨텍스트'를 최대한 활용하여, '개발팀'과 같은 자연어를 'ROLE_ID'와 같은 시스템 식별자 ID로 변환하여 응답해야 합니다.
+            이름(policyName)과 설명(description) 필드는 자연어 요청을 기반으로 창의적으로 생성해주세요.
+            응답은 반드시 아래 명시된 JSON 형식으로만 제공해야 하며, 다른 어떤 설명도 추가하지 마십시오.
+            **출력 JSON 형식 (BusinessPolicyDto):**
+            {
+              "policyName": "AI가 생성한 정책 이름", "description": "AI가 생성한 정책 설명",
+              "roleIds": [역할 ID 목록], "permissionIds": [권한 ID 목록], "conditional": true,
+              "conditions": { "조건템플릿_ID": ["파라미터1"] }, "aiRiskAssessmentEnabled": false,
+              "requiredTrustScore": 0.7, "customConditionSpel": "", "effect": "ALLOW"
+            }
+            """;
+
+        // [핵심 수정] ChatClient의 올바른 빌더 패턴 사용
         String jsonResponse = chatClient.prompt()
                 .system(systemPrompt)
-                .user(userSpec -> userSpec
-                        .text(userPromptTemplate)
-                        .param("query", naturalLanguageQuery)
-                        .param("context", contextInfo))
-                .call().content();
+                .user(userPrompt)
+                .call()
+                .content();
 
-        // 4. AI 응답을 DTO로 변환하고, UI에 필요한 추가 정보와 함께 반환
         try {
             BusinessPolicyDto policyData = objectMapper.readValue(jsonResponse, BusinessPolicyDto.class);
-
-            // UI 표시에 필요한 이름 정보들을 조회하고 매핑합니다.
             Map<String, String> roleIdToNameMap = getRoleNames(policyData.getRoleIds());
             Map<String, String> permissionIdToNameMap = getPermissionNames(policyData.getPermissionIds());
             Map<String, String> conditionIdToNameMap = getConditionTemplateNames(policyData.getConditions());
 
             return new AiGeneratedPolicyDraftDto(policyData, roleIdToNameMap, permissionIdToNameMap, conditionIdToNameMap);
+
         } catch (Exception e) {
             log.error("AI 정책 생성 또는 파싱에 실패했습니다. AI Response: {}", jsonResponse, e);
             throw new IllegalStateException("AI를 통한 정책 생성에 실패했습니다.", e);
