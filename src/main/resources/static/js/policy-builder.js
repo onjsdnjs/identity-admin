@@ -38,8 +38,7 @@
                     description: this.description,
                     effect: this.effect,
                     roleIds: Array.from(this.roles.keys()).map(Number),
-                    businessResourceIds: Array.from(this.permissions.keys()).map(Number), // 예시: Permission ID를 Resource ID로 매핑
-                    businessActionIds: [], // 현재 UI에서 별도 선택하지 않음
+                    permissionIds: Array.from(this.permissions.keys()).map(Number), // 서버 DTO와 일치하도록 수정
                     conditions: Array.from(this.conditions.entries()).reduce((acc, [key, val]) => {
                         const templateId = key.split(':')[0];
                         acc[templateId] = []; // TODO: 파라미터 수집 로직 추가
@@ -162,7 +161,13 @@
                     }
                     return response.status === 204 ? null : response.json();
                 } catch (error) {
-                    showToast(error.message, 'error');
+                    // showToast가 없는 경우를 대비한 안전한 에러 처리
+                    if (typeof showToast === 'function') {
+                        showToast(error.message, 'error');
+                    } else {
+                        console.error('Error:', error.message);
+                        alert('오류: ' + error.message);
+                    }
                     throw error;
                 }
             }
@@ -343,13 +348,24 @@
 
             async handleGenerateByAI() {
                 const query = this.elements.naturalLanguageInput.value;
-                if (!query.trim()) return showToast('요구사항을 입력해주세요.', 'error');
+                if (!query.trim()) {
+                    if (typeof showToast === 'function') {
+                        showToast('요구사항을 입력해주세요.', 'error');
+                    } else {
+                        alert('요구사항을 입력해주세요.');
+                    }
+                    return;
+                }
 
                 this.ui.setLoading(this.elements.generateByAiBtn, true);
                 try {
                     const dto = await this.api.generatePolicyFromText(query);
                     // TODO: AI DTO 응답으로 UI 상태 및 필드를 채우는 로직 구현
-                    showToast('AI 정책 초안이 생성되었습니다.', 'success');
+                    if (typeof showToast === 'function') {
+                        showToast('AI 정책 초안이 생성되었습니다.', 'success');
+                    } else {
+                        alert('AI 정책 초안이 생성되었습니다.');
+                    }
                 } finally {
                     this.ui.setLoading(this.elements.generateByAiBtn, false);
                 }
@@ -369,14 +385,20 @@
 
             async handleSavePolicy() {
                 const dto = this.state.toDto();
+                console.log('Sending DTO:', dto); // 디버깅용
+
                 if (!dto.policyName) return showToast('정책 이름은 필수입니다.', 'error');
                 if (dto.roleIds.length === 0) return showToast('하나 이상의 역할을 선택해야 합니다.', 'error');
-                if (dto.businessResourceIds.length === 0) return showToast('하나 이상의 권한을 선택해야 합니다.', 'error');
+                if (dto.permissionIds.length === 0) return showToast('하나 이상의 권한을 선택해야 합니다.', 'error');
 
                 this.ui.setLoading(this.elements.savePolicyBtn, true);
                 try {
                     const result = await this.api.savePolicy(dto);
-                    showToast(`정책 "${result.name}"이(가) 성공적으로 생성되었습니다.`, 'success');
+                    if (typeof showToast === 'function') {
+                        showToast(`정책 "${result.name}"이(가) 성공적으로 생성되었습니다.`, 'success');
+                    } else {
+                        alert(`정책 "${result.name}"이(가) 성공적으로 생성되었습니다.`);
+                    }
                     setTimeout(() => window.location.href = '/admin/policies', 1500);
                 } finally {
                     this.ui.setLoading(this.elements.savePolicyBtn, false);
