@@ -839,7 +839,7 @@
                                 </div>
                                 <div>
                                     <label class="modern-label">이러한 권한으로 (WHAT)</label>
-                                    <div id="permissionsCanvas" class="canvas-zone" data-canvas-type="permission">
+                                    <div id="permissions-canvas" class="canvas-zone" data-canvas-type="permission">
                                         <div class="canvas-placeholder">
                                             <i class="fas fa-hand-pointer"></i>
                                             <span>왼쪽에서 권한을 드래그하여 여기에 놓으세요</span>
@@ -848,7 +848,7 @@
                                 </div>
                                 <div>
                                     <label class="modern-label">아래 조건이 만족될 때 (WHEN)</label>
-                                    <div id="conditionsCanvas" class="canvas-zone" data-canvas-type="condition">
+                                    <div id="conditions-canvas" class="canvas-zone" data-canvas-type="condition">
                                         <div class="canvas-placeholder">
                                             <i class="fas fa-hand-pointer"></i>
                                             <span>왼쪽에서 조건을 드래그하여 여기에 놓으세요</span>
@@ -929,12 +929,25 @@
 
                 <div th:insert="~{fragments/footer :: footer}"></div>
                 <script th:src="@{/js/toast.js}"></script>
+                <script th:src="@{/js/toast.js}"></script>
                 <script th:inline="javascript">
-                    const resourceContext = /*[[${resourceContext}]]*/ null;
-                    const preselectedPermission = /*[[${preselectedPermission}]]*/ null;
-                    const allRoles = /*[[${allRoles}]]*/ [];
-                    const allPermissions = /*[[${allPermissions}]]*/ [];
-                    const allConditions = /*[[${allConditions}]]*/ [];
+                    // 전역 변수 설정 (JavaScript 에서 접근 가능하도록)
+                    window.resourceContext = /*[[${resourceContext}]]*/ null;
+                    window.preselectedPermission = /*[[${preselectedPermission}]]*/ null;
+
+                    // 🔥 중요: 모든 데이터를 전역 변수로 설정
+                    window.allRoles = /*[[${allRoles}]]*/ [];
+                    window.allPermissions = /*[[${allPermissions}]]*/ [];
+                    window.allConditions = /*[[${allConditions}]]*/ [];
+
+                    // 디버깅용 로그
+                    console.log('🌟 전역 변수 설정 완료:', {
+                        allRoles: window.allRoles?.length || 0,
+                        allPermissions: window.allPermissions?.length || 0,
+                        allConditions: window.allConditions?.length || 0,
+                        resourceContext: window.resourceContext,
+                        preselectedPermission: window.preselectedPermission
+                    });
                 </script>
                 <script th:src="@{/js/policy-builder.js}"></script>
             </div>

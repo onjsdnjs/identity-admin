@@ -47,7 +47,6 @@ public class ManagedResource {
     @Builder.Default
     private Status status = Status.NEEDS_DEFINITION;
 
-    @JsonIgnore
     @OneToOne(mappedBy = "managedResource", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private Permission permission;
 

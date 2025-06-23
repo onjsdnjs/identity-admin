@@ -1,525 +1,893 @@
 /**
- * [AI-Native 최종 완성본] 지능형 정책 빌더 클라이언트 애플리케이션
- * - 기존 PolicyBuilderApp 클래스 구조를 완벽하게 유지
- * - 모든 이벤트 핸들러(드래그앤드롭, AI 기능, 저장 등)의 상세 로직 포함
- * - 컨텍스트 인지 및 UI 동기화 기능 완성
+ * [완벽한 스트리밍 시스템] 지능형 정책 빌더 클라이언트 애플리케이션
+ * - 개선된 JSON 파싱 및 오류 처리
+ * - 더 강력한 AI 응답 처리 로직
+ * - 향상된 스트리밍 안정성
  */
 
-// 애플리케이션의 모든 로직을 즉시 실행 함수로 감싸 전역 스코프 오염 방지
 (() => {
-    // 페이지 로드 완료 시 스크립트 실행
+    console.log('🌟 policy-builder.js 스크립트 로드됨');
+
     document.addEventListener('DOMContentLoaded', () => {
+        console.log('🌟 DOMContentLoaded 이벤트 발생 - PolicyBuilderApp 초기화 시작');
 
-        // --- 1. 상태 관리 클래스 (AI 관련 필드 추가) ---
-        class PolicyBuilderState {
-            constructor() {
-                this.roles = new Map();
-                this.permissions = new Map();
-                this.conditions = new Map();
-                this.aiRiskAssessmentEnabled = false;
-                this.requiredTrustScore = 0.7;
-                this.customConditionSpel = "";
-            }
-            add(type, key, value) { this.getMap(type)?.set(key, value); }
-            remove(type, key) { this.getMap(type)?.delete(key); }
-            clear(type) { this.getMap(type)?.clear(); }
-            getMap(type) {
-                const map = { role: this.roles, permission: this.permissions, condition: this.conditions }[type];
-                if (!map) throw new Error('유효하지 않은 상태 타입입니다: ' + type);
-                return map;
-            }
-            toDto() {
-                this.policyName = document.getElementById('policyNameInput').value;
-                this.description = document.getElementById('policyDescTextarea').value;
-                this.effect = document.getElementById('policyEffectSelect').value;
-                this.customConditionSpel = document.getElementById('customSpelInput').value.trim();
-                return {
-                    policyName: this.policyName,
-                    description: this.description,
-                    effect: this.effect,
-                    roleIds: Array.from(this.roles.keys()).map(Number),
-                    permissionIds: Array.from(this.permissions.keys()).map(Number), // 서버 DTO와 일치하도록 수정
-                    conditions: Array.from(this.conditions.entries()).reduce((acc, [key, val]) => {
-                        const templateId = key.split(':')[0];
-                        acc[templateId] = []; // TODO: 파라미터 수집 로직 추가
-                        return acc;
-                    }, {}),
-                    aiRiskAssessmentEnabled: this.aiRiskAssessmentEnabled,
-                    requiredTrustScore: this.requiredTrustScore,
-                    customConditionSpel: this.customConditionSpel
-                };
-            }
-        }
-
-        // --- 2. UI 렌더링 클래스 ---
-        class PolicyBuilderUI {
-            constructor(elements) { this.elements = elements; }
-            renderAll(state) {
-                this.renderChipZone('role', state.roles);
-                this.renderChipZone('permission', state.permissions);
-                this.renderChipZone('condition', state.conditions);
-                this.updatePreview(state);
-            }
-            renderChipZone(type, map) {
-                // 올바른 요소 이름 매핑
-                const canvasElId = type + 'sCanvas';
-                const canvasEl = this.elements[canvasElId];
-                const koreanTypeName = { role: '역할', permission: '권한', condition: '조건' }[type];
-
-                console.log(`Rendering ${type} zone (${canvasElId}) with ${map.size} items`); // 디버깅
-                console.log('Canvas element:', canvasEl); // 디버깅
-
-                if (!canvasEl) {
-                    console.error(`Canvas element not found: ${canvasElId}`);
-                    return;
+        try {
+            // --- 1. 상태 관리 클래스 ---
+            class PolicyBuilderState {
+                constructor() {
+                    this.roles = new Map();
+                    this.permissions = new Map();
+                    this.conditions = new Map();
+                    this.aiRiskAssessmentEnabled = false;
+                    this.requiredTrustScore = 0.7;
+                    this.customConditionSpel = "";
                 }
 
-                canvasEl.innerHTML = '';
-                if (map.size === 0) {
-                    canvasEl.innerHTML = `<div class="canvas-placeholder"><i class="fas fa-hand-pointer"></i><span>왼쪽에서 ${koreanTypeName}을(를) 드래그하여 여기에 놓으세요</span></div>`;
-                    return;
+                add(type, key, value) { this.getMap(type)?.set(key, value); }
+                remove(type, key) { this.getMap(type)?.delete(key); }
+                clear(type) { this.getMap(type)?.clear(); }
+
+                getMap(type) {
+                    const map = { role: this.roles, permission: this.permissions, condition: this.conditions }[type];
+                    if (!map) throw new Error('유효하지 않은 상태 타입입니다: ' + type);
+                    return map;
                 }
 
-                map.forEach((value, key) => {
-                    console.log(`Creating chip for ${type}: ${key} - ${value.name}`); // 디버깅
-                    const chip = document.createElement('span');
-                    chip.className = 'policy-chip';
-                    chip.dataset.key = key;
-                    chip.innerHTML = `${value.name} <button class="remove-chip-btn" data-type="${type}" data-key="${key}">&times;</button>`;
-                    canvasEl.appendChild(chip);
-                });
+                toDto() {
+                    const policyNameEl = document.getElementById('policyNameInput');
+                    const policyDescEl = document.getElementById('policyDescTextarea');
+                    const policyEffectEl = document.getElementById('policyEffectSelect');
+                    const customSpelEl = document.getElementById('customSpelInput');
+
+                    return {
+                        policyName: policyNameEl?.value || '',
+                        description: policyDescEl?.value || '',
+                        effect: policyEffectEl?.value || 'ALLOW',
+                        roleIds: Array.from(this.roles.keys()).map(Number),
+                        permissionIds: Array.from(this.permissions.keys()).map(Number),
+                        conditions: Array.from(this.conditions.entries()).reduce((acc, [key, val]) => {
+                            const templateId = key.split(':')[0];
+                            acc[templateId] = [];
+                            return acc;
+                        }, {}),
+                        aiRiskAssessmentEnabled: this.aiRiskAssessmentEnabled,
+                        requiredTrustScore: this.requiredTrustScore,
+                        customConditionSpel: customSpelEl?.value?.trim() || ''
+                    };
+                }
             }
-            updatePreview(state) {
-                const rolesHtml = Array.from(state.roles.values()).map(r => `<span class="policy-chip-preview">${r.name}</span>`).join(' 또는 ') || '<span class="text-gray-400">모든 역할</span>';
-                const permissionsHtml = Array.from(state.permissions.values()).map(p => `<span class="policy-chip-preview">${p.name}</span>`).join(' 그리고 ') || '<span class="text-gray-400">모든 권한</span>';
-                const conditionsHtml = Array.from(state.conditions.values()).map(c => `<span class="policy-chip-preview condition">${c.name}</span>`).join(' 그리고 ');
-                const aiConditionHtml = state.aiRiskAssessmentEnabled ? `<span class="policy-chip-preview ai">AI 신뢰도 ${Math.round(state.requiredTrustScore * 100)}점 이상</span>` : '';
-                let fullConditionHtml = [conditionsHtml, aiConditionHtml].filter(Boolean).join(' 그리고 ');
 
-                const effect = this.elements.policyEffectSelect.value;
-                const effectHtml = `<span class="font-bold ${effect === 'ALLOW' ? 'text-green-400' : 'text-red-400'}">${effect === 'ALLOW' ? '허용' : '거부'}</span>`;
+            // --- 2. UI 렌더링 클래스 ---
+            class PolicyBuilderUI {
+                constructor(elements) {
+                    this.elements = elements;
+                }
 
-                // 더 자세하고 읽기 쉬운 미리보기 생성
-                this.elements.policyPreview.innerHTML = `
-                    <div class="preview-section">
-                        <div class="preview-label">🛡️ 역할 (WHO)</div>
-                        <div>${rolesHtml}</div>
-                    </div>
-                    <div class="preview-section">
-                        <div class="preview-label">🔑 권한 (무엇을)</div>
-                        <div>${permissionsHtml}</div>
-                    </div>
-                    ${fullConditionHtml ? `
-                    <div class="preview-section">
-                        <div class="preview-label">⏰ 조건 (언제)</div>
-                        <div>${fullConditionHtml}</div>
-                    </div>
-                    ` : ''}
-                    <div class="preview-section">
-                        <div class="preview-label">⚡ 결과</div>
-                        <div class="text-lg">${effectHtml}</div>
-                    </div>
-                    <div class="mt-4 p-3 rounded-lg bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/30">
-                        <div class="text-sm text-indigo-300 font-semibold mb-2">📋 정책 요약</div>
-                        <div class="text-indigo-100">
-                            ${Array.from(state.roles.values()).map(s => s.name).join(', ') || '모든 역할'}이 
-                            ${Array.from(state.permissions.values()).map(p => p.name).join(', ') || '모든 리소스'}에 대해 
-                            ${fullConditionHtml ? `${Array.from(state.conditions.values()).map(c => c.name).join(', ')} 조건 하에서` : ''}
-                            <strong>${effect === 'ALLOW' ? '접근이 허용' : '접근이 거부'}</strong>됩니다.
+                renderAll(state) {
+                    this.renderChipZone('role', state.roles);
+                    this.renderChipZone('permission', state.permissions);
+                    this.renderChipZone('condition', state.conditions);
+                    this.updatePreview(state);
+                }
+
+                renderChipZone(type, map) {
+                    const canvasElId = type + 'sCanvas';
+                    const canvasEl = this.elements[canvasElId];
+                    const koreanTypeName = { role: '역할', permission: '권한', condition: '조건' }[type];
+
+                    if (!canvasEl) {
+                        console.error(`Canvas element not found: ${canvasElId}`);
+                        return;
+                    }
+
+                    canvasEl.innerHTML = '';
+                    if (map.size === 0) {
+                        canvasEl.innerHTML = `<div class="canvas-placeholder"><i class="fas fa-hand-pointer"></i><span>왼쪽에서 ${koreanTypeName}을(를) 드래그하여 여기에 놓으세요</span></div>`;
+                        return;
+                    }
+
+                    map.forEach((value, key) => {
+                        const chip = document.createElement('span');
+                        chip.className = 'policy-chip';
+                        chip.dataset.key = key;
+                        chip.innerHTML = `${value.name} <button class="remove-chip-btn" data-type="${type}" data-key="${key}">&times;</button>`;
+                        canvasEl.appendChild(chip);
+                    });
+                }
+
+                updatePreview(state) {
+                    if (!this.elements.policyPreview) return;
+
+                    const rolesHtml = Array.from(state.roles.values()).map(r => `<span class="policy-chip-preview">${r.name}</span>`).join(' 또는 ') || '<span class="text-gray-400">모든 역할</span>';
+                    const permissionsHtml = Array.from(state.permissions.values()).map(p => `<span class="policy-chip-preview">${p.name}</span>`).join(' 그리고 ') || '<span class="text-gray-400">모든 권한</span>';
+                    const conditionsHtml = Array.from(state.conditions.values()).map(c => `<span class="policy-chip-preview condition">${c.name}</span>`).join(' 그리고 ');
+                    const aiConditionHtml = state.aiRiskAssessmentEnabled ? `<span class="policy-chip-preview ai">AI 신뢰도 ${Math.round(state.requiredTrustScore * 100)}점 이상</span>` : '';
+                    let fullConditionHtml = [conditionsHtml, aiConditionHtml].filter(Boolean).join(' 그리고 ');
+
+                    const effect = this.elements.policyEffectSelect?.value || 'ALLOW';
+                    const effectHtml = `<span class="font-bold ${effect === 'ALLOW' ? 'text-green-400' : 'text-red-400'}">${effect === 'ALLOW' ? '허용' : '거부'}</span>`;
+
+                    this.elements.policyPreview.innerHTML = `
+                        <div class="preview-section">
+                            <div class="preview-label">🛡️ 역할 (WHO)</div>
+                            <div>${rolesHtml}</div>
                         </div>
-                    </div>
-                `;
-            }
-            setLoading(button, isLoading) {
-                if (!button) return;
-                const originalHtml = button.dataset.originalHtml || button.innerHTML;
-                if (isLoading) {
-                    if (!button.dataset.originalHtml) button.dataset.originalHtml = originalHtml;
-                    button.disabled = true;
-                    button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 처리 중...';
-                } else {
-                    button.disabled = false;
-                    button.innerHTML = button.dataset.originalHtml || originalHtml;
-                    delete button.dataset.originalHtml;
+                        <div class="preview-section">
+                            <div class="preview-label">🔑 권한 (무엇을)</div>
+                            <div>${permissionsHtml}</div>
+                        </div>
+                        ${fullConditionHtml ? `
+                        <div class="preview-section">
+                            <div class="preview-label">⏰ 조건 (언제)</div>
+                            <div>${fullConditionHtml}</div>
+                        </div>
+                        ` : ''}
+                        <div class="preview-section">
+                            <div class="preview-label">⚡ 결과</div>
+                            <div class="text-lg">${effectHtml}</div>
+                        </div>
+                        <div class="mt-4 p-3 rounded-lg bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/30">
+                            <div class="text-sm text-indigo-300 font-semibold mb-2">📋 정책 요약</div>
+                            <div class="text-indigo-100">
+                                ${Array.from(state.roles.values()).map(s => s.name).join(', ') || '모든 역할'}이 
+                                ${Array.from(state.permissions.values()).map(p => p.name).join(', ') || '모든 리소스'}에 대해 
+                                ${fullConditionHtml ? `${Array.from(state.conditions.values()).map(c => c.name).join(', ')} 조건 하에서` : ''}
+                                <strong>${effect === 'ALLOW' ? '접근이 허용' : '접근이 거부'}</strong>됩니다.
+                            </div>
+                        </div>
+                    `;
                 }
-            }
-        }
 
-        // --- 3. API 통신 클래스 ---
-        class PolicyBuilderAPI {
-            constructor() {
-                this.csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
-                this.csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
-            }
-            async fetchApi(url, options = {}) {
-                const headers = { 'Content-Type': 'application/json', [this.csrfHeader]: this.csrfToken, ...options.headers };
-                try {
-                    const response = await fetch(url, { ...options, headers });
-                    if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({ message: `서버 오류 (${response.status})` }));
-                        throw new Error(errorData.message);
-                    }
-                    return response.status === 204 ? null : response.json();
-                } catch (error) {
-                    // showToast가 없는 경우를 대비한 안전한 에러 처리
-                    if (typeof showToast === 'function') {
-                        showToast(error.message, 'error');
+                setLoading(button, isLoading) {
+                    if (!button) return;
+                    const originalHtml = button.dataset.originalHtml || button.innerHTML;
+                    if (isLoading) {
+                        if (!button.dataset.originalHtml) button.dataset.originalHtml = originalHtml;
+                        button.disabled = true;
+                        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> 처리 중...';
                     } else {
-                        console.error('Error:', error.message);
-                        alert('오류: ' + error.message);
+                        button.disabled = false;
+                        button.innerHTML = button.dataset.originalHtml || originalHtml;
+                        delete button.dataset.originalHtml;
                     }
-                    throw error;
                 }
             }
-            savePolicy(dto) { return this.fetchApi('/api/policies/build-from-business-rule', { method: 'POST', body: JSON.stringify(dto) }); }
-            async generatePolicyFromText(query) { return this.fetchApi('/api/ai/policies/generate-from-text', { method: 'POST', body: JSON.stringify({ naturalLanguageQuery: query }) }); }
-            async generatePolicyFromTextStream(query) { return this.fetchApi('/api/ai/policies/generate-from-text/stream', { method: 'POST', headers: { 'Content-Type': 'application/json', [this.csrfHeader]: this.csrfToken }, body: JSON.stringify({ naturalLanguageQuery: query }) }); }
-        }
 
-        // --- 4. 메인 애플리케이션 클래스 ---
-        class PolicyBuilderApp {
-            constructor() {
-                this.state = new PolicyBuilderState();
-                this.elements = this.queryDOMElements();
-                this.ui = new PolicyBuilderUI(this.elements);
-                this.api = new PolicyBuilderAPI();
-                this.init();
-            }
-
-            queryDOMElements() {
-                const elements = {};
-                const idMapping = {
-                    // AI 기능 UI
-                    naturalLanguageInput: 'naturalLanguageInput',
-                    generateByAiBtn: 'generateByAiBtn',
-                    thoughtProcessContainer: 'ai-thought-process-container',
-                    thoughtProcessLog: 'ai-thought-process',
-                    aiEnabledCheckbox: 'aiEnabledCheckbox',
-                    trustScoreContainer: 'trustScoreContainer',
-                    trustScoreSlider: 'trustScoreSlider',
-                    trustScoreValueSpan: 'trustScoreValueSpan',
-                    customSpelInput: 'customSpelInput',
-                    // 팔레트
-                    rolesPalette: 'roles-palette',
-                    permissionsPalette: 'permissionsPalette',
-                    conditionsPalette: 'conditionsPalette',
-                    // 캔버스
-                    rolesCanvas: 'roles-canvas',
-                    permissionsCanvas: 'permissionsCanvas',
-                    conditionsCanvas: 'conditionsCanvas',
-                    // 속성 및 저장
-                    policyNameInput: 'policyNameInput',
-                    policyDescTextarea: 'policyDescTextarea',
-                    policyEffectSelect: 'policyEffectSelect',
-                    savePolicyBtn: 'savePolicyBtn',
-                    policyPreview: 'policyPreview'
-                };
-
-                for (const [jsKey, htmlId] of Object.entries(idMapping)) {
-                    elements[jsKey] = document.getElementById(htmlId);
+            // --- 3. API 통신 클래스 ---
+            class PolicyBuilderAPI {
+                constructor() {
+                    this.csrfToken = document.querySelector('meta[name="_csrf"]')?.content;
+                    this.csrfHeader = document.querySelector('meta[name="_csrf_header"]')?.content;
                 }
-                return elements;
-            }
 
-            init() {
-                if (!this.elements.savePolicyBtn) {
-                    console.error("정책 빌더의 필수 UI 요소(저장 버튼)를 찾을 수 없습니다.");
-                    return;
+                async fetchApi(url, options = {}) {
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        ...(this.csrfToken && this.csrfHeader ? { [this.csrfHeader]: this.csrfToken } : {}),
+                        ...options.headers
+                    };
+                    try {
+                        const response = await fetch(url, { ...options, headers });
+                        if (!response.ok) {
+                            const errorData = await response.json().catch(() => ({ message: `서버 오류 (${response.status})` }));
+                            throw new Error(errorData.message);
+                        }
+                        return response.status === 204 ? null : response.json();
+                    } catch (error) {
+                        if (typeof showToast === 'function') {
+                            showToast(error.message, 'error');
+                        } else {
+                            console.error('Error:', error.message);
+                        }
+                        throw error;
+                    }
                 }
-                this.bindEventListeners();
-                this.initializeFromContext();
-                this.ui.renderAll(this.state);
+
+                savePolicy(dto) {
+                    return this.fetchApi('/api/policies/build-from-business-rule', {
+                        method: 'POST',
+                        body: JSON.stringify(dto)
+                    });
+                }
+
+                async generatePolicyFromText(query) {
+                    return this.fetchApi('/api/ai/policies/generate-from-text', {
+                        method: 'POST',
+                        body: JSON.stringify({ naturalLanguageQuery: query })
+                    });
+                }
+
+                async generatePolicyFromTextStream(query) {
+                    const headers = {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream',
+                        'Cache-Control': 'no-cache'
+                    };
+
+                    if (this.csrfToken && this.csrfHeader) {
+                        headers[this.csrfHeader] = this.csrfToken;
+                    }
+
+                    return fetch('/api/ai/policies/generate-from-text/stream', {
+                        method: 'POST',
+                        headers: headers,
+                        body: JSON.stringify({ naturalLanguageQuery: query })
+                    });
+                }
             }
 
-            bindEventListeners() {
-                this.elements.generateByAiBtn?.addEventListener('click', () => this.handleGenerateByAI());
-                this.elements.aiEnabledCheckbox?.addEventListener('change', () => this.handleAiToggle());
-                this.elements.trustScoreSlider?.addEventListener('input', () => this.handleTrustSlider());
-                this.elements.savePolicyBtn.addEventListener('click', () => this.handleSavePolicy());
-                this.elements.policyEffectSelect.addEventListener('change', () => this.ui.updatePreview(this.state));
+            // --- 4. 메인 애플리케이션 클래스 ---
+            class PolicyBuilderApp {
+                constructor() {
+                    this.state = new PolicyBuilderState();
+                    this.elements = this.queryDOMElements();
+                    this.ui = new PolicyBuilderUI(this.elements);
+                    this.api = new PolicyBuilderAPI();
+                    this.init();
+                }
 
-                // 드래그 앤 드롭 리스너 등록
-                ['rolesPalette', 'permissionsPalette', 'conditionsPalette'].forEach(id => {
-                    const element = this.elements[id];
-                    if (element) {
-                        element.addEventListener('dragstart', this.handleDragStart.bind(this));
-                        console.log(`Dragstart listener added to ${id}`);
+                queryDOMElements() {
+                    const elements = {};
+                    const idMapping = {
+                        // AI 기능 UI
+                        naturalLanguageInput: 'naturalLanguageInput',
+                        generateByAiBtn: 'generateByAiBtn',
+                        thoughtProcessContainer: 'ai-thought-process-container',
+                        thoughtProcessLog: 'ai-thought-process',
+                        aiEnabledCheckbox: 'aiEnabledCheckbox',
+                        trustScoreContainer: 'trustScoreContainer',
+                        trustScoreSlider: 'trustScoreSlider',
+                        trustScoreValueSpan: 'trustScoreValueSpan',
+                        customSpelInput: 'customSpelInput',
+                        // 팔레트
+                        rolesPalette: 'roles-palette',
+                        permissionsPalette: 'permissionsPalette',
+                        conditionsPalette: 'conditionsPalette',
+                        // 캔버스
+                        rolesCanvas: 'roles-canvas',
+                        permissionsCanvas: 'permissions-canvas',
+                        conditionsCanvas: 'conditions-canvas',
+                        // 속성 및 저장
+                        policyNameInput: 'policyNameInput',
+                        policyDescTextarea: 'policyDescTextarea',
+                        policyEffectSelect: 'policyEffectSelect',
+                        savePolicyBtn: 'savePolicyBtn',
+                        policyPreview: 'policyPreview'
+                    };
+
+                    for (const [jsKey, htmlId] of Object.entries(idMapping)) {
+                        elements[jsKey] = document.getElementById(htmlId);
+                        if (!elements[jsKey]) {
+                            console.warn(`Element not found: ${htmlId} (mapped to ${jsKey})`);
+                        }
+                    }
+                    return elements;
+                }
+
+                init() {
+                    console.log('=== PolicyBuilderApp init 시작 ===');
+
+                    // 전역 변수 확인
+                    console.log('🔥 전역 변수 확인:', {
+                        allRoles: window.allRoles?.length || 0,
+                        allPermissions: window.allPermissions?.length || 0,
+                        allConditions: window.allConditions?.length || 0,
+                        resourceContext: window.resourceContext,
+                        preselectedPermission: window.preselectedPermission
+                    });
+
+                    if (!this.elements.savePolicyBtn) {
+                        console.error("❌ 정책 빌더의 필수 UI 요소(저장 버튼)를 찾을 수 없습니다.");
+                        return;
+                    }
+
+                    this.bindEventListeners();
+                    this.initializeFromContext();
+                    this.ui.renderAll(this.state);
+
+                    console.log('=== PolicyBuilderApp init 완료 ===');
+                }
+
+                bindEventListeners() {
+                    // AI 기능 이벤트 리스너
+                    if (this.elements.generateByAiBtn) {
+                        this.elements.generateByAiBtn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            this.handleGenerateByAI();
+                        });
+                        console.log('✅ AI 생성 버튼 이벤트 리스너 추가 완료');
                     } else {
-                        console.error(`Palette element not found: ${id}`);
+                        console.error('❌ generateByAiBtn element not found');
                     }
-                });
 
-                ['rolesCanvas', 'permissionsCanvas', 'conditionsCanvas'].forEach(id => {
-                    const canvas = this.elements[id];
-                    if (canvas) {
-                        // 올바른 타입 매핑
-                        let type;
-                        if (id === 'rolesCanvas') type = 'role';
-                        else if (id === 'permissionsCanvas') type = 'permission';
-                        else if (id === 'conditionsCanvas') type = 'condition';
-
-                        canvas.addEventListener('drop', (e) => this.handleDrop(e, type));
-                        canvas.addEventListener('dragover', this.allowDrop.bind(this));
-                        canvas.addEventListener('dragleave', this.handleDragLeave.bind(this));
-                        console.log(`Drop listeners added to ${id} (type: ${type})`);
-                    } else {
-                        console.error(`Canvas element not found: ${id}`);
+                    if (this.elements.aiEnabledCheckbox) {
+                        this.elements.aiEnabledCheckbox.addEventListener('change', () => this.handleAiToggle());
                     }
-                });
-                // 칩 제거 리스너 등록 (이벤트 위임) - 전체 문서에서 감지
-                document.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('remove-chip-btn')) {
-                        this.handleChipRemove(e.target.dataset.type, e.target.dataset.key);
+
+                    if (this.elements.trustScoreSlider) {
+                        this.elements.trustScoreSlider.addEventListener('input', () => this.handleTrustSlider());
                     }
-                });
-            }
 
-            // --- 이벤트 핸들러 메서드 구현 ---
+                    if (this.elements.savePolicyBtn) {
+                        this.elements.savePolicyBtn.addEventListener('click', () => this.handleSavePolicy());
+                    }
 
-            handleDragStart(e) {
-                const item = e.target.closest('.palette-item');
-                console.log('Drag start on item:', item); // 디버깅
+                    if (this.elements.policyEffectSelect) {
+                        this.elements.policyEffectSelect.addEventListener('change', () => this.ui.updatePreview(this.state));
+                    }
 
-                if (item?.classList.contains('disabled')) {
-                    console.log('Item is disabled, preventing drag'); // 디버깅
+                    // 드래그 앤 드롭 리스너 등록
+                    ['rolesPalette', 'permissionsPalette', 'conditionsPalette'].forEach(jsKey => {
+                        const element = this.elements[jsKey];
+                        if (element) {
+                            element.addEventListener('dragstart', this.handleDragStart.bind(this));
+                        }
+                    });
+
+                    ['rolesCanvas', 'permissionsCanvas', 'conditionsCanvas'].forEach(jsKey => {
+                        const canvas = this.elements[jsKey];
+                        if (canvas) {
+                            let type;
+                            if (jsKey === 'rolesCanvas') type = 'role';
+                            else if (jsKey === 'permissionsCanvas') type = 'permission';
+                            else if (jsKey === 'conditionsCanvas') type = 'condition';
+
+                            canvas.addEventListener('drop', (e) => this.handleDrop(e, type));
+                            canvas.addEventListener('dragover', this.allowDrop.bind(this));
+                            canvas.addEventListener('dragleave', this.handleDragLeave.bind(this));
+                        }
+                    });
+
+                    // 칩 제거 리스너
+                    document.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('remove-chip-btn')) {
+                            this.handleChipRemove(e.target.dataset.type, e.target.dataset.key);
+                        }
+                    });
+                }
+
+                // 드래그 앤 드롭 이벤트 핸들러
+                handleDragStart(e) {
+                    const item = e.target.closest('.palette-item');
+                    if (item?.classList.contains('disabled')) {
+                        e.preventDefault();
+                        return;
+                    }
+                    if (item) {
+                        const info = item.dataset.info;
+                        const type = item.dataset.type;
+                        e.dataTransfer.setData("text/plain", info);
+                        e.dataTransfer.setData("element-type", type);
+                    }
+                }
+
+                allowDrop(e) {
                     e.preventDefault();
-                    return;
-                }
-                if (item) {
-                    const info = item.dataset.info;
-                    const type = item.dataset.type;
-                    console.log(`Drag start: info=${info}, type=${type}`); // 디버깅
-
-                    e.dataTransfer.setData("text/plain", info);
-                    e.dataTransfer.setData("element-type", type);
-                } else {
-                    console.log('No palette item found'); // 디버깅
-                }
-            }
-
-            allowDrop(e) {
-                e.preventDefault();
-                e.currentTarget.classList.add('drag-over');
-            }
-
-            handleDragLeave(e) {
-                e.currentTarget.classList.remove('drag-over');
-            }
-
-            handleDrop(e, type) {
-                e.preventDefault();
-                e.currentTarget.classList.remove('drag-over');
-                const elementType = e.dataTransfer.getData("element-type");
-
-                console.log(`Drop event: ${elementType} -> ${type}`); // 디버깅
-
-                if (elementType !== type) {
-                    console.log('Type mismatch, ignoring drop'); // 디버깅
-                    return;
+                    e.currentTarget.classList.add('drag-over');
                 }
 
-                const info = e.dataTransfer.getData("text/plain");
-                console.log(`Drop data: ${info}`); // 디버깅
-
-                const [id, ...nameParts] = info.split(':');
-                const name = nameParts.join(':');
-                const key = id;
-
-                console.log(`Adding to state: type=${type}, key=${key}, name=${name}`); // 디버깅
-
-                this.state.add(type, key, { id, name });
-
-                console.log(`State after add:`, this.state.getMap(type)); // 디버깅
-
-                this.ui.renderAll(this.state);
-            }
-
-            handleChipRemove(type, key) {
-                this.state.remove(type, key);
-                this.ui.renderAll(this.state);
-            }
-
-            /**
-             * [최종 구현] 'AI로 정책 생성' 버튼 클릭 시, 스트리밍 응답을 처리합니다.
-             */
-            async handleGenerateByAI() {
-                const query = this.elements.naturalLanguageInput.value;
-                if (!query.trim()) return showToast('요구사항을 입력해주세요.', 'error');
-
-                this.ui.setLoading(this.elements.generateByAiBtn, true);
-                const thoughtContainer = this.elements.thoughtProcessContainer;
-                const thoughtLog = this.elements.thoughtProcessLog;
-                if (thoughtContainer && thoughtLog) {
-                    thoughtLog.textContent = '';
-                    thoughtContainer.classList.remove('hidden');
+                handleDragLeave(e) {
+                    e.currentTarget.classList.remove('drag-over');
                 }
 
-                let fullResponseText = '';
-                try {
+                handleDrop(e, type) {
+                    e.preventDefault();
+                    e.currentTarget.classList.remove('drag-over');
+                    const elementType = e.dataTransfer.getData("element-type");
+
+                    if (elementType !== type) return;
+
+                    const info = e.dataTransfer.getData("text/plain");
+                    const [id, ...nameParts] = info.split(':');
+                    const name = nameParts.join(':');
+
+                    this.state.add(type, id, { id, name });
+                    this.ui.renderAll(this.state);
+                }
+
+                handleChipRemove(type, key) {
+                    this.state.remove(type, key);
+                    this.ui.renderAll(this.state);
+                }
+
+                // 🔥 개선된 스트리밍 AI 처리
+                async handleGenerateByAI() {
+                    console.log('🚀 AI 정책 생성 시작');
+
+                    const query = this.elements.naturalLanguageInput?.value;
+                    if (!query || !query.trim()) {
+                        this.showMessage('요구사항을 입력해주세요.', 'error');
+                        return;
+                    }
+
+                    this.ui.setLoading(this.elements.generateByAiBtn, true);
+                    const thoughtContainer = this.elements.thoughtProcessContainer;
+                    const thoughtLog = this.elements.thoughtProcessLog;
+
+                    if (thoughtContainer && thoughtLog) {
+                        thoughtLog.textContent = '';
+                        thoughtContainer.classList.remove('hidden');
+                    }
+
+                    try {
+                        // 스트리밍 API 시도
+                        await this.tryStreamingAPI(query, thoughtLog);
+                    } catch (streamError) {
+                        console.warn('🔥 스트리밍 실패, fallback 시도:', streamError);
+                        try {
+                            // Fallback to 일반 API
+                            await this.tryRegularAPI(query, thoughtLog);
+                        } catch (fallbackError) {
+                            console.error('🔥 모든 API 실패:', fallbackError);
+                            this.showMessage('AI 정책 생성에 실패했습니다: ' + fallbackError.message, 'error');
+                        }
+                    } finally {
+                        this.ui.setLoading(this.elements.generateByAiBtn, false);
+                        if (thoughtContainer) {
+                            setTimeout(() => thoughtContainer.classList.add('hidden'), 5000);
+                        }
+                    }
+                }
+
+                async tryStreamingAPI(query, thoughtLog) {
+                    console.log('🔥 스트리밍 API 시도...');
+
                     const response = await this.api.generatePolicyFromTextStream(query);
-                    if (!response.ok) throw new Error('AI 서비스 연결에 실패했습니다.');
+
+                    if (!response.ok) {
+                        throw new Error(`스트리밍 API 오류: ${response.status}`);
+                    }
+
+                    if (!response.body) {
+                        throw new Error('응답 본문이 없습니다');
+                    }
+
+                    let fullResponse = '';
+                    let buffer = '';
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder();
-                    let buffer = '';
+
+                    console.log('🔥 스트림 읽기 시작');
+
                     while (true) {
                         const { value, done } = await reader.read();
                         if (done) break;
-                        buffer += decoder.decode(value, { stream: true });
-                        let boundary = buffer.indexOf('\n\n');
-                        while (boundary > -1) {
-                            const message = buffer.substring(0, boundary);
-                            buffer = buffer.substring(boundary + 2);
-                            if (message.startsWith('data: ')) {
-                                const chunk = message.substring(6);
-                                fullResponseText += chunk;
-                                if (thoughtLog) {
-                                    thoughtLog.textContent += chunk;
-                                    thoughtLog.scrollTop = thoughtLog.scrollHeight;
+
+                        const chunk = decoder.decode(value, { stream: true });
+                        buffer += chunk;
+
+                        // 완전한 라인들을 처리
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || ''; // 마지막 불완전한 라인은 버퍼에 보관
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const data = line.substring(6).trim();
+                                if (data && data !== '[DONE]') {
+                                    // ERROR 체크
+                                    if (data.startsWith('ERROR:')) {
+                                        throw new Error(data.substring(6).trim());
+                                    }
+
+                                    fullResponse += data;
+                                    if (thoughtLog) {
+                                        thoughtLog.textContent += data;
+                                        thoughtLog.scrollTop = thoughtLog.scrollHeight;
+                                    }
                                 }
                             }
-                            boundary = buffer.indexOf('\n\n');
                         }
                     }
-                    this.processFinalAiResponse(fullResponseText);
-                } catch (error) {
-                    showToast(error.message, 'error');
-                } finally {
-                    this.ui.setLoading(this.elements.generateByAiBtn, false);
-                    if (thoughtContainer) setTimeout(() => thoughtContainer.classList.add('hidden'), 5000);
-                }
-            }
 
-            /**
-             * [신규] 스트리밍 완료 후 전체 텍스트에서 JSON을 추출하고 UI를 채웁니다.
-             */
-            processFinalAiResponse(fullText) {
-                const jsonMatch = fullText.match(/<<JSON_START>>([\s\S]*?)<<JSON_END>>/);
-                if (jsonMatch && jsonMatch[1]) {
-                    try {
-                        const draftDto = JSON.parse(jsonMatch[1]);
-                        this.populateBuilderWithAIData(draftDto);
-                        showToast('AI 정책 초안이 생성되었습니다.', 'success');
-                    } catch (e) { showToast('AI가 반환한 JSON 파싱 실패', 'error'); console.error(e); }
-                } else { showToast('AI가 정책 초안을 완성하지 못했습니다.', 'error'); }
-            }
+                    console.log('🔥 스트리밍 완료, 응답 길이:', fullResponse.length);
+                    console.log('🔥 전체 응답 미리보기:', fullResponse.substring(0, 200) + '...');
 
-            /**
-             * [구현 완료] AI가 생성한 DTO 데이터로 빌더 UI 전체를 채웁니다.
-             * @param {object} draftDto - AiGeneratedPolicyDraftDto
-             */
-            populateBuilderWithAIData(draftDto) {
-                if (!draftDto || !draftDto.policyData) {
-                    showToast('AI가 정책 초안을 생성하지 못했습니다. 더 명확한 언어로 요청해보세요.', 'error');
-                    return;
+                    // JSON 파싱 및 처리
+                    this.processAIResponse(fullResponse);
                 }
 
-                const data = draftDto.policyData;
-                const maps = {
-                    roles: draftDto.roleIdToNameMap || {},
-                    permissions: draftDto.permissionIdToNameMap || {},
-                    conditions: draftDto.conditionIdToNameMap || {}
-                };
+                async tryRegularAPI(query, thoughtLog) {
+                    console.log('🔥 일반 API 시도...');
 
-                // 1. 모든 캔버스와 상태를 깨끗하게 초기화
-                ['role', 'permission', 'condition'].forEach(type => this.state.clear(type));
-
-                // 2. 기본 속성 필드 채우기
-                this.elements.policyNameInput.value = data.policyName || '';
-                this.elements.policyDescTextarea.value = data.description || '';
-                this.elements.policyEffectSelect.value = data.effect || 'ALLOW';
-
-                // 3. 역할, 권한, 조건 캔버스 채우기
-                // AI가 반환한 ID 목록을 기반으로, 함께 전달된 이름 매핑 정보를 사용하여 칩을 생성합니다.
-                data.roleIds?.forEach(id => {
-                    const name = maps.roles[id] || `알 수 없는 역할 (ID: ${id})`;
-                    this.state.add('role', String(id), { id, name });
-                });
-
-                data.permissionIds?.forEach(id => {
-                    const name = maps.permissions[id] || `알 수 없는 권한 (ID: ${id})`;
-                    this.state.add('permission', String(id), { id, name });
-                });
-
-                if (data.conditions) {
-                    Object.keys(data.conditions).forEach(id => {
-                        const name = maps.conditions[id] || `알 수 없는 조건 (ID: ${id})`;
-                        const params = data.conditions[id];
-                        this.state.add('condition', String(id), { id, name, params });
-                    });
-                }
-
-                // 4. AI 및 전문가용 설정 필드 채우기
-                this.state.aiRiskAssessmentEnabled = data.aiRiskAssessmentEnabled || false;
-                this.elements.aiEnabledCheckbox.checked = this.state.aiRiskAssessmentEnabled;
-
-                this.state.requiredTrustScore = data.requiredTrustScore || 0.7;
-                this.elements.trustScoreSlider.value = this.state.requiredTrustScore * 100;
-                this.elements.trustScoreValueSpan.textContent = this.elements.trustScoreSlider.value;
-                this.elements.trustScoreContainer.classList.toggle('hidden', !this.state.aiRiskAssessmentEnabled);
-
-                this.state.customConditionSpel = data.customConditionSpel || '';
-                this.elements.customSpelInput.value = this.state.customConditionSpel;
-
-                // 5. 변경된 전체 상태를 기반으로 UI를 한번에 다시 렌더링
-                this.handleAiToggle(); // 슬라이더 표시 여부 업데이트
-                this.ui.renderAll(this.state);
-            }
-
-            handleAiToggle() {
-                this.state.aiRiskAssessmentEnabled = this.elements.aiEnabledCheckbox.checked;
-                this.elements.trustScoreContainer.classList.toggle('hidden', !this.state.aiRiskAssessmentEnabled);
-                this.ui.updatePreview(this.state);
-            }
-
-            handleTrustSlider() {
-                this.state.requiredTrustScore = this.elements.trustScoreSlider.value / 100.0;
-                this.elements.trustScoreValueSpan.textContent = this.elements.trustScoreSlider.value;
-                this.ui.updatePreview(this.state);
-            }
-
-            async handleSavePolicy() {
-                const dto = this.state.toDto();
-                console.log('Sending DTO:', dto); // 디버깅용
-
-                if (!dto.policyName) return showToast('정책 이름은 필수입니다.', 'error');
-                if (dto.roleIds.length === 0) return showToast('하나 이상의 역할을 선택해야 합니다.', 'error');
-                if (dto.permissionIds.length === 0) return showToast('하나 이상의 권한을 선택해야 합니다.', 'error');
-
-                this.ui.setLoading(this.elements.savePolicyBtn, true);
-                try {
-                    const result = await this.api.savePolicy(dto);
-                    if (typeof showToast === 'function') {
-                        showToast(`정책 "${result.name}"이(가) 성공적으로 생성되었습니다.`, 'success');
-                    } else {
-                        alert(`정책 "${result.name}"이(가) 성공적으로 생성되었습니다.`);
+                    if (thoughtLog) {
+                        thoughtLog.textContent = 'AI가 정책을 분석하고 있습니다...';
                     }
-                    setTimeout(() => window.location.href = '/admin/policies', 1500);
-                } finally {
-                    this.ui.setLoading(this.elements.savePolicyBtn, false);
-                }
-            }
 
-            initializeFromContext() {
-                if (window.resourceContext?.availableVariables) {
-                    const availableVars = new Set(window.resourceContext.availableVariables);
-                    this.elements.conditionsPalette.querySelectorAll('.palette-item').forEach(item => {
-                        const requiredVars = item.dataset.requiredVariables?.split(',').filter(v => v);
-                        if (requiredVars?.length > 0) {
-                            const isCompatible = requiredVars.every(v => availableVars.has(v.trim()));
-                            if (!isCompatible) {
-                                item.classList.add('disabled');
-                                item.title = '현재 리소스 컨텍스트에서는 사용할 수 없는 조건입니다.';
+                    const response = await this.api.generatePolicyFromText(query);
+
+                    if (response && response.policyData) {
+                        this.populateBuilderWithAIData(response);
+                        this.showMessage('AI 정책 초안이 성공적으로 생성되었습니다!', 'success');
+                    } else {
+                        throw new Error('유효한 정책 데이터를 받지 못했습니다');
+                    }
+                }
+
+                processAIResponse(fullText) {
+                    console.log('🔥 AI 응답 처리 시작');
+                    console.log('🔥 전체 텍스트 길이:', fullText.length);
+                    console.log('🔥 첫 300자:', fullText.substring(0, 300));
+
+                    // 1. 명확한 JSON 마커로 추출 시도
+                    const jsonStartMarker = '<<<JSON_START>>>';
+                    const jsonEndMarker = '<<<JSON_END>>>';
+
+                    const startIndex = fullText.indexOf(jsonStartMarker);
+                    const endIndex = fullText.indexOf(jsonEndMarker);
+
+                    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                        const jsonText = fullText.substring(startIndex + jsonStartMarker.length, endIndex).trim();
+                        console.log('🔥 마커로 추출된 JSON:', jsonText);
+
+                        try {
+                            const jsonData = JSON.parse(jsonText);
+                            console.log('🔥 파싱 성공:', jsonData);
+                            this.handleParsedAIData(jsonData);
+                            return;
+                        } catch (e) {
+                            console.warn('🔥 마커 JSON 파싱 실패:', e);
+                        }
+                    }
+
+                    // 2. 마크다운 코드 블록 제거 및 JSON 추출
+                    const markdownPatterns = [
+                        /```json\s*([\s\S]*?)\s*```/i,
+                        /```\s*([\s\S]*?)\s*```/i
+                    ];
+
+                    for (const pattern of markdownPatterns) {
+                        const match = fullText.match(pattern);
+                        if (match && match[1]) {
+                            try {
+                                const jsonText = match[1].trim();
+                                console.log('🔥 마크다운에서 추출된 JSON:', jsonText);
+
+                                const jsonData = JSON.parse(jsonText);
+                                if (jsonData.policyName || jsonData.roleIds || jsonData.permissionIds) {
+                                    console.log('🔥 유효한 정책 데이터 발견:', jsonData);
+                                    this.handleParsedAIData(jsonData);
+                                    return;
+                                }
+                            } catch (parseError) {
+                                console.warn('🔥 마크다운 JSON 파싱 실패:', parseError);
                             }
                         }
+                    }
+
+                    // 3. 일반 JSON 객체 찾기
+                    const jsonPatterns = [
+                        /\{[\s\S]*?"policyName"[\s\S]*?\}/,
+                        /\{[\s\S]*?"roleIds"[\s\S]*?\}/
+                    ];
+
+                    for (const pattern of jsonPatterns) {
+                        const match = fullText.match(pattern);
+                        if (match) {
+                            try {
+                                const cleanJson = this.cleanJsonString(match[0]);
+                                console.log('🔥 패턴으로 찾은 JSON:', cleanJson);
+
+                                const jsonData = JSON.parse(cleanJson);
+                                if (jsonData.policyName || jsonData.roleIds || jsonData.permissionIds) {
+                                    console.log('🔥 유효한 정책 데이터 발견:', jsonData);
+                                    this.handleParsedAIData(jsonData);
+                                    return;
+                                }
+                            } catch (parseError) {
+                                console.warn('🔥 패턴 JSON 파싱 실패:', parseError);
+                            }
+                        }
+                    }
+
+                    // 4. 최후의 수단: 텍스트에서 정보 추출
+                    console.log('🔥 텍스트 분석으로 정보 추출 시도');
+                    const extractedData = this.extractDataFromText(fullText);
+                    if (extractedData) {
+                        this.handleParsedAIData(extractedData);
+                        return;
+                    }
+
+                    throw new Error('AI 응답에서 유효한 정책 데이터를 찾을 수 없습니다');
+                }
+
+                extractDataFromText(text) {
+                    console.log('🔥 텍스트에서 데이터 추출 시도');
+
+                    // 텍스트에서 기본적인 정보 추출
+                    const extractedData = {
+                        policyName: "AI 생성 정책",
+                        description: "AI가 분석한 정책입니다",
+                        roleIds: [],
+                        permissionIds: [],
+                        conditions: {},
+                        aiRiskAssessmentEnabled: false,
+                        requiredTrustScore: 0.7,
+                        customConditionSpel: "",
+                        effect: "ALLOW"
+                    };
+
+                    // 역할 키워드 기반 추출 (실제 DB 데이터 활용)
+                    if (window.allRoles) {
+                        window.allRoles.forEach(role => {
+                            if (text.includes(role.roleName)) {
+                                extractedData.roleIds.push(role.id);
+                                extractedData.policyName = `${role.roleName} 접근 정책`;
+                            }
+                        });
+                    }
+
+                    // 권한 키워드 기반 추출
+                    if (window.allPermissions) {
+                        window.allPermissions.forEach(permission => {
+                            if (text.includes(permission.friendlyName) ||
+                                text.includes(permission.name) ||
+                                (permission.friendlyName.includes('조회') && (text.includes('조회') || text.includes('읽기'))) ||
+                                (permission.friendlyName.includes('수정') && (text.includes('수정') || text.includes('편집'))) ||
+                                (permission.friendlyName.includes('삭제') && text.includes('삭제'))) {
+                                extractedData.permissionIds.push(permission.id);
+                            }
+                        });
+                    }
+
+                    // 조건 키워드 기반 추출
+                    if (window.allConditions) {
+                        window.allConditions.forEach(condition => {
+                            if (text.includes(condition.name) ||
+                                (condition.name.includes('업무시간') && (text.includes('업무시간') || text.includes('평일'))) ||
+                                (condition.name.includes('IP') && text.includes('IP'))) {
+                                extractedData.conditions[condition.id] = [];
+                            }
+                        });
+                    }
+
+                    // 최소한 하나의 구성 요소가 있는 경우에만 반환
+                    if (extractedData.roleIds.length > 0 || extractedData.permissionIds.length > 0) {
+                        console.log('🔥 텍스트에서 추출된 데이터:', extractedData);
+                        return extractedData;
+                    }
+
+                    return null;
+                }
+
+                cleanJsonString(jsonStr) {
+                    console.log('🔥 JSON 정제 시작:', jsonStr.substring(0, 100));
+
+                    // 1. 기본 정제
+                    let cleaned = jsonStr
+                        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // 제어 문자 제거
+                        .replace(/\n\s*\n/g, '\n') // 빈 줄 제거
+                        .trim();
+
+                    // 2. JSON 객체 찾기
+                    const jsonStart = cleaned.indexOf('{');
+                    const jsonEnd = cleaned.lastIndexOf('}');
+
+                    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+                        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+                    }
+
+                    console.log('🔥 정제된 JSON:', cleaned);
+                    return cleaned;
+                }
+
+                handleParsedAIData(jsonData) {
+                    console.log('🔥 파싱된 데이터 처리:', jsonData);
+
+                    // 실제 이름을 조회하여 매핑하는 함수
+                    const buildNameMaps = (jsonData) => {
+                        const maps = {
+                            roles: {},
+                            permissions: {},
+                            conditions: {}
+                        };
+
+                        // 역할 이름 매핑 (HTML에서 전역 변수로 제공된 데이터 사용)
+                        if (jsonData.roleIds && window.allRoles) {
+                            jsonData.roleIds.forEach(id => {
+                                const role = window.allRoles.find(r => r.id === Number(id));
+                                maps.roles[id] = role ? role.roleName : `역할 (ID: ${id})`;
+                            });
+                        }
+
+                        // 권한 이름 매핑
+                        if (jsonData.permissionIds && window.allPermissions) {
+                            jsonData.permissionIds.forEach(id => {
+                                const permission = window.allPermissions.find(p => p.id === Number(id));
+                                maps.permissions[id] = permission ? permission.friendlyName : `권한 (ID: ${id})`;
+                            });
+                        }
+
+                        // 조건 이름 매핑
+                        if (jsonData.conditions && window.allConditions) {
+                            Object.keys(jsonData.conditions).forEach(id => {
+                                const condition = window.allConditions.find(c => c.id === Number(id));
+                                maps.conditions[id] = condition ? condition.name : `조건 (ID: ${id})`;
+                            });
+                        }
+
+                        return maps;
+                    };
+
+                    // AiGeneratedPolicyDraftDto 형식으로 변환 (실제 이름 포함)
+                    const maps = buildNameMaps(jsonData);
+                    const mockDto = {
+                        policyData: jsonData,
+                        roleIdToNameMap: maps.roles,
+                        permissionIdToNameMap: maps.permissions,
+                        conditionIdToNameMap: maps.conditions
+                    };
+
+                    this.populateBuilderWithAIData(mockDto);
+                    this.showMessage('AI 정책 초안이 생성되었습니다!', 'success');
+                }
+
+                populateBuilderWithAIData(draftDto) {
+                    console.log('🔥 AI 데이터로 빌더 채우기:', draftDto);
+
+                    if (!draftDto || !draftDto.policyData) {
+                        this.showMessage('AI가 정책 초안을 생성하지 못했습니다.', 'error');
+                        return;
+                    }
+
+                    const data = draftDto.policyData;
+                    const maps = {
+                        roles: draftDto.roleIdToNameMap || {},
+                        permissions: draftDto.permissionIdToNameMap || {},
+                        conditions: draftDto.conditionIdToNameMap || {}
+                    };
+
+                    console.log('🔥 이름 매핑 정보:', maps);
+
+                    // 상태 초기화
+                    ['role', 'permission', 'condition'].forEach(type => this.state.clear(type));
+
+                    // 기본 필드 설정
+                    if (this.elements.policyNameInput) {
+                        this.elements.policyNameInput.value = data.policyName || '';
+                    }
+                    if (this.elements.policyDescTextarea) {
+                        this.elements.policyDescTextarea.value = data.description || '';
+                    }
+                    if (this.elements.policyEffectSelect) {
+                        this.elements.policyEffectSelect.value = data.effect || 'ALLOW';
+                    }
+
+                    // 역할 추가 (실제 이름과 함께)
+                    if (data.roleIds && Array.isArray(data.roleIds)) {
+                        data.roleIds.forEach(id => {
+                            const name = maps.roles[id] || `역할 (ID: ${id})`;
+                            console.log(`🔥 역할 추가: ID=${id}, Name=${name}`);
+                            this.state.add('role', String(id), { id, name });
+                        });
+                    }
+
+                    // 권한 추가 (실제 이름과 함께)
+                    if (data.permissionIds && Array.isArray(data.permissionIds)) {
+                        data.permissionIds.forEach(id => {
+                            const name = maps.permissions[id] || `권한 (ID: ${id})`;
+                            console.log(`🔥 권한 추가: ID=${id}, Name=${name}`);
+                            this.state.add('permission', String(id), { id, name });
+                        });
+                    }
+
+                    // 조건 추가 (실제 이름과 함께)
+                    if (data.conditions && typeof data.conditions === 'object') {
+                        Object.keys(data.conditions).forEach(id => {
+                            const name = maps.conditions[id] || `조건 (ID: ${id})`;
+                            console.log(`🔥 조건 추가: ID=${id}, Name=${name}`);
+                            this.state.add('condition', String(id), { id, name });
+                        });
+                    }
+
+                    // AI 설정
+                    this.state.aiRiskAssessmentEnabled = data.aiRiskAssessmentEnabled || false;
+                    if (this.elements.aiEnabledCheckbox) {
+                        this.elements.aiEnabledCheckbox.checked = this.state.aiRiskAssessmentEnabled;
+                    }
+
+                    this.state.requiredTrustScore = data.requiredTrustScore || 0.7;
+                    if (this.elements.trustScoreSlider) {
+                        this.elements.trustScoreSlider.value = this.state.requiredTrustScore * 100;
+                    }
+                    if (this.elements.trustScoreValueSpan) {
+                        this.elements.trustScoreValueSpan.textContent = Math.round(this.state.requiredTrustScore * 100);
+                    }
+
+                    // UI 업데이트
+                    this.handleAiToggle();
+                    this.ui.renderAll(this.state);
+
+                    console.log('🔥 최종 상태:', {
+                        roles: Array.from(this.state.roles.entries()),
+                        permissions: Array.from(this.state.permissions.entries()),
+                        conditions: Array.from(this.state.conditions.entries())
                     });
                 }
-                if (window.preselectedPermission) {
-                    const perm = window.preselectedPermission;
-                    this.state.add('permission', String(perm.id), { id: perm.id, name: perm.friendlyName });
+
+                handleAiToggle() {
+                    if (this.elements.aiEnabledCheckbox) {
+                        this.state.aiRiskAssessmentEnabled = this.elements.aiEnabledCheckbox.checked;
+                    }
+                    if (this.elements.trustScoreContainer) {
+                        this.elements.trustScoreContainer.classList.toggle('hidden', !this.state.aiRiskAssessmentEnabled);
+                    }
+                    this.ui.updatePreview(this.state);
+                }
+
+                handleTrustSlider() {
+                    if (this.elements.trustScoreSlider) {
+                        this.state.requiredTrustScore = this.elements.trustScoreSlider.value / 100.0;
+                        if (this.elements.trustScoreValueSpan) {
+                            this.elements.trustScoreValueSpan.textContent = this.elements.trustScoreSlider.value;
+                        }
+                    }
+                    this.ui.updatePreview(this.state);
+                }
+
+                async handleSavePolicy() {
+                    const dto = this.state.toDto();
+
+                    if (!dto.policyName) {
+                        this.showMessage('정책 이름은 필수입니다.', 'error');
+                        return;
+                    }
+                    if (dto.roleIds.length === 0) {
+                        this.showMessage('하나 이상의 역할을 선택해야 합니다.', 'error');
+                        return;
+                    }
+                    if (dto.permissionIds.length === 0) {
+                        this.showMessage('하나 이상의 권한을 선택해야 합니다.', 'error');
+                        return;
+                    }
+
+                    this.ui.setLoading(this.elements.savePolicyBtn, true);
+                    try {
+                        const result = await this.api.savePolicy(dto);
+                        this.showMessage(`정책 "${result.name}"이(가) 성공적으로 생성되었습니다.`, 'success');
+                        setTimeout(() => window.location.href = '/admin/policies', 1500);
+                    } catch (error) {
+                        console.error('정책 저장 오류:', error);
+                        this.showMessage('정책 저장 중 오류가 발생했습니다.', 'error');
+                    } finally {
+                        this.ui.setLoading(this.elements.savePolicyBtn, false);
+                    }
+                }
+
+                initializeFromContext() {
+                    if (window.resourceContext?.availableVariables) {
+                        const availableVars = new Set(window.resourceContext.availableVariables);
+                        if (this.elements.conditionsPalette) {
+                            this.elements.conditionsPalette.querySelectorAll('.palette-item').forEach(item => {
+                                const requiredVars = item.dataset.requiredVariables?.split(',').filter(v => v);
+                                if (requiredVars?.length > 0) {
+                                    const isCompatible = requiredVars.every(v => availableVars.has(v.trim()));
+                                    if (!isCompatible) {
+                                        item.classList.add('disabled');
+                                        item.title = '현재 리소스 컨텍스트에서는 사용할 수 없는 조건입니다.';
+                                    }
+                                }
+                            });
+                        }
+                    }
+                    if (window.preselectedPermission) {
+                        const perm = window.preselectedPermission;
+                        this.state.add('permission', String(perm.id), { id: perm.id, name: perm.friendlyName });
+                    }
+                }
+
+                showMessage(message, type) {
+                    if (typeof showToast === 'function') {
+                        showToast(message, type);
+                    } else {
+                        alert(message);
+                    }
                 }
             }
-        }
 
-        new PolicyBuilderApp();
+            new PolicyBuilderApp();
+            console.log('🌟 PolicyBuilderApp 초기화 성공!');
+        } catch (error) {
+            console.error('❌ PolicyBuilderApp 초기화 실패:', error);
+        }
     });
 })();

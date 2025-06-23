@@ -18,8 +18,6 @@ import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.messages.UserMessage;
-import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -71,12 +69,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         this.modelMapper = modelMapper;
     }
 
-    /**
-     * [신규 구현] AI의 응답을 Flux 스트림으로 반환합니다.
-     */
-    @Override
     public Flux<String> generatePolicyFromTextStream(String naturalLanguageQuery) {
-        log.info("AI 스트리밍 정책 초안 생성을 시작합니다: {}", naturalLanguageQuery);
+        log.info("🔥 AI 스트리밍 정책 초안 생성을 시작합니다: {}", naturalLanguageQuery);
 
         // 1. RAG - Vector DB 에서 관련 정보 검색
         SearchRequest searchRequest = SearchRequest.builder()
@@ -88,40 +82,167 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                 .map(doc -> "- " + doc.getText())
                 .collect(Collectors.joining("\n"));
 
-        // 2. AI의 '연쇄적 사고(Chain-of-Thought)'를 유도하는 프롬프트 구성
+        // 2. 시스템 메타데이터 구성 (실제 DB 데이터)
+        String systemMetadata = buildSystemMetadata();
+
+        // 3. 개선된 프롬프트 - 명확한 구조와 JSON 생성
         String systemPrompt = """
-            당신은 IAM 정책 분석 AI '아비터'입니다. 지금부터 연쇄적 사고(Chain-of-Thought)를 통해 사용자의 요구사항을 분석하고, 마지막에 최종 결과물인 JSON 객체를 특수한 구분자 안에 담아 출력해야 합니다. 모든 응답은 한국어로 해야 합니다.
-
-            분석 과정:
-            1. 사용자 요구사항의 핵심 키워드를 나열합니다. (예: "키워드 분석: [개발팀, 업무 시간, 고객 데이터 조회]")
-            2. 각 키워드를 '참고 컨텍스트'와 비교하여 시스템의 역할, 권한, 조건 ID를 추론하는 과정을 설명합니다. (예: "컨텍스트 분석: '개발팀'은 'ROLE_DEVELOPER'(ID: 2)와 관련이 높음.")
-            3. 분석된 내용을 바탕으로 생성할 정책의 개요를 한 문장으로 설명합니다. (예: "정책 초안 생성: 개발팀 역할에 특정 조건 하에 고객 조회 권한을 부여하는 정책을 구성합니다.")
-            4. 최종적으로, BusinessPolicyDto 형식의 JSON 객체를 `<<JSON_START>>`와 `<<JSON_END>>` 사이에 담아 출력합니다.
-
-            [매우 중요] `roleIds`, `permissionIds` 배열에는 반드시 이름이 아닌 '숫자 ID'를 포함해야 합니다.
-            """;
+        당신은 IAM 정책 분석 AI '아비터'입니다. 
+        
+        🎯 임무: 자연어 요구사항을 분석하여 구체적인 정책 구성 요소로 변환
+        
+        📋 시스템 정보:
+        %s
+        
+        🔄 작업 단계:
+        1. 키워드 분석: 요구사항에서 주요 키워드 추출
+        2. 컨텍스트 매핑: 시스템의 실제 역할/권한과 매핑
+        3. 조건 해석: 시간/장소/상황 조건들 식별
+        4. JSON 구성: 최종 정책 구조 생성
+        
+        ⚠️ 중요 규칙:
+        - 모든 ID는 위 시스템 정보에서 실제로 존재하는 숫자여야 함
+        - 역할명/권한명으로 추론하되, 가장 가까운 실제 ID 사용
+        - JSON은 반드시 정확한 형식으로 출력
+        - 분석 과정을 단계별로 설명 후 JSON 출력
+        - JSON 출력 시 마크다운 코드 블록(```)을 사용하지 말 것
+        
+        [매우 중요] `roleIds`, `permissionIds` 배열에는 반드시 이름이 아닌 '숫자 ID' 를 포함해야 합니다.
+        `conditions` 맵의 키 또한 '숫자 ID' 여야 합니다.
+        
+        📤 최종 출력 형식:
+        [분석 과정 설명...]
+        
+        <<<JSON_START>>>
+        {
+          "policyName": "정책 이름",
+          "description": "정책 설명", 
+          "roleIds": [실제_역할_ID들],
+          "permissionIds": [실제_권한_ID들],
+          "conditions": {"조건템플릿_ID": ["파라미터값"]},
+          "aiRiskAssessmentEnabled": false,
+          "requiredTrustScore": 0.7,
+          "customConditionSpel": "",
+          "effect": "ALLOW"
+        }
+        <<<JSON_END>>>
+        """.formatted(systemMetadata);
 
         String userPrompt = String.format("""
-            **자연어 요구사항:**
-            "%s"
-            
-            **참고 컨텍스트 (시스템 데이터):**
-            %s
-            """, naturalLanguageQuery, contextInfo);
+        **자연어 요구사항:**
+        "%s"
+        
+        **참고 컨텍스트:**
+        %s
+        
+        위 요구사항을 분석하여 정책을 구성해주세요.
+        """, naturalLanguageQuery, contextInfo);
 
-        // 3. [핵심] .call() 대신 .stream().content()를 사용하여 Flux<String>을 반환받습니다.
+        // 4. ChatClient 스트리밍 호출
         return chatClient.prompt()
                 .system(systemPrompt)
                 .user(userPrompt)
                 .stream()
-                .content();
+                .content()
+                .doOnNext(chunk -> {
+                    String logChunk = chunk.length() > 50 ? chunk.substring(0, 50) + "..." : chunk;
+                    log.debug("🔥 AI 응답 청크: {}", logChunk);
+                })
+                .doOnError(error -> log.error("🔥 AI 스트리밍 오류", error))
+                .onErrorResume(error -> {
+                    log.error("🔥 AI 스트리밍 실패, 에러 메시지 반환", error);
+                    return Flux.just("ERROR: AI 서비스에 연결할 수 없습니다: " + error.getMessage());
+                });
     }
 
     /**
-     * [구현 완료] 자연어 요구사항을 분석하여, 시스템이 실행할 수 있는 정책 초안 DTO를 생성합니다.
+     * AI 응답에서 JSON을 추출하고 정제하는 헬퍼 메서드
+     */
+    private String extractAndCleanJson(String aiResponse) {
+        if (aiResponse == null || aiResponse.trim().isEmpty()) {
+            throw new IllegalArgumentException("AI 응답이 비어있습니다.");
+        }
+
+        String response = aiResponse.trim();
+        log.debug("원본 AI 응답: {}", response.substring(0, Math.min(response.length(), 200)) + "...");
+
+        // 1. <<<JSON_START>>>, <<<JSON_END>>> 마커로 JSON 추출
+        String jsonStartMarker = "<<<JSON_START>>>";
+        String jsonEndMarker = "<<<JSON_END>>>";
+
+        int startIndex = response.indexOf(jsonStartMarker);
+        int endIndex = response.indexOf(jsonEndMarker);
+
+        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+            String extractedJson = response.substring(startIndex + jsonStartMarker.length(), endIndex).trim();
+            log.debug("마커로 추출된 JSON: {}", extractedJson);
+            return extractedJson;
+        }
+
+        // 2. 마크다운 코드 블록 제거 (```json ... ``` 또는 ``` ... ```)
+        String[] patterns = {
+                "```json\\s*([\\s\\S]*?)\\s*```",
+                "```\\s*([\\s\\S]*?)\\s*```"
+        };
+
+        for (String pattern : patterns) {
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.DOTALL);
+            java.util.regex.Matcher m = p.matcher(response);
+            if (m.find()) {
+                String extractedJson = m.group(1).trim();
+                log.debug("마크다운 패턴으로 추출된 JSON: {}", extractedJson);
+                return extractedJson;
+            }
+        }
+
+        // 3. JSON 객체 직접 추출 ({ ... })
+        int jsonStart = response.indexOf('{');
+        int jsonEnd = response.lastIndexOf('}');
+
+        if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
+            String extractedJson = response.substring(jsonStart, jsonEnd + 1).trim();
+            log.debug("중괄호로 추출된 JSON: {}", extractedJson);
+            return extractedJson;
+        }
+
+        // 4. 모든 방법이 실패한 경우 원본 반환 (마지막 시도)
+        log.warn("JSON 추출에 실패했습니다. 원본 응답을 그대로 사용합니다.");
+        return response;
+    }
+
+    /**
+     * 시스템의 실제 메타데이터를 구성합니다.
+     */
+    private String buildSystemMetadata() {
+        StringBuilder metadata = new StringBuilder();
+
+        // 역할 정보
+        List<Role> roles = roleRepository.findAll();
+        metadata.append("📋 사용 가능한 역할:\n");
+        roles.forEach(role ->
+                metadata.append(String.format("- ID: %d, 이름: %s\n", role.getId(), role.getRoleName())));
+
+        // 권한 정보
+        List<Permission> permissions = permissionRepository.findAll();
+        metadata.append("\n🔑 사용 가능한 권한:\n");
+        permissions.forEach(perm ->
+                metadata.append(String.format("- ID: %d, 이름: %s\n", perm.getId(), perm.getFriendlyName())));
+
+        // 조건 템플릿 정보
+        List<ConditionTemplate> conditions = conditionTemplateRepository.findAll();
+        metadata.append("\n⏰ 사용 가능한 조건 템플릿:\n");
+        conditions.forEach(cond ->
+                metadata.append(String.format("- ID: %d, 이름: %s\n", cond.getId(), cond.getName())));
+
+        return metadata.toString();
+    }
+
+    /**
+     * [기존 유지] 일반 방식의 정책 생성 (fallback용)
      */
     @Override
     public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery) {
+        // 기존 구현 유지...
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(naturalLanguageQuery)
                 .topK(10)
@@ -129,32 +250,44 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         List<Document> contextDocs = vectorStore.similaritySearch(searchRequest);
         String contextInfo = contextDocs.stream().map(Document::getText).collect(Collectors.joining("\n---\n"));
 
+        String systemMetadata = buildSystemMetadata();
+
+        String systemPrompt = """
+            당신은 사용자의 자연어 요구사항을 분석하여, IAM 시스템이 이해할 수 있는 BusinessPolicyDto JSON 객체로 변환하는 AI 에이전트입니다.
+            
+            시스템 정보:
+            %s
+            
+            요청을 분석하여 주체(역할), 리소스(권한), 행위, 그리고 조건 등을 추출해야 합니다.
+            제공된 시스템 정보를 활용하여 실제 존재하는 ID를 사용해야 합니다.
+            
+            [매우 중요] `roleIds`, `permissionIds` 배열에는 반드시 이름이 아닌 '숫자 ID' 를 포함해야 합니다.
+            `conditions` 맵의 키 또한 '숫자 ID' 여야 합니다.
+            응답 시 마크다운 코드 블록(```)을 사용하지 말고 순수 JSON만 출력하세요.
+            
+            **출력 JSON 형식:**
+            {
+              "policyName": "AI가 생성한 정책 이름",
+              "description": "AI가 생성한 정책 설명",
+              "roleIds": [실제_역할_ID들],
+              "permissionIds": [실제_권한_ID들],
+              "conditional": true,
+              "conditions": {"조건템플릿_ID": ["파라미터1"]},
+              "aiRiskAssessmentEnabled": false,
+              "requiredTrustScore": 0.7,
+              "customConditionSpel": "",
+              "effect": "ALLOW"
+            }
+            """.formatted(systemMetadata);
+
         String userPrompt = String.format("""
             **자연어 요구사항:**
             "%s"
             
-            **참고 컨텍스트 (시스템 데이터):**
+            **참고 컨텍스트:**
             %s
             """, naturalLanguageQuery, contextInfo);
 
-        String systemPrompt = """
-            당신은 사용자의 자연어 요구사항을 분석하여, IAM 시스템이 이해할 수 있는 BusinessPolicyDto JSON 객체로 변환하는 AI 에이전트입니다.
-            요청을 분석하여 주체(역할), 리소스(권한), 행위, 그리고 SpEL 형식의 조건 등을 추출해야 합니다.
-            제공된 '참고 컨텍스트'를 최대한 활용하여, '개발팀'과 같은 자연어를 'ROLE_ID'와 같은 시스템 식별자 ID로 변환하여 응답해야 합니다.
-            이름(policyName)과 설명(description) 필드는 자연어 요청을 기반으로 창의적으로 생성해주세요.
-            응답은 반드시 아래 명시된 JSON 형식으로만 제공해야 하며, 다른 어떤 설명도 추가하지 마십시오.
-            [매우 중요] `roleIds`, `permissionIds` 배열에는 반드시 이름이 아닌 '숫자 ID' 를 포함해야 합니다.
-            `conditions` 맵의 키 또한 '숫자 ID' 여야 합니다.
-            **출력 JSON 형식 (BusinessPolicyDto):**
-            {
-              "policyName": "AI가 생성한 정책 이름", "description": "AI가 생성한 정책 설명",
-              "roleIds": [역할 ID 목록], "permissionIds": [권한 ID 목록], "conditional": true,
-              "conditions": { "조건템플릿_ID": ["파라미터1"] }, "aiRiskAssessmentEnabled": false,
-              "requiredTrustScore": 0.7, "customConditionSpel": "", "effect": "ALLOW"
-            }
-            """;
-
-        // [핵심 수정] ChatClient의 올바른 빌더 패턴 사용
         String jsonResponse = chatClient.prompt()
                 .system(systemPrompt)
                 .user(userPrompt)
@@ -162,13 +295,9 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                 .content();
 
         try {
-            // 1. AI의 응답을 유연한 중간 DTO(AiResponseDto)로 먼저 변환합니다.
             AiResponseDto aiResponse = objectMapper.readValue(jsonResponse, AiResponseDto.class);
-
-            // 2. 중간 DTO를 시스템이 사용하는 최종 DTO(BusinessPolicyDto)로 번역합니다.
             BusinessPolicyDto policyData = translateAiResponseToBusinessDto(aiResponse);
 
-            // 3. UI에 필요한 이름 정보들을 조회하여 최종 DTO를 만듭니다.
             Map<String, String> roleIdToNameMap = getRoleNames(policyData.getRoleIds());
             Map<String, String> permissionIdToNameMap = getPermissionNames(policyData.getPermissionIds());
             Map<String, String> conditionIdToNameMap = getConditionTemplateNames(policyData.getConditions());

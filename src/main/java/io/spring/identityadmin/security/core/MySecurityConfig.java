@@ -1,5 +1,8 @@
 package io.spring.identityadmin.security.core;
 
+import com.fasterxml.jackson.core.StreamWriteConstraints;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import io.spring.identityadmin.admin.monitoring.service.AuditLogService;
 import io.spring.identityadmin.security.xacml.pdp.evaluation.method.CustomMethodSecurityExpressionHandler;
 import io.spring.identityadmin.security.xacml.pdp.evaluation.method.CustomPermissionEvaluator;
@@ -12,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
@@ -55,8 +59,6 @@ public class MySecurityConfig {
         );
     }
 
-
-
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer(){
         return (web) -> web.ignoring()
@@ -68,15 +70,10 @@ public class MySecurityConfig {
         return PasswordEncoderFactories.createDelegatingPasswordEncoder();
     }
 
-
-
-
     // RoleHierarchy 빈 등록 (계층적 역할 지원)
     @Bean
     public RoleHierarchyImpl roleHierarchy() {
         return new RoleHierarchyImpl();
     }
-
-
 
 }

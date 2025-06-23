@@ -9,6 +9,8 @@ import io.spring.identityadmin.admin.iam.service.UserManagementService;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
 import io.spring.identityadmin.domain.dto.ConditionTemplateDto;
 import io.spring.identityadmin.domain.dto.GroupMetadataDto;
+import io.spring.identityadmin.domain.dto.PermissionDto;
+import io.spring.identityadmin.domain.dto.RoleDto;
 import io.spring.identityadmin.domain.entity.ConditionTemplate;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Role;
@@ -30,6 +32,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/admin/policy-builder")
@@ -56,9 +59,28 @@ public class PolicyBuilderController {
     @GetMapping
     public String policyBuilder(Model model) {
 
-        List<Role> allRoles = roleService.getRolesWithoutExpression();
-        model.addAttribute("allRoles", allRoles);
-        model.addAttribute("allPermissions", permissionCatalogService.getAvailablePermissions());
+        // Entity 대신 DTO 사용으로 순환 참조 방지
+        List<RoleDto> roleDtos = roleService.getRolesWithoutExpression().stream()
+                .map(role -> RoleDto.builder()
+                        .id(role.getId())
+                        .roleName(role.getRoleName())
+                        .roleDesc(role.getRoleDesc())
+                        .build())
+                .collect(Collectors.toList());
+
+        List<PermissionDto> permissionDtos = permissionCatalogService.getAvailablePermissions().stream()
+                .map(permission -> PermissionDto.builder()
+                        .id(permission.getId())
+                        .name(permission.getName())
+                        .friendlyName(permission.getFriendlyName())
+                        .description(permission.getDescription())
+                        .targetType(permission.getTargetType())
+                        .actionType(permission.getActionType())
+                        .build())
+                .collect(Collectors.toList());
+
+        model.addAttribute("allRoles", roleDtos);
+        model.addAttribute("allPermissions", permissionDtos);
         addContextAwareConditionsToModel(model);
 
         model.addAttribute("activePage", "policy-builder");
@@ -118,8 +140,16 @@ public class PolicyBuilderController {
      * [신규] 리소스 워크벤치에서 '상세 정책 설정'을 선택했을 때 호출되는 엔드포인트.
      * 리소스 컨텍스트 정보를 모델에 담아 빌더 페이지로 이동합니다.
      */
-    @PostMapping("/from-resource")
-    public String policyBuilderFromResource(@RequestParam Long resourceId, @RequestParam Long permissionId, Model model) {
+    /**
+     * [수정된 메서드] 리소스 워크벤치에서 '상세 정책 설정'을 선택했을 때 호출되는 엔드포인트.
+     * GET과 POST 모두 지원하여 새 창으로 열기와 폼 제출 모두 처리합니다.
+     */
+    @RequestMapping(value = "/from-resource", method = {RequestMethod.GET, RequestMethod.POST})
+    public String policyBuilderFromResource(
+            @RequestParam Long resourceId,
+            @RequestParam Long permissionId,
+            Model model) {
+
         ManagedResource resource = managedResourceRepository.findById(resourceId)
                 .orElseThrow(() -> new IllegalArgumentException("Resource not found"));
 
@@ -141,8 +171,18 @@ public class PolicyBuilderController {
         }
 
         model.addAttribute("resourceContext", resourceContext);
+
+        // Permission을 DTO로 변환하여 전달
         permissionService.getPermission(permissionId)
-                .ifPresent(permission -> model.addAttribute("preselectedPermission", permission));
+                .ifPresent(permission -> {
+                    PermissionDto permissionDto = PermissionDto.builder()
+                            .id(permission.getId())
+                            .name(permission.getName())
+                            .friendlyName(permission.getFriendlyName())
+                            .description(permission.getDescription())
+                            .build();
+                    model.addAttribute("preselectedPermission", permissionDto);
+                });
 
         // 기존 policyBuilder 메서드를 호출하여 공통 데이터 추가 및 뷰 렌더링
         return policyBuilder(model);

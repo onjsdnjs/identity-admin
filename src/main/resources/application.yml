@@ -52,6 +52,10 @@ spring:
           in_clause_parameter_padding: true
     show-sql: false
 
+  jackson:
+    serialization:
+      fail-on-self-references: false
+
 logging:
   level:
     # Hibernate SQL 로깅
