@@ -355,7 +355,7 @@
 
                 // UI 초기화
                 this.ui.setLoading(this.elements.generateByAiBtn, true);
-                const thoughtProcessContainer = document.getElementById('ai-thought-process'); // HTML에 이 div가 추가되어야 함
+                const thoughtProcessContainer = document.getElementById('ai-thought-process-container'); // HTML에 이 div가 추가되어야 함
                 if (thoughtProcessContainer) {
                     thoughtProcessContainer.innerHTML = '';
                     thoughtProcessContainer.style.display = 'block';

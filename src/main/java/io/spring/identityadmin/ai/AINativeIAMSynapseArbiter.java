@@ -76,25 +76,40 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
      */
     @Override
     public Flux<String> generatePolicyFromTextStream(String naturalLanguageQuery) {
-        // ... RAG 컨텍스트 검색 로직은 동일 ...
-        String contextInfo = "...";
+        log.info("AI 스트리밍 정책 초안 생성을 시작합니다: {}", naturalLanguageQuery);
 
-        // AI 에게 단계별 사고와 최종 JSON을 구분해서 출력하도록 프롬프트 수정
+        // 1. RAG - Vector DB 에서 관련 정보 검색
+        SearchRequest searchRequest = SearchRequest.builder()
+                .query(naturalLanguageQuery)
+                .topK(10)
+                .build();
+        List<Document> contextDocs = vectorStore.similaritySearch(searchRequest);
+        String contextInfo = contextDocs.stream()
+                .map(doc -> "- " + doc.getText())
+                .collect(Collectors.joining("\n"));
+
+        // 2. AI의 '연쇄적 사고(Chain-of-Thought)'를 유도하는 프롬프트 구성
         String systemPrompt = """
-            당신은 IAM 정책 분석 AI '아비터'입니다. 지금부터 연쇄적 사고(Chain-of-Thought)를 통해 사용자의 요구사항을 분석하고, 마지막에 최종 결과물인 JSON 객체를 특수한 구분자 안에 담아 출력해야 합니다.
+            당신은 IAM 정책 분석 AI '아비터'입니다. 지금부터 연쇄적 사고(Chain-of-Thought)를 통해 사용자의 요구사항을 분석하고, 마지막에 최종 결과물인 JSON 객체를 특수한 구분자 안에 담아 출력해야 합니다. 모든 응답은 한국어로 해야 합니다.
 
-            과정:
-            1. 사용자 요구사항의 핵심 키워드를 나열합니다.
-            2. 각 키워드를 참고 컨텍스트와 비교하여 시스템의 역할, 권한, 조건 ID를 추론합니다.
-            3. 분석된 내용을 바탕으로 생성할 정책의 개요를 설명합니다.
+            분석 과정:
+            1. 사용자 요구사항의 핵심 키워드를 나열합니다. (예: "키워드 분석: [개발팀, 업무 시간, 고객 데이터 조회]")
+            2. 각 키워드를 '참고 컨텍스트'와 비교하여 시스템의 역할, 권한, 조건 ID를 추론하는 과정을 설명합니다. (예: "컨텍스트 분석: '개발팀'은 'ROLE_DEVELOPER'(ID: 2)와 관련이 높음.")
+            3. 분석된 내용을 바탕으로 생성할 정책의 개요를 한 문장으로 설명합니다. (예: "정책 초안 생성: 개발팀 역할에 특정 조건 하에 고객 조회 권한을 부여하는 정책을 구성합니다.")
             4. 최종적으로, BusinessPolicyDto 형식의 JSON 객체를 `<<JSON_START>>`와 `<<JSON_END>>` 사이에 담아 출력합니다.
 
-            [매우 중요] `roleIds`, `permissionIds`, `conditions`의 키는 반드시 이름이 아닌 '숫자 ID'여야 합니다.
+            [매우 중요] `roleIds`, `permissionIds` 배열에는 반드시 이름이 아닌 '숫자 ID'를 포함해야 합니다.
             """;
 
-        String userPrompt = String.format("... (이전과 동일한 프롬프트 템플릿) ...", naturalLanguageQuery, contextInfo);
+        String userPrompt = String.format("""
+            **자연어 요구사항:**
+            "%s"
+            
+            **참고 컨텍스트 (시스템 데이터):**
+            %s
+            """, naturalLanguageQuery, contextInfo);
 
-        // [핵심] .call() 대신 .stream().content()를 사용하여 Flux<String>을 반환받습니다.
+        // 3. [핵심] .call() 대신 .stream().content()를 사용하여 Flux<String>을 반환받습니다.
         return chatClient.prompt()
                 .system(systemPrompt)
                 .user(userPrompt)
