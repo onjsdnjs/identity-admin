@@ -30,45 +30,23 @@ public class AiApiController {
     private final AINativeIAMAdvisor aINativeIAMAdvisor;
 
     /**
-     * [구현 완료] '지능형 정책 빌더'의 자연어 입력값을 받아,
-     * AI를 통해 분석된 정책 초안 DTO를 반환합니다.
+     * 자연어 정책 생성 요청을 스트리밍 방식으로 처리합니다.
+     * 메서드의 반환 타입을 Flux<String>으로 직접 지정하여, Spring WebFlux가
+     * 스트림의 생명주기를 안전하게 관리하도록 위임합니다.
      */
     @PostMapping(value = "/policies/generate-from-text/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public StreamingResponseBody generatePolicyFromTextStream(@Valid @RequestBody NaturalLanguageQueryDto request) {
+    public Flux<String> generatePolicyFromTextStream(@Valid @RequestBody NaturalLanguageQueryDto request) {
         log.info("AI 정책 초안 스트리밍 생성 요청 수신: \"{}\"", request.naturalLanguageQuery());
 
-        Flux<String> stream = aINativeIAMAdvisor.generatePolicyFromTextStream(request.naturalLanguageQuery());
-
-        return outputStream -> {
-            stream
-                    .doOnNext(chunk -> {
-                        try {
-                            outputStream.write(chunk.getBytes(StandardCharsets.UTF_8));
-                            outputStream.flush();
-                        } catch (IOException e) {
-                            log.error("스트리밍 중 오류 발생", e);
-                            // 클라이언트와의 연결이 끊어졌을 가능성이 높으므로, 스트림을 중단하기 위해 RuntimeException을 던집니다.
-                            throw new RuntimeException("Error while streaming AI response", e);
-                        }
-                    })
-                    // [핵심 수정] doOnComplete와 doOnError에서 IOException을 try-catch로 처리합니다.
-                    .doOnComplete(() -> {
-                        try {
-                            log.info("AI 응답 스트림 전송 완료.");
-                            outputStream.close();
-                        } catch (IOException e) {
-                            log.error("스트림 완료 후 종료 중 오류 발생", e);
-                        }
-                    })
-                    .doOnError(throwable -> {
-                        try {
-                            log.error("AI 응답 스트림 중 에러 발생", throwable);
-                            outputStream.close();
-                        } catch (IOException e) {
-                            log.error("스트림 오류 후 종료 중 추가 오류 발생", e);
-                        }
-                    })
-                    .subscribe(); // 리액티브 스트림 구독 시작
-        };
+        try {
+            // 서비스 계층에서 반환된 Flux<String> 스트림을 그대로 반환합니다.
+            return aINativeIAMAdvisor.generatePolicyFromTextStream(request.naturalLanguageQuery())
+                    .doOnError(error -> log.error("AI 응답 스트림 중 에러 발생", error))
+                    .doOnComplete(() -> log.info("AI 응답 스트림 전송 완료."));
+        } catch (Exception e) {
+            log.error("AI 스트리밍 서비스 호출 중 즉시 오류 발생", e);
+            // 즉각적인 오류 발생 시, 에러 메시지를 담은 단일 스트림을 반환합니다.
+            return Flux.just("AI 서비스 호출에 실패했습니다: " + e.getMessage());
+        }
     }
 }
