@@ -37,31 +37,38 @@ public class AiApiController {
     public StreamingResponseBody generatePolicyFromTextStream(@Valid @RequestBody NaturalLanguageQueryDto request) {
         log.info("AI 정책 초안 스트리밍 생성 요청 수신: \"{}\"", request.naturalLanguageQuery());
 
-        // 서비스 계층에서 Reactor의 Flux (반응형 스트림)를 반환받습니다.
         Flux<String> stream = aINativeIAMAdvisor.generatePolicyFromTextStream(request.naturalLanguageQuery());
 
         return outputStream -> {
             stream
-                    // 스트림에서 각 청크(chunk)가 도착할 때마다 outputStream에 씁니다.
                     .doOnNext(chunk -> {
                         try {
                             outputStream.write(chunk.getBytes(StandardCharsets.UTF_8));
                             outputStream.flush();
                         } catch (IOException e) {
                             log.error("스트리밍 중 오류 발생", e);
-                            throw new RuntimeException(e);
+                            // 클라이언트와의 연결이 끊어졌을 가능성이 높으므로, 스트림을 중단하기 위해 RuntimeException을 던집니다.
+                            throw new RuntimeException("Error while streaming AI response", e);
                         }
                     })
-                    // 스트림이 완료되거나 오류 발생 시 outputStream을 닫습니다.
-                    .doOnComplete(outputStream::close)
-                    .doOnError(throwable -> {
+                    // [핵심 수정] doOnComplete와 doOnError에서 IOException을 try-catch로 처리합니다.
+                    .doOnComplete(() -> {
                         try {
+                            log.info("AI 응답 스트림 전송 완료.");
                             outputStream.close();
                         } catch (IOException e) {
-                            log.error("스트림 오류 후 종료 중 오류", e);
+                            log.error("스트림 완료 후 종료 중 오류 발생", e);
                         }
                     })
-                    .subscribe(); // 스트림 구독 시작
+                    .doOnError(throwable -> {
+                        try {
+                            log.error("AI 응답 스트림 중 에러 발생", throwable);
+                            outputStream.close();
+                        } catch (IOException e) {
+                            log.error("스트림 오류 후 종료 중 추가 오류 발생", e);
+                        }
+                    })
+                    .subscribe(); // 리액티브 스트림 구독 시작
         };
     }
 }
