@@ -932,6 +932,9 @@
                 <script th:inline="javascript">
                     const resourceContext = /*[[${resourceContext}]]*/ null;
                     const preselectedPermission = /*[[${preselectedPermission}]]*/ null;
+                    const allRoles = /*[[${allRoles}]]*/ [];
+                    const allPermissions = /*[[${allPermissions}]]*/ [];
+                    const allConditions = /*[[${allConditions}]]*/ [];
                 </script>
                 <script th:src="@{/js/policy-builder.js}"></script>
             </div>

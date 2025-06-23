@@ -25,7 +25,7 @@
             clear(type) { this.getMap(type)?.clear(); }
             getMap(type) {
                 const map = { role: this.roles, permission: this.permissions, condition: this.conditions }[type];
-                if (!map) throw new Error('Invalid state type: ' + type);
+                if (!map) throw new Error('유효하지 않은 상태 타입입니다: ' + type);
                 return map;
             }
             toDto() {
@@ -172,7 +172,8 @@
                 }
             }
             savePolicy(dto) { return this.fetchApi('/api/policies/build-from-business-rule', { method: 'POST', body: JSON.stringify(dto) }); }
-            generatePolicyFromText(query) { return this.fetchApi('/api/ai/policies/generate-from-text', { method: 'POST', body: JSON.stringify({ naturalLanguageQuery: query }) }); }
+            async generatePolicyFromText(query) { return this.fetchApi('/api/ai/policies/generate-from-text', { method: 'POST', body: JSON.stringify({ naturalLanguageQuery: query }) }); }
+            async generatePolicyFromTextStream(query) { return this.fetchApi('/api/ai/policies/generate-from-text/stream', { method: 'POST', headers: { 'Content-Type': 'application/json', [this.csrfHeader]: this.csrfToken }, body: JSON.stringify({ naturalLanguageQuery: query }) }); }
         }
 
         // --- 4. 메인 애플리케이션 클래스 ---
@@ -186,56 +187,48 @@
             }
 
             queryDOMElements() {
-                // HTML의 실제 ID와 JavaScript에서 사용할 키 매핑
+                const elements = {};
                 const idMapping = {
-                    'rolesPalette': 'roles-palette',
-                    'rolesCanvas': 'roles-canvas',
-                    'naturalLanguageInput': 'naturalLanguageInput',
-                    'generateByAiBtn': 'generateByAiBtn',
-                    'aiEnabledCheckbox': 'aiEnabledCheckbox',
-                    'trustScoreContainer': 'trustScoreContainer',
-                    'trustScoreSlider': 'trustScoreSlider',
-                    'trustScoreValueSpan': 'trustScoreValueSpan',
-                    'customSpelInput': 'customSpelInput',
-                    'permissionsPalette': 'permissionsPalette',
-                    'conditionsPalette': 'conditionsPalette',
-                    'permissionsCanvas': 'permissionsCanvas',
-                    'conditionsCanvas': 'conditionsCanvas',
-                    'policyNameInput': 'policyNameInput',
-                    'policyDescTextarea': 'policyDescTextarea',
-                    'policyEffectSelect': 'policyEffectSelect',
-                    'savePolicyBtn': 'savePolicyBtn',
-                    'policyPreview': 'policyPreview'
+                    // AI 기능 UI
+                    naturalLanguageInput: 'naturalLanguageInput',
+                    generateByAiBtn: 'generateByAiBtn',
+                    thoughtProcessContainer: 'ai-thought-process-container',
+                    thoughtProcessLog: 'ai-thought-process',
+                    aiEnabledCheckbox: 'aiEnabledCheckbox',
+                    trustScoreContainer: 'trustScoreContainer',
+                    trustScoreSlider: 'trustScoreSlider',
+                    trustScoreValueSpan: 'trustScoreValueSpan',
+                    customSpelInput: 'customSpelInput',
+                    // 팔레트
+                    rolesPalette: 'roles-palette',
+                    permissionsPalette: 'permissionsPalette',
+                    conditionsPalette: 'conditionsPalette',
+                    // 캔버스
+                    rolesCanvas: 'roles-canvas',
+                    permissionsCanvas: 'permissionsCanvas',
+                    conditionsCanvas: 'conditionsCanvas',
+                    // 속성 및 저장
+                    policyNameInput: 'policyNameInput',
+                    policyDescTextarea: 'policyDescTextarea',
+                    policyEffectSelect: 'policyEffectSelect',
+                    savePolicyBtn: 'savePolicyBtn',
+                    policyPreview: 'policyPreview'
                 };
 
-                const elements = {};
-                Object.entries(idMapping).forEach(([jsKey, htmlId]) => {
-                    const element = document.getElementById(htmlId);
-                    if (element) {
-                        elements[jsKey] = element;
-                        console.log(`Found element: ${htmlId} -> ${jsKey}`);
-                    } else {
-                        console.warn(`Element not found: ${htmlId}`);
-                    }
-                });
+                for (const [jsKey, htmlId] of Object.entries(idMapping)) {
+                    elements[jsKey] = document.getElementById(htmlId);
+                }
                 return elements;
             }
 
             init() {
-                console.log('PolicyBuilderApp initializing...'); // 디버깅
-
                 if (!this.elements.savePolicyBtn) {
-                    console.error('Save policy button not found!'); // 디버깅
+                    console.error("정책 빌더의 필수 UI 요소(저장 버튼)를 찾을 수 없습니다.");
                     return;
                 }
-
-                console.log('Found elements:', Object.keys(this.elements)); // 디버깅
-
                 this.bindEventListeners();
                 this.initializeFromContext();
                 this.ui.renderAll(this.state);
-
-                console.log('PolicyBuilderApp initialized successfully'); // 디버깅
             }
 
             bindEventListeners() {
@@ -353,55 +346,46 @@
                 const query = this.elements.naturalLanguageInput.value;
                 if (!query.trim()) return showToast('요구사항을 입력해주세요.', 'error');
 
-                // UI 초기화
                 this.ui.setLoading(this.elements.generateByAiBtn, true);
-                const thoughtProcessContainer = document.getElementById('ai-thought-process-container'); // HTML에 이 div가 추가되어야 함
-                if (thoughtProcessContainer) {
-                    thoughtProcessContainer.innerHTML = '';
-                    thoughtProcessContainer.style.display = 'block';
+                const thoughtContainer = this.elements.thoughtProcessContainer;
+                const thoughtLog = this.elements.thoughtProcessLog;
+                if (thoughtContainer && thoughtLog) {
+                    thoughtLog.textContent = '';
+                    thoughtContainer.classList.remove('hidden');
                 }
 
                 let fullResponseText = '';
-
                 try {
-                    const response = await fetch('/api/ai/policies/generate-from-text/stream', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', [this.api.csrfHeader]: this.api.csrfToken },
-                        body: JSON.stringify({ naturalLanguageQuery: query })
-                    });
-
+                    const response = await this.api.generatePolicyFromTextStream(query);
                     if (!response.ok) throw new Error('AI 서비스 연결에 실패했습니다.');
-
                     const reader = response.body.getReader();
                     const decoder = new TextDecoder();
-
-                    // 스트림 실시간 처리
+                    let buffer = '';
                     while (true) {
                         const { value, done } = await reader.read();
                         if (done) break;
-
-                        const chunk = decoder.decode(value, { stream: true });
-                        fullResponseText += chunk;
-
-                        if (thoughtProcessContainer) {
-                            // XSS 방지를 위해 텍스트를 안전하게 추가 (간단한 예시)
-                            thoughtProcessContainer.textContent += chunk;
-                            thoughtProcessContainer.scrollTop = thoughtProcessContainer.scrollHeight;
+                        buffer += decoder.decode(value, { stream: true });
+                        let boundary = buffer.indexOf('\n\n');
+                        while (boundary > -1) {
+                            const message = buffer.substring(0, boundary);
+                            buffer = buffer.substring(boundary + 2);
+                            if (message.startsWith('data: ')) {
+                                const chunk = message.substring(6);
+                                fullResponseText += chunk;
+                                if (thoughtLog) {
+                                    thoughtLog.textContent += chunk;
+                                    thoughtLog.scrollTop = thoughtLog.scrollHeight;
+                                }
+                            }
+                            boundary = buffer.indexOf('\n\n');
                         }
                     }
-
-                    // 스트리밍 완료 후 최종 JSON 파싱 및 UI 채우기
                     this.processFinalAiResponse(fullResponseText);
-
                 } catch (error) {
-                    console.error("AI 정책 생성 실패:", error);
                     showToast(error.message, 'error');
                 } finally {
                     this.ui.setLoading(this.elements.generateByAiBtn, false);
-                    if (thoughtProcessContainer) {
-                        // 분석이 끝나면 5초 후 로그 창을 숨길 수 있음
-                        // setTimeout(() => { thoughtProcessContainer.style.display = 'none'; }, 5000);
-                    }
+                    if (thoughtContainer) setTimeout(() => thoughtContainer.classList.add('hidden'), 5000);
                 }
             }
 
@@ -409,22 +393,14 @@
              * [신규] 스트리밍 완료 후 전체 텍스트에서 JSON을 추출하고 UI를 채웁니다.
              */
             processFinalAiResponse(fullText) {
-                // 특수 구분자 사이의 JSON 데이터만 추출
                 const jsonMatch = fullText.match(/<<JSON_START>>([\s\S]*?)<<JSON_END>>/);
-
                 if (jsonMatch && jsonMatch[1]) {
                     try {
-                        const finalJson = JSON.parse(jsonMatch[1]);
-                        // 이전에 구현한 populateBuilderWithAIData 호출
-                        this.populateBuilderWithAIData(finalJson);
-                        showToast('AI 정책 초안이 생성되었습니다. 내용을 검토 후 저장하세요.', 'success');
-                    } catch (e) {
-                        showToast('AI가 반환한 최종 정책 데이터(JSON) 파싱에 실패했습니다.', 'error');
-                        console.error("Final JSON parsing error:", e);
-                    }
-                } else {
-                    showToast('AI가 정책 초안을 완성하지 못했습니다. 더 명확한 언어로 다시 시도해보세요.', 'error');
-                }
+                        const draftDto = JSON.parse(jsonMatch[1]);
+                        this.populateBuilderWithAIData(draftDto);
+                        showToast('AI 정책 초안이 생성되었습니다.', 'success');
+                    } catch (e) { showToast('AI가 반환한 JSON 파싱 실패', 'error'); console.error(e); }
+                } else { showToast('AI가 정책 초안을 완성하지 못했습니다.', 'error'); }
             }
 
             /**
