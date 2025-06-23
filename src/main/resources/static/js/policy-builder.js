@@ -346,28 +346,84 @@
                 this.ui.renderAll(this.state);
             }
 
+            /**
+             * [최종 구현] 'AI로 정책 생성' 버튼 클릭 시, 스트리밍 응답을 처리합니다.
+             */
             async handleGenerateByAI() {
                 const query = this.elements.naturalLanguageInput.value;
-                if (!query.trim()) {
-                    showToast('정책으로 만들고 싶은 요구사항을 한국어로 입력해주세요.', 'error');
-                    return;
+                if (!query.trim()) return showToast('요구사항을 입력해주세요.', 'error');
+
+                // UI 초기화
+                this.ui.setLoading(this.elements.generateByAiBtn, true);
+                const thoughtProcessContainer = document.getElementById('ai-thought-process'); // HTML에 이 div가 추가되어야 함
+                if (thoughtProcessContainer) {
+                    thoughtProcessContainer.innerHTML = '';
+                    thoughtProcessContainer.style.display = 'block';
                 }
 
-                this.ui.setLoading(this.elements.generateByAiBtn, true);
+                let fullResponseText = '';
+
                 try {
-                    // 백엔드의 AI 서비스 호출
-                    const draftDto = await this.api.generatePolicyFromText(query);
+                    const response = await fetch('/api/ai/policies/generate-from-text/stream', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', [this.api.csrfHeader]: this.api.csrfToken },
+                        body: JSON.stringify({ naturalLanguageQuery: query })
+                    });
 
-                    // AI 응답으로 UI 전체를 채우는 함수 호출
-                    this.populateBuilderWithAIData(draftDto);
+                    if (!response.ok) throw new Error('AI 서비스 연결에 실패했습니다.');
 
-                    showToast('AI 정책 초안이 생성되었습니다. 내용을 검토 후 저장하세요.', 'success');
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+
+                    // 스트림 실시간 처리
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+
+                        const chunk = decoder.decode(value, { stream: true });
+                        fullResponseText += chunk;
+
+                        if (thoughtProcessContainer) {
+                            // XSS 방지를 위해 텍스트를 안전하게 추가 (간단한 예시)
+                            thoughtProcessContainer.textContent += chunk;
+                            thoughtProcessContainer.scrollTop = thoughtProcessContainer.scrollHeight;
+                        }
+                    }
+
+                    // 스트리밍 완료 후 최종 JSON 파싱 및 UI 채우기
+                    this.processFinalAiResponse(fullResponseText);
 
                 } catch (error) {
                     console.error("AI 정책 생성 실패:", error);
-                    // api.fetchApi 에서 이미 toast를 보여줌
+                    showToast(error.message, 'error');
                 } finally {
                     this.ui.setLoading(this.elements.generateByAiBtn, false);
+                    if (thoughtProcessContainer) {
+                        // 분석이 끝나면 5초 후 로그 창을 숨길 수 있음
+                        // setTimeout(() => { thoughtProcessContainer.style.display = 'none'; }, 5000);
+                    }
+                }
+            }
+
+            /**
+             * [신규] 스트리밍 완료 후 전체 텍스트에서 JSON을 추출하고 UI를 채웁니다.
+             */
+            processFinalAiResponse(fullText) {
+                // 특수 구분자 사이의 JSON 데이터만 추출
+                const jsonMatch = fullText.match(/<<JSON_START>>([\s\S]*?)<<JSON_END>>/);
+
+                if (jsonMatch && jsonMatch[1]) {
+                    try {
+                        const finalJson = JSON.parse(jsonMatch[1]);
+                        // 이전에 구현한 populateBuilderWithAIData 호출
+                        this.populateBuilderWithAIData(finalJson);
+                        showToast('AI 정책 초안이 생성되었습니다. 내용을 검토 후 저장하세요.', 'success');
+                    } catch (e) {
+                        showToast('AI가 반환한 최종 정책 데이터(JSON) 파싱에 실패했습니다.', 'error');
+                        console.error("Final JSON parsing error:", e);
+                    }
+                } else {
+                    showToast('AI가 정책 초안을 완성하지 못했습니다. 더 명확한 언어로 다시 시도해보세요.', 'error');
                 }
             }
 
@@ -382,7 +438,11 @@
                 }
 
                 const data = draftDto.policyData;
-                const maps = draftDto.idToNameMaps || {}; // 이름 매핑 정보
+                const maps = {
+                    roles: draftDto.roleIdToNameMap || {},
+                    permissions: draftDto.permissionIdToNameMap || {},
+                    conditions: draftDto.conditionIdToNameMap || {}
+                };
 
                 // 1. 모든 캔버스와 상태를 깨끗하게 초기화
                 ['role', 'permission', 'condition'].forEach(type => this.state.clear(type));
@@ -395,19 +455,19 @@
                 // 3. 역할, 권한, 조건 캔버스 채우기
                 // AI가 반환한 ID 목록을 기반으로, 함께 전달된 이름 매핑 정보를 사용하여 칩을 생성합니다.
                 data.roleIds?.forEach(id => {
-                    const name = maps.roles?.[id] || `역할 ID: ${id}`;
+                    const name = maps.roles[id] || `알 수 없는 역할 (ID: ${id})`;
                     this.state.add('role', String(id), { id, name });
                 });
 
                 data.permissionIds?.forEach(id => {
-                    const name = maps.permissions?.[id] || `권한 ID: ${id}`;
+                    const name = maps.permissions[id] || `알 수 없는 권한 (ID: ${id})`;
                     this.state.add('permission', String(id), { id, name });
                 });
 
                 if (data.conditions) {
-                    Object.entries(data.conditions).forEach(([id, params]) => {
-                        const name = maps.conditions?.[id] || `조건 ID: ${id}`;
-                        // TODO: params 처리 로직 추가 필요
+                    Object.keys(data.conditions).forEach(id => {
+                        const name = maps.conditions[id] || `알 수 없는 조건 (ID: ${id})`;
+                        const params = data.conditions[id];
                         this.state.add('condition', String(id), { id, name, params });
                     });
                 }
@@ -425,6 +485,7 @@
                 this.elements.customSpelInput.value = this.state.customConditionSpel;
 
                 // 5. 변경된 전체 상태를 기반으로 UI를 한번에 다시 렌더링
+                this.handleAiToggle(); // 슬라이더 표시 여부 업데이트
                 this.ui.renderAll(this.state);
             }
 

@@ -6,6 +6,7 @@ import io.spring.identityadmin.ai.dto.TrustAssessment;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,13 @@ import java.util.Map;
  * 플랫폼의 다른 컴포넌트들은 이 인터페이스를 통해 AI의 분석 및 추론 능력을 활용합니다.
  */
 public interface AINativeIAMAdvisor {
+
+    /**
+     * [신규] 자연어 질의를 받아 정책 초안 생성 과정을 스트리밍으로 반환합니다.
+     * @param naturalLanguageQuery 자연어 문장
+     * @return AI의 생각 과정 및 최종 JSON 결과가 포함된 텍스트 스트림(Flux)
+     */
+    Flux<String> generatePolicyFromTextStream(String naturalLanguageQuery);
 
     /**
      * 관리자의 자연어 요구사항을 분석하여, 시스템이 실행할 수 있는 정책(Policy) 초안을 생성합니다.
