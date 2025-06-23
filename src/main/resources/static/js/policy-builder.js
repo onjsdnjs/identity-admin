@@ -1,8 +1,8 @@
 /**
  * [완벽한 스트리밍 시스템] 지능형 정책 빌더 클라이언트 애플리케이션
- * - 개선된 JSON 파싱 및 오류 처리
- * - 더 강력한 AI 응답 처리 로직
- * - 향상된 스트리밍 안정성
+ * - 한글 마커 지원 (===JSON시작===, ===JSON끝===)
+ * - 자연스러운 한국어 AI 응답 처리
+ * - 향상된 키워드 매핑 로직
  */
 
 (() => {
@@ -267,15 +267,6 @@
                 init() {
                     console.log('=== PolicyBuilderApp init 시작 ===');
 
-                    // 전역 변수 확인
-                    console.log('🔥 전역 변수 확인:', {
-                        allRoles: window.allRoles?.length || 0,
-                        allPermissions: window.allPermissions?.length || 0,
-                        allConditions: window.allConditions?.length || 0,
-                        resourceContext: window.resourceContext,
-                        preselectedPermission: window.preselectedPermission
-                    });
-
                     if (!this.elements.savePolicyBtn) {
                         console.error("❌ 정책 빌더의 필수 UI 요소(저장 버튼)를 찾을 수 없습니다.");
                         return;
@@ -296,8 +287,6 @@
                             this.handleGenerateByAI();
                         });
                         console.log('✅ AI 생성 버튼 이벤트 리스너 추가 완료');
-                    } else {
-                        console.error('❌ generateByAiBtn element not found');
                     }
 
                     if (this.elements.aiEnabledCheckbox) {
@@ -391,7 +380,7 @@
                 }
 
                 // 🔥 개선된 스트리밍 AI 처리
-                async handleGenerateByAI() {
+                /*async handleGenerateByAI() {
                     console.log('🚀 AI 정책 생성 시작');
 
                     const query = this.elements.naturalLanguageInput?.value;
@@ -427,6 +416,46 @@
                             setTimeout(() => thoughtContainer.classList.add('hidden'), 5000);
                         }
                     }
+                }*/
+
+                async handleGenerateByAI() {
+                    console.log('🚀 AI 정책 생성 시작');
+
+                    const query = this.elements.naturalLanguageInput?.value;
+                    if (!query || !query.trim()) {
+                        this.showMessage('요구사항을 입력해주세요.', 'error');
+                        return;
+                    }
+
+                    this.ui.setLoading(this.elements.generateByAiBtn, true);
+                    const thoughtContainer = this.elements.thoughtProcessContainer;
+                    const thoughtLog = this.elements.thoughtProcessLog;
+
+                    if (thoughtContainer && thoughtLog) {
+                        thoughtLog.textContent = 'AI가 정책을 분석하고 있습니다...';
+                        thoughtContainer.classList.remove('hidden');
+                    }
+
+                    try {
+                        // 🔥 스트리밍 제거 - 일반 API만 사용
+                        console.log('🔥 일반 API 시도...');
+                        const response = await this.api.generatePolicyFromText(query);
+
+                        if (response && response.policyData) {
+                            this.populateBuilderWithAIData(response);
+                            this.showMessage('AI 정책 초안이 성공적으로 생성되었습니다!', 'success');
+                        } else {
+                            throw new Error('유효한 정책 데이터를 받지 못했습니다');
+                        }
+                    } catch (error) {
+                        console.error('🔥 API 실패:', error);
+                        this.showMessage('AI 정책 생성에 실패했습니다: ' + error.message, 'error');
+                    } finally {
+                        this.ui.setLoading(this.elements.generateByAiBtn, false);
+                        if (thoughtContainer) {
+                            setTimeout(() => thoughtContainer.classList.add('hidden'), 3000);
+                        }
+                    }
                 }
 
                 async tryStreamingAPI(query, thoughtLog) {
@@ -445,7 +474,7 @@
                     let fullResponse = '';
                     let buffer = '';
                     const reader = response.body.getReader();
-                    const decoder = new TextDecoder();
+                    const decoder = new TextDecoder('utf-8');
 
                     console.log('🔥 스트림 읽기 시작');
 
@@ -453,12 +482,13 @@
                         const { value, done } = await reader.read();
                         if (done) break;
 
+                        // 🔥 개선된 디코딩
                         const chunk = decoder.decode(value, { stream: true });
                         buffer += chunk;
 
                         // 완전한 라인들을 처리
                         const lines = buffer.split('\n');
-                        buffer = lines.pop() || ''; // 마지막 불완전한 라인은 버퍼에 보관
+                        buffer = lines.pop() || '';
 
                         for (const line of lines) {
                             if (line.startsWith('data: ')) {
@@ -476,6 +506,14 @@
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    // 남은 버퍼 처리
+                    if (buffer.trim()) {
+                        fullResponse += buffer;
+                        if (thoughtLog) {
+                            thoughtLog.textContent += buffer;
                         }
                     }
 
@@ -508,92 +546,178 @@
                     console.log('🔥 전체 텍스트 길이:', fullText.length);
                     console.log('🔥 첫 300자:', fullText.substring(0, 300));
 
-                    // 1. 명확한 JSON 마커로 추출 시도
-                    const jsonStartMarker = '<<<JSON_START>>>';
-                    const jsonEndMarker = '<<<JSON_END>>>';
+                    try {
+                        const jsonData = this.extractJsonFromResponse(fullText);
+                        console.log('🔥 JSON 추출 성공:', jsonData);
+                        this.handleParsedAIData(jsonData);
+                        return;
+                    } catch (error) {
+                        console.warn('🔥 JSON 추출 실패:', error);
 
-                    const startIndex = fullText.indexOf(jsonStartMarker);
-                    const endIndex = fullText.indexOf(jsonEndMarker);
+                        // Fallback: 텍스트 분석으로 기본 데이터 생성
+                        const extractedData = this.extractDataFromText(fullText);
+                        if (extractedData) {
+                            this.handleParsedAIData(extractedData);
+                            return;
+                        }
+
+                        throw new Error('AI 응답에서 유효한 정책 데이터를 찾을 수 없습니다');
+                    }
+                }
+
+                /**
+                 * 🔥 개선된 JSON 추출 메서드 - 한글 마커 지원
+                 */
+                extractJsonFromResponse(text) {
+                    console.log('🔥 JSON 추출 시도...');
+
+                    // 1. 한글 마커 방식 (===JSON시작===, ===JSON끝===)
+                    let startMarker = '===JSON시작===';
+                    let endMarker = '===JSON끝===';
+                    let startIndex = text.indexOf(startMarker);
+                    let endIndex = text.indexOf(endMarker);
 
                     if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
-                        const jsonText = fullText.substring(startIndex + jsonStartMarker.length, endIndex).trim();
-                        console.log('🔥 마커로 추출된 JSON:', jsonText);
-
-                        try {
-                            const jsonData = JSON.parse(jsonText);
-                            console.log('🔥 파싱 성공:', jsonData);
-                            this.handleParsedAIData(jsonData);
-                            return;
-                        } catch (e) {
-                            console.warn('🔥 마커 JSON 파싱 실패:', e);
-                        }
+                        const jsonText = text.substring(startIndex + startMarker.length, endIndex).trim();
+                        console.log('🔥 한글 마커로 추출된 JSON:', jsonText);
+                        return JSON.parse(this.cleanJsonString(jsonText));
                     }
 
-                    // 2. 마크다운 코드 블록 제거 및 JSON 추출
+                    // 2. 영어 마커 방식 (JSON_RESULT_START/END)
+                    startMarker = 'JSON_RESULT_START';
+                    endMarker = 'JSON_RESULT_END';
+                    startIndex = text.indexOf(startMarker);
+                    endIndex = text.indexOf(endMarker);
+
+                    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                        const jsonText = text.substring(startIndex + startMarker.length, endIndex).trim();
+                        console.log('🔥 영어 마커로 추출된 JSON:', jsonText);
+                        return JSON.parse(this.cleanJsonString(jsonText));
+                    }
+
+                    // 3. 구형 마커 방식 (<<<JSON_START>>>)
+                    startMarker = '<<<JSON_START>>>';
+                    endMarker = '<<<JSON_END>>>';
+                    startIndex = text.indexOf(startMarker);
+                    endIndex = text.indexOf(endMarker);
+
+                    if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                        const jsonText = text.substring(startIndex + startMarker.length, endIndex).trim();
+                        console.log('🔥 구형 마커로 추출된 JSON:', jsonText);
+                        return JSON.parse(this.cleanJsonString(jsonText));
+                    }
+
+                    // 4. 마크다운 코드 블록 제거
                     const markdownPatterns = [
                         /```json\s*([\s\S]*?)\s*```/i,
                         /```\s*([\s\S]*?)\s*```/i
                     ];
 
                     for (const pattern of markdownPatterns) {
-                        const match = fullText.match(pattern);
+                        const match = text.match(pattern);
                         if (match && match[1]) {
-                            try {
-                                const jsonText = match[1].trim();
-                                console.log('🔥 마크다운에서 추출된 JSON:', jsonText);
+                            const jsonText = match[1].trim();
+                            console.log('🔥 마크다운에서 추출된 JSON:', jsonText);
 
-                                const jsonData = JSON.parse(jsonText);
-                                if (jsonData.policyName || jsonData.roleIds || jsonData.permissionIds) {
-                                    console.log('🔥 유효한 정책 데이터 발견:', jsonData);
-                                    this.handleParsedAIData(jsonData);
-                                    return;
+                            try {
+                                const parsed = JSON.parse(this.cleanJsonString(jsonText));
+                                if (this.isValidPolicyData(parsed)) {
+                                    return parsed;
                                 }
-                            } catch (parseError) {
-                                console.warn('🔥 마크다운 JSON 파싱 실패:', parseError);
+                            } catch (e) {
+                                console.warn('🔥 마크다운 JSON 파싱 실패:', e);
                             }
                         }
                     }
 
-                    // 3. 일반 JSON 객체 찾기
-                    const jsonPatterns = [
-                        /\{[\s\S]*?"policyName"[\s\S]*?\}/,
-                        /\{[\s\S]*?"roleIds"[\s\S]*?\}/
-                    ];
+                    // 5. 중괄호 방식으로 JSON 객체 추출
+                    const jsonStart = text.indexOf('{');
+                    const jsonEnd = this.findMatchingBrace(text, jsonStart);
 
-                    for (const pattern of jsonPatterns) {
-                        const match = fullText.match(pattern);
-                        if (match) {
-                            try {
-                                const cleanJson = this.cleanJsonString(match[0]);
-                                console.log('🔥 패턴으로 찾은 JSON:', cleanJson);
+                    if (jsonStart !== -1 && jsonEnd !== -1) {
+                        const jsonText = text.substring(jsonStart, jsonEnd + 1);
+                        console.log('🔥 중괄호로 추출된 JSON:', jsonText);
 
-                                const jsonData = JSON.parse(cleanJson);
-                                if (jsonData.policyName || jsonData.roleIds || jsonData.permissionIds) {
-                                    console.log('🔥 유효한 정책 데이터 발견:', jsonData);
-                                    this.handleParsedAIData(jsonData);
-                                    return;
-                                }
-                            } catch (parseError) {
-                                console.warn('🔥 패턴 JSON 파싱 실패:', parseError);
+                        try {
+                            const parsed = JSON.parse(this.cleanJsonString(jsonText));
+                            if (this.isValidPolicyData(parsed)) {
+                                return parsed;
                             }
+                        } catch (e) {
+                            console.warn('🔥 중괄호 JSON 파싱 실패:', e);
                         }
                     }
 
-                    // 4. 최후의 수단: 텍스트에서 정보 추출
-                    console.log('🔥 텍스트 분석으로 정보 추출 시도');
-                    const extractedData = this.extractDataFromText(fullText);
-                    if (extractedData) {
-                        this.handleParsedAIData(extractedData);
-                        return;
-                    }
-
-                    throw new Error('AI 응답에서 유효한 정책 데이터를 찾을 수 없습니다');
+                    throw new Error('유효한 JSON을 찾을 수 없습니다');
                 }
 
+                /**
+                 * 매칭되는 중괄호 찾기
+                 */
+                findMatchingBrace(text, start) {
+                    if (start === -1 || start >= text.length || text.charAt(start) !== '{') {
+                        return -1;
+                    }
+
+                    let braceCount = 1;
+                    for (let i = start + 1; i < text.length; i++) {
+                        const char = text.charAt(i);
+                        if (char === '{') {
+                            braceCount++;
+                        } else if (char === '}') {
+                            braceCount--;
+                            if (braceCount === 0) {
+                                return i;
+                            }
+                        }
+                    }
+                    return -1;
+                }
+
+                /**
+                 * JSON 문자열 정제
+                 */
+                cleanJsonString(jsonStr) {
+                    if (!jsonStr) return jsonStr;
+
+                    console.log('🔥 JSON 정제 시작:', jsonStr.substring(0, 100));
+
+                    // 1. 기본 정제 - 한글 보존
+                    let cleaned = jsonStr
+                        .replace(/\r\n/g, '\n')
+                        .replace(/\r/g, '\n')
+                        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // 제어 문자만 제거
+                        .replace(/\n\s*\n/g, '\n')
+                        .trim();
+
+                    // 2. JSON 객체 범위 찾기
+                    const jsonStart = cleaned.indexOf('{');
+                    const jsonEnd = this.findMatchingBrace(cleaned, jsonStart);
+
+                    if (jsonStart !== -1 && jsonEnd !== -1) {
+                        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+                    }
+
+                    // 3. trailing comma 제거
+                    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1');
+
+                    console.log('🔥 정제된 JSON:', cleaned.substring(0, 100));
+                    return cleaned;
+                }
+
+                /**
+                 * 유효한 정책 데이터인지 확인
+                 */
+                isValidPolicyData(data) {
+                    return data && (data.policyName || data.roleIds || data.permissionIds);
+                }
+
+                /**
+                 * 텍스트에서 기본 정보 추출 (최후의 수단)
+                 */
                 extractDataFromText(text) {
                     console.log('🔥 텍스트에서 데이터 추출 시도');
 
-                    // 텍스트에서 기본적인 정보 추출
                     const extractedData = {
                         policyName: "AI 생성 정책",
                         description: "AI가 분석한 정책입니다",
@@ -606,36 +730,51 @@
                         effect: "ALLOW"
                     };
 
-                    // 역할 키워드 기반 추출 (실제 DB 데이터 활용)
+                    // 🔥 향상된 키워드 기반 매핑
                     if (window.allRoles) {
                         window.allRoles.forEach(role => {
-                            if (text.includes(role.roleName)) {
+                            const roleName = role.roleName.toLowerCase();
+                            const textLower = text.toLowerCase();
+
+                            if (textLower.includes(roleName) ||
+                                (textLower.includes('개발') && roleName.includes('개발')) ||
+                                (textLower.includes('관리자') && roleName.includes('관리')) ||
+                                (textLower.includes('사용자') && roleName.includes('사용자')) ||
+                                (textLower.includes('팀') && roleName.includes('팀'))) {
                                 extractedData.roleIds.push(role.id);
                                 extractedData.policyName = `${role.roleName} 접근 정책`;
+                                console.log('🔥 역할 키워드 매핑:', role.roleName, role.id);
                             }
                         });
                     }
 
-                    // 권한 키워드 기반 추출
                     if (window.allPermissions) {
                         window.allPermissions.forEach(permission => {
-                            if (text.includes(permission.friendlyName) ||
-                                text.includes(permission.name) ||
-                                (permission.friendlyName.includes('조회') && (text.includes('조회') || text.includes('읽기'))) ||
-                                (permission.friendlyName.includes('수정') && (text.includes('수정') || text.includes('편집'))) ||
-                                (permission.friendlyName.includes('삭제') && text.includes('삭제'))) {
+                            const permName = (permission.friendlyName || permission.name).toLowerCase();
+                            const textLower = text.toLowerCase();
+
+                            if (textLower.includes(permName) ||
+                                (textLower.includes('조회') && permName.includes('조회')) ||
+                                (textLower.includes('데이터') && permName.includes('데이터')) ||
+                                (textLower.includes('고객') && permName.includes('고객')) ||
+                                (textLower.includes('수정') && permName.includes('수정')) ||
+                                (textLower.includes('삭제') && permName.includes('삭제')) ||
+                                (textLower.includes('읽기') && permName.includes('읽기'))) {
                                 extractedData.permissionIds.push(permission.id);
+                                console.log('🔥 권한 키워드 매핑:', permission.friendlyName, permission.id);
                             }
                         });
                     }
 
-                    // 조건 키워드 기반 추출
                     if (window.allConditions) {
                         window.allConditions.forEach(condition => {
-                            if (text.includes(condition.name) ||
-                                (condition.name.includes('업무시간') && (text.includes('업무시간') || text.includes('평일'))) ||
-                                (condition.name.includes('IP') && text.includes('IP'))) {
+                            const condName = condition.name.toLowerCase();
+                            const textLower = text.toLowerCase();
+
+                            if ((textLower.includes('업무시간') || textLower.includes('평일') || textLower.includes('근무시간')) &&
+                                (condName.includes('업무') || condName.includes('시간'))) {
                                 extractedData.conditions[condition.id] = [];
+                                console.log('🔥 조건 키워드 매핑:', condition.name, condition.id);
                             }
                         });
                     }
@@ -649,31 +788,15 @@
                     return null;
                 }
 
-                cleanJsonString(jsonStr) {
-                    console.log('🔥 JSON 정제 시작:', jsonStr.substring(0, 100));
-
-                    // 1. 기본 정제
-                    let cleaned = jsonStr
-                        .replace(/[\u0000-\u001F\u007F-\u009F]/g, '') // 제어 문자 제거
-                        .replace(/\n\s*\n/g, '\n') // 빈 줄 제거
-                        .trim();
-
-                    // 2. JSON 객체 찾기
-                    const jsonStart = cleaned.indexOf('{');
-                    const jsonEnd = cleaned.lastIndexOf('}');
-
-                    if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-                        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
-                    }
-
-                    console.log('🔥 정제된 JSON:', cleaned);
-                    return cleaned;
-                }
-
                 handleParsedAIData(jsonData) {
                     console.log('🔥 파싱된 데이터 처리:', jsonData);
+                    console.log('🔥 실제 받은 매핑 데이터:');
+                    console.log('- roleIdToNameMap:', jsonData.roleIdToNameMap);
+                    console.log('- permissionIdToNameMap:', jsonData.permissionIdToNameMap);
+                    console.log('- conditionIdToNameMap:', jsonData.conditionIdToNameMap);
 
                     // 실제 이름을 조회하여 매핑하는 함수
+                    // 기존 코드를 이렇게 수정
                     const buildNameMaps = (jsonData) => {
                         const maps = {
                             roles: {},
@@ -681,23 +804,44 @@
                             conditions: {}
                         };
 
-                        // 역할 이름 매핑 (HTML에서 전역 변수로 제공된 데이터 사용)
+                        // 🔥 역할 이름 매핑 개선
                         if (jsonData.roleIds && window.allRoles) {
                             jsonData.roleIds.forEach(id => {
-                                const role = window.allRoles.find(r => r.id === Number(id));
-                                maps.roles[id] = role ? role.roleName : `역할 (ID: ${id})`;
+                                console.log(`🔥 역할 ID ${id} 찾는 중... (타입: ${typeof id})`);
+
+                                // 모든 가능한 방법으로 찾기
+                                let role = window.allRoles.find(r => r.id === Number(id)) ||
+                                    window.allRoles.find(r => r.id == id) ||
+                                    window.allRoles.find(r => String(r.id) === String(id));
+
+                                if (role) {
+                                    // 모든 가능한 이름 필드 시도
+                                    const roleName = role.roleName || role.name || role.displayName || `역할${id}`;
+                                    maps.roles[id] = roleName;
+                                    console.log(`🔥 역할 매핑 성공: ID=${id}, Name=${roleName}, 전체객체:`, role);
+                                } else {
+                                    maps.roles[id] = `역할 (ID: ${id})`;
+                                    console.log(`🔥 역할 매핑 실패: ID=${id} - 해당 역할 없음`);
+                                    console.log('사용 가능한 역할들:', window.allRoles.map(r => ({ id: r.id, type: typeof r.id })));
+                                }
                             });
                         }
 
-                        // 권한 이름 매핑
+                        // 🔥 권한 이름 매핑 개선
                         if (jsonData.permissionIds && window.allPermissions) {
                             jsonData.permissionIds.forEach(id => {
                                 const permission = window.allPermissions.find(p => p.id === Number(id));
-                                maps.permissions[id] = permission ? permission.friendlyName : `권한 (ID: ${id})`;
+                                if (permission) {
+                                    maps.permissions[id] = permission.friendlyName;  // 실제 이름 사용
+                                    console.log(`🔥 권한 매핑 성공: ID=${id}, Name=${permission.friendlyName}`);
+                                } else {
+                                    maps.permissions[id] = `권한 (ID: ${id})`;  // fallback
+                                    console.log(`🔥 권한 매핑 실패: ID=${id}`);
+                                }
                             });
                         }
 
-                        // 조건 이름 매핑
+                        // 조건은 기존과 동일...
                         if (jsonData.conditions && window.allConditions) {
                             Object.keys(jsonData.conditions).forEach(id => {
                                 const condition = window.allConditions.find(c => c.id === Number(id));
@@ -708,7 +852,7 @@
                         return maps;
                     };
 
-                    // AiGeneratedPolicyDraftDto 형식으로 변환 (실제 이름 포함)
+                    // AiGeneratedPolicyDraftDto 형식으로 변환
                     const maps = buildNameMaps(jsonData);
                     const mockDto = {
                         policyData: jsonData,
@@ -724,6 +868,9 @@
                 populateBuilderWithAIData(draftDto) {
                     console.log('🔥 AI 데이터로 빌더 채우기:', draftDto);
 
+                    console.log('🔥 서버에서 온 roleIdToNameMap:', draftDto.roleIdToNameMap);
+                    console.log('🔥 서버에서 온 permissionIdToNameMap:', draftDto.permissionIdToNameMap);
+                    console.log('🔥 서버에서 온 conditionIdToNameMap:', draftDto.conditionIdToNameMap);
                     if (!draftDto || !draftDto.policyData) {
                         this.showMessage('AI가 정책 초안을 생성하지 못했습니다.', 'error');
                         return;

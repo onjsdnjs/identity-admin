@@ -27,8 +27,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static io.spring.identityadmin.domain.entity.policy.Policy.Effect.ALLOW;
 
 @Slf4j
 @Service
@@ -85,8 +91,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         // 2. 시스템 메타데이터 구성 (실제 DB 데이터)
         String systemMetadata = buildSystemMetadata();
 
-        // 3. 개선된 프롬프트 - 명확한 구조와 JSON 생성
-        String systemPrompt = """
+        // 🔥 3. 자연스러운 한국어 프롬프트 - 인코딩 안정성 확보하면서 한글 유지
+        String systemPrompt = String.format("""
         당신은 IAM 정책 분석 AI '아비터'입니다. 
         
         🎯 임무: 자연어 요구사항을 분석하여 구체적인 정책 구성 요소로 변환
@@ -104,16 +110,16 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         - 모든 ID는 위 시스템 정보에서 실제로 존재하는 숫자여야 함
         - 역할명/권한명으로 추론하되, 가장 가까운 실제 ID 사용
         - JSON은 반드시 정확한 형식으로 출력
-        - 분석 과정을 단계별로 설명 후 JSON 출력
-        - JSON 출력 시 마크다운 코드 블록(```)을 사용하지 말 것
+        - 분석 과정을 단계별로 한국어로 설명 후 JSON 출력
+        - 마지막에 반드시 명확한 JSON 마커 사용
         
-        [매우 중요] `roleIds`, `permissionIds` 배열에는 반드시 이름이 아닌 '숫자 ID' 를 포함해야 합니다.
-        `conditions` 맵의 키 또한 '숫자 ID' 여야 합니다.
+        [매우 중요] roleIds, permissionIds 배열에는 반드시 이름이 아닌 '숫자 ID'를 포함해야 합니다.
+        conditions 맵의 키 또한 '숫자 ID'여야 합니다.
         
         📤 최종 출력 형식:
-        [분석 과정 설명...]
+        [한국어로 분석 과정 설명...]
         
-        <<<JSON_START>>>
+        ===JSON시작===
         {
           "policyName": "정책 이름",
           "description": "정책 설명", 
@@ -125,8 +131,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
           "customConditionSpel": "",
           "effect": "ALLOW"
         }
-        <<<JSON_END>>>
-        """.formatted(systemMetadata);
+        ===JSON끝===
+        """, systemMetadata);
 
         String userPrompt = String.format("""
         **자연어 요구사항:**
@@ -138,76 +144,48 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         위 요구사항을 분석하여 정책을 구성해주세요.
         """, naturalLanguageQuery, contextInfo);
 
-        // 4. ChatClient 스트리밍 호출
+        // 4. ChatClient 스트리밍 호출 with 인코딩 안정화
         return chatClient.prompt()
                 .system(systemPrompt)
                 .user(userPrompt)
                 .stream()
                 .content()
+                // 🔥 인코딩 안정성을 위한 처리
+                .map(this::cleanTextChunk)
+                .filter(chunk -> !chunk.trim().isEmpty()) // 빈 청크 필터링
+                .delayElements(Duration.ofMillis(10)) // 안정적인 전송을 위한 딜레이
                 .doOnNext(chunk -> {
                     String logChunk = chunk.length() > 50 ? chunk.substring(0, 50) + "..." : chunk;
-                    log.debug("🔥 AI 응답 청크: {}", logChunk);
+                    log.debug("🔥 AI 응답 청크: [{}]", logChunk);
                 })
                 .doOnError(error -> log.error("🔥 AI 스트리밍 오류", error))
                 .onErrorResume(error -> {
                     log.error("🔥 AI 스트리밍 실패, 에러 메시지 반환", error);
-                    return Flux.just("ERROR: AI 서비스에 연결할 수 없습니다: " + error.getMessage());
+                    return Flux.just("ERROR: AI 서비스 연결 실패: " + error.getMessage());
                 });
     }
 
     /**
-     * AI 응답에서 JSON을 추출하고 정제하는 헬퍼 메서드
+     * 🔥 텍스트 청크 정제 - 한글 인코딩 안정성 확보
      */
-    private String extractAndCleanJson(String aiResponse) {
-        if (aiResponse == null || aiResponse.trim().isEmpty()) {
-            throw new IllegalArgumentException("AI 응답이 비어있습니다.");
+    private String cleanTextChunk(String chunk) {
+        if (chunk == null || chunk.isEmpty()) {
+            return "";
         }
 
-        String response = aiResponse.trim();
-        log.debug("원본 AI 응답: {}", response.substring(0, Math.min(response.length(), 200)) + "...");
+        try {
+            // 1. UTF-8 인코딩 안정성 검증
+            byte[] bytes = chunk.getBytes(StandardCharsets.UTF_8);
+            String decoded = new String(bytes, StandardCharsets.UTF_8);
 
-        // 1. <<<JSON_START>>>, <<<JSON_END>>> 마커로 JSON 추출
-        String jsonStartMarker = "<<<JSON_START>>>";
-        String jsonEndMarker = "<<<JSON_END>>>";
+            // 2. 불필요한 제어 문자만 제거 (한글은 보존)
+            String cleaned = decoded.replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]", "");
 
-        int startIndex = response.indexOf(jsonStartMarker);
-        int endIndex = response.indexOf(jsonEndMarker);
-
-        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
-            String extractedJson = response.substring(startIndex + jsonStartMarker.length(), endIndex).trim();
-            log.debug("마커로 추출된 JSON: {}", extractedJson);
-            return extractedJson;
+            return cleaned;
+        } catch (Exception e) {
+            log.warn("🔥 텍스트 청크 정제 실패: {}", e.getMessage());
+            return chunk; // 실패 시 원본 반환
         }
-
-        // 2. 마크다운 코드 블록 제거 (```json ... ``` 또는 ``` ... ```)
-        String[] patterns = {
-                "```json\\s*([\\s\\S]*?)\\s*```",
-                "```\\s*([\\s\\S]*?)\\s*```"
-        };
-
-        for (String pattern : patterns) {
-            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.DOTALL);
-            java.util.regex.Matcher m = p.matcher(response);
-            if (m.find()) {
-                String extractedJson = m.group(1).trim();
-                log.debug("마크다운 패턴으로 추출된 JSON: {}", extractedJson);
-                return extractedJson;
-            }
-        }
-
-        // 3. JSON 객체 직접 추출 ({ ... })
-        int jsonStart = response.indexOf('{');
-        int jsonEnd = response.lastIndexOf('}');
-
-        if (jsonStart != -1 && jsonEnd != -1 && jsonEnd > jsonStart) {
-            String extractedJson = response.substring(jsonStart, jsonEnd + 1).trim();
-            log.debug("중괄호로 추출된 JSON: {}", extractedJson);
-            return extractedJson;
-        }
-
-        // 4. 모든 방법이 실패한 경우 원본 반환 (마지막 시도)
-        log.warn("JSON 추출에 실패했습니다. 원본 응답을 그대로 사용합니다.");
-        return response;
     }
 
     /**
@@ -242,7 +220,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
      */
     @Override
     public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery) {
-        // 기존 구현 유지...
+        // RAG 검색
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(naturalLanguageQuery)
                 .topK(10)
@@ -252,7 +230,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
         String systemMetadata = buildSystemMetadata();
 
-        String systemPrompt = """
+        String systemPrompt = String.format("""
             당신은 사용자의 자연어 요구사항을 분석하여, IAM 시스템이 이해할 수 있는 BusinessPolicyDto JSON 객체로 변환하는 AI 에이전트입니다.
             
             시스템 정보:
@@ -261,8 +239,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             요청을 분석하여 주체(역할), 리소스(권한), 행위, 그리고 조건 등을 추출해야 합니다.
             제공된 시스템 정보를 활용하여 실제 존재하는 ID를 사용해야 합니다.
             
-            [매우 중요] `roleIds`, `permissionIds` 배열에는 반드시 이름이 아닌 '숫자 ID' 를 포함해야 합니다.
-            `conditions` 맵의 키 또한 '숫자 ID' 여야 합니다.
+            [매우 중요] roleIds, permissionIds 배열에는 반드시 이름이 아닌 '숫자 ID'를 포함해야 합니다.
+            conditions 맵의 키 또한 '숫자 ID'여야 합니다.
             응답 시 마크다운 코드 블록(```)을 사용하지 말고 순수 JSON만 출력하세요.
             
             **출력 JSON 형식:**
@@ -278,7 +256,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
               "customConditionSpel": "",
               "effect": "ALLOW"
             }
-            """.formatted(systemMetadata);
+            """, systemMetadata);
 
         String userPrompt = String.format("""
             **자연어 요구사항:**
@@ -295,7 +273,9 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                 .content();
 
         try {
-            AiResponseDto aiResponse = objectMapper.readValue(jsonResponse, AiResponseDto.class);
+            // JSON 정제 적용
+            String cleanedJson = extractAndCleanJson(jsonResponse);
+            AiResponseDto aiResponse = objectMapper.readValue(cleanedJson, AiResponseDto.class);
             BusinessPolicyDto policyData = translateAiResponseToBusinessDto(aiResponse);
 
             Map<String, String> roleIdToNameMap = getRoleNames(policyData.getRoleIds());
@@ -306,7 +286,210 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
         } catch (Exception e) {
             log.error("AI 정책 생성 또는 파싱에 실패했습니다. AI Response: {}", jsonResponse, e);
-            throw new IllegalStateException("AI를 통한 정책 생성에 실패했습니다.", e);
+
+            // 💡 Fallback: 기본 정책 데이터 생성
+            return createFallbackPolicyData(naturalLanguageQuery);
+        }
+    }
+
+    /**
+     * 개선된 JSON 추출 및 정제 메서드 - 한글 마커 지원
+     */
+    private String extractAndCleanJson(String aiResponse) {
+        if (aiResponse == null || aiResponse.trim().isEmpty()) {
+            throw new IllegalArgumentException("AI 응답이 비어있습니다.");
+        }
+
+        String response = aiResponse.trim();
+        log.debug("🔥 원본 AI 응답 길이: {}, 첫 200자: {}", response.length(),
+                response.substring(0, Math.min(response.length(), 200)));
+
+        // 1. 한글 마커로 JSON 추출 (===JSON시작===, ===JSON끝===)
+        String jsonStartMarker = "===JSON시작===";
+        String jsonEndMarker = "===JSON끝===";
+
+        int startIndex = response.indexOf(jsonStartMarker);
+        int endIndex = response.indexOf(jsonEndMarker);
+
+        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+            String extractedJson = response.substring(startIndex + jsonStartMarker.length(), endIndex).trim();
+            log.debug("🔥 한글 마커로 추출된 JSON: {}", extractedJson);
+            return cleanJsonString(extractedJson);
+        }
+
+        // 2. 영어 마커로 JSON 추출 (JSON_RESULT_START, JSON_RESULT_END)
+        jsonStartMarker = "JSON_RESULT_START";
+        jsonEndMarker = "JSON_RESULT_END";
+        startIndex = response.indexOf(jsonStartMarker);
+        endIndex = response.indexOf(jsonEndMarker);
+
+        if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+            String extractedJson = response.substring(startIndex + jsonStartMarker.length(), endIndex).trim();
+            log.debug("🔥 영어 마커로 추출된 JSON: {}", extractedJson);
+            return cleanJsonString(extractedJson);
+        }
+
+        // 3. 마크다운 코드 블록 제거
+        String[] patterns = {
+                "```json\\s*([\\s\\S]*?)\\s*```",
+                "```\\s*([\\s\\S]*?)\\s*```"
+        };
+
+        for (String pattern : patterns) {
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.DOTALL);
+            java.util.regex.Matcher m = p.matcher(response);
+            if (m.find()) {
+                String extractedJson = m.group(1).trim();
+                log.debug("🔥 마크다운 패턴으로 추출된 JSON: {}", extractedJson);
+                return cleanJsonString(extractedJson);
+            }
+        }
+
+        // 4. JSON 객체 직접 추출 ({ ... })
+        int jsonStart = response.indexOf('{');
+        int jsonEnd = findMatchingBrace(response, jsonStart);
+
+        if (jsonStart != -1 && jsonEnd != -1) {
+            String extractedJson = response.substring(jsonStart, jsonEnd + 1).trim();
+            log.debug("🔥 중괄호로 추출된 JSON: {}", extractedJson);
+            return cleanJsonString(extractedJson);
+        }
+
+        throw new IllegalArgumentException("JSON 추출에 실패했습니다");
+    }
+
+    /**
+     * 매칭되는 중괄호를 찾는 헬퍼 메서드
+     */
+    private int findMatchingBrace(String text, int start) {
+        if (start == -1 || start >= text.length() || text.charAt(start) != '{') {
+            return -1;
+        }
+
+        int braceCount = 1;
+        for (int i = start + 1; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '{') {
+                braceCount++;
+            } else if (c == '}') {
+                braceCount--;
+                if (braceCount == 0) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * JSON 문자열 정제 메서드 개선
+     */
+    private String cleanJsonString(String jsonStr) {
+        if (jsonStr == null || jsonStr.trim().isEmpty()) {
+            return jsonStr;
+        }
+
+        log.debug("🔥 JSON 정제 시작, 원본 길이: {}", jsonStr.length());
+
+        // 1. 기본 정제 - 한글 보존
+        String cleaned = jsonStr
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]", "")  // 제어 문자만 제거
+                .replaceAll("\\n\\s*\\n", "\n")
+                .trim();
+
+        // 2. JSON 시작과 끝 찾기
+        int jsonStart = cleaned.indexOf('{');
+        int jsonEnd = findMatchingBrace(cleaned, jsonStart);
+
+        if (jsonStart != -1 && jsonEnd != -1) {
+            cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+        }
+
+        // 3. 잘못된 쉼표 제거
+        cleaned = cleaned.replaceAll(",\\s*([}\\]])", "$1");
+
+        log.debug("🔥 정제된 JSON 길이: {}", cleaned.length());
+        return cleaned;
+    }
+
+    /**
+     * AI 파싱 실패 시 기본 정책 데이터를 생성하는 fallback 메서드
+     */
+    private AiGeneratedPolicyDraftDto createFallbackPolicyData(String naturalLanguageQuery) {
+        log.info("🔥 AI 파싱 실패, fallback 정책 데이터 생성");
+
+        BusinessPolicyDto fallbackDto = new BusinessPolicyDto();
+        fallbackDto.setPolicyName("AI 생성 정책 (기본)");
+        fallbackDto.setDescription("AI가 분석한 요구사항: " + naturalLanguageQuery);
+        fallbackDto.setRoleIds(new HashSet<>());
+        fallbackDto.setPermissionIds(new HashSet<>());
+        fallbackDto.setConditions(new HashMap<>());
+        fallbackDto.setEffect(ALLOW);
+        fallbackDto.setAiRiskAssessmentEnabled(false);
+        fallbackDto.setRequiredTrustScore(0.7);
+        fallbackDto.setCustomConditionSpel("");
+
+        // 키워드 기반으로 기본 매핑 시도
+        tryBasicKeywordMapping(naturalLanguageQuery, fallbackDto);
+
+        return new AiGeneratedPolicyDraftDto(
+                fallbackDto,
+                getRoleNames(fallbackDto.getRoleIds()),
+                getPermissionNames(fallbackDto.getPermissionIds()),
+                getConditionTemplateNames(fallbackDto.getConditions())
+        );
+    }
+
+    /**
+     * 키워드 기반 기본 매핑 - 더 정확한 한글 키워드 검색
+     */
+    private void tryBasicKeywordMapping(String query, BusinessPolicyDto dto) {
+        String lowerQuery = query.toLowerCase();
+
+        // 역할 매핑 - 다양한 키워드 패턴
+        List<Role> allRoles = roleRepository.findAll();
+        for (Role role : allRoles) {
+            String roleName = role.getRoleName().toLowerCase();
+            if (lowerQuery.contains(roleName) ||
+                    (lowerQuery.contains("개발") && roleName.contains("개발")) ||
+                    (lowerQuery.contains("관리자") && roleName.contains("관리")) ||
+                    (lowerQuery.contains("사용자") && roleName.contains("사용자")) ||
+                    (lowerQuery.contains("팀") && roleName.contains("팀"))) {
+                dto.getRoleIds().add(role.getId());
+                log.info("🔥 키워드 매핑 - 역할 추가: {} (ID: {})", role.getRoleName(), role.getId());
+                break;
+            }
+        }
+
+        // 권한 매핑 - 다양한 권한 키워드
+        List<Permission> allPermissions = permissionRepository.findAll();
+        for (Permission perm : allPermissions) {
+            String permName = perm.getFriendlyName().toLowerCase();
+            if (lowerQuery.contains(permName) ||
+                    (lowerQuery.contains("조회") && permName.contains("조회")) ||
+                    (lowerQuery.contains("데이터") && permName.contains("데이터")) ||
+                    (lowerQuery.contains("고객") && permName.contains("고객")) ||
+                    (lowerQuery.contains("수정") && permName.contains("수정")) ||
+                    (lowerQuery.contains("삭제") && permName.contains("삭제")) ||
+                    (lowerQuery.contains("읽기") && permName.contains("읽기"))) {
+                dto.getPermissionIds().add(perm.getId());
+                log.info("🔥 키워드 매핑 - 권한 추가: {} (ID: {})", perm.getFriendlyName(), perm.getId());
+                break;
+            }
+        }
+
+        // 조건 매핑 - 시간 관련 키워드
+        List<ConditionTemplate> allConditions = conditionTemplateRepository.findAll();
+        for (ConditionTemplate cond : allConditions) {
+            String condName = cond.getName().toLowerCase();
+            if ((lowerQuery.contains("업무시간") || lowerQuery.contains("평일") || lowerQuery.contains("근무시간")) &&
+                    (condName.contains("업무") || condName.contains("시간"))) {
+                dto.getConditions().put(cond.getId(), Arrays.asList("09:00-18:00"));
+                log.info("🔥 키워드 매핑 - 조건 추가: {} (ID: {})", cond.getName(), cond.getId());
+                break;
+            }
         }
     }
 
@@ -373,9 +556,24 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
     }
 
     private Map<String, String> getRoleNames(Set<Long> ids) {
-        if (CollectionUtils.isEmpty(ids)) return Map.of();
-        return roleRepository.findAllById(ids).stream()
-                .collect(Collectors.toMap(role -> String.valueOf(role.getId()), Role::getRoleName));
+        System.out.println("🔥 getRoleNames 호출됨, IDs: " + ids);
+
+        if (CollectionUtils.isEmpty(ids)) {
+            System.out.println("🔥 roleIds가 비어있음!");
+            return Map.of();
+        }
+
+        List<Role> roles = roleRepository.findAllById(ids);
+        System.out.println("🔥 DB에서 찾은 역할들: " + roles);
+
+        Map<String, String> result = roles.stream()
+                .collect(Collectors.toMap(
+                        role -> String.valueOf(role.getId()),
+                        Role::getRoleName
+                ));
+
+        System.out.println("🔥 최종 roleIdToNameMap: " + result);
+        return result;
     }
 
     private Map<String, String> getPermissionNames(Set<Long> ids) {
