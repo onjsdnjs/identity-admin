@@ -448,7 +448,7 @@
                         const spelTemplate = this.findSpelForCondition(id);
                         if (spelTemplate) {
                             // 검증 중 표시
-                            this.showLoadingModal('조건 호환성 검증 중...');
+                            this.showLoadingModal('[AI] 조건 호환성 검증 중...');
 
                             try {
                                 const resourceIdentifier = window.resourceContext.resourceIdentifier;
