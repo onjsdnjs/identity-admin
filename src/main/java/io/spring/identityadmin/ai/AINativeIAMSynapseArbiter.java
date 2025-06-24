@@ -1,20 +1,19 @@
 package io.spring.identityadmin.ai;
 
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.io.JsonEOFException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.spring.identityadmin.ai.dto.*;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.domain.dto.UserDto;
-import io.spring.identityadmin.domain.entity.ConditionTemplate;
-import io.spring.identityadmin.domain.entity.Permission;
-import io.spring.identityadmin.domain.entity.Role;
-import io.spring.identityadmin.domain.entity.Users;
+import io.spring.identityadmin.domain.entity.*;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.repository.*;
 import io.spring.identityadmin.security.xacml.pap.service.BusinessPolicyService;
@@ -58,6 +57,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
     private final RoleRepository roleRepository;
     private final PermissionRepository permissionRepository;
     private final ConditionTemplateRepository conditionTemplateRepository;
+    private final ManagedResourceRepository managedResourceRepository;
 
     public AINativeIAMSynapseArbiter(
             AnthropicChatModel chatModel,
@@ -69,7 +69,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             ModelMapper modelMapper,
             RoleRepository roleRepository,
             PermissionRepository permissionRepository,
-        ConditionTemplateRepository conditionTemplateRepository) {
+        ConditionTemplateRepository conditionTemplateRepository,
+            ManagedResourceRepository managedResourceRepository) {
 
         this.chatModel = chatModel;
         this.vectorStore = vectorStore;
@@ -80,6 +81,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         this.roleRepository = roleRepository;
         this.permissionRepository = permissionRepository;
         this.conditionTemplateRepository = conditionTemplateRepository;
+        this.managedResourceRepository = managedResourceRepository;
         this.modelMapper = modelMapper;
     }
 
@@ -705,7 +707,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                         resource.get("identifier"), resource.get("owner")));
 
         // 배치 크기 제한 (AI 응답 품질 향상을 위해)
-        final int BATCH_SIZE = 10;
+        final int BATCH_SIZE = 5; // 10에서 5로 줄여서 AI 정확도 향상
         Map<String, ResourceNameSuggestion> allResults = new HashMap<>();
 
         // 배치 처리
@@ -751,43 +753,53 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         String systemPrompt = """
     당신은 소프트웨어의 기술적 용어를 일반 비즈니스 사용자가 이해하기 쉬운 이름과 설명으로 만드는 네이밍 전문가입니다.
     
-    **중요한 규칙:**
-    1. 각 항목마다 반드시 friendlyName과 description을 모두 제공해야 합니다
-    2. 모든 입력 항목에 대해 빠짐없이 응답해야 합니다
-    3. 순수한 JSON 형식으로만 응답하세요 (마크다운 없음)
+    **매우 중요한 규칙:**
+    1. 제공된 모든 항목(identifier)에 대해 예외 없이 응답해야 합니다
+    2. 각 항목마다 반드시 friendlyName과 description을 모두 제공해야 합니다
+    3. 순수한 JSON 형식으로만 응답하세요 (설명 텍스트 없음)
     4. 한글로 친화적이고 명확한 이름과 설명을 작성하세요
-    5. 기술 용어는 비즈니스 용어로 변환하세요
+    5. 영문 메서드명도 반드시 포함하여 응답하세요
+    6. 입력된 순서대로 모든 항목을 응답하세요
     
-    **응답 예시:**
+    **처리 규칙:**
+    - camelCase나 snake_case는 읽기 쉬운 한글로 변환
+    - URL 경로는 기능 이름으로 변환 (예: /admin/users → 사용자 관리)
+    - 메서드명은 동작을 나타내는 한글로 변환 (예: updateUser → 사용자 정보 수정)
+    - CRUD 작업은 명확한 동사 사용 (생성, 조회, 수정, 삭제)
+    
+    **응답 형식 (반드시 이 형식을 따르세요):**
     {
-      "/api/users": {
-        "friendlyName": "사용자 관리",
-        "description": "시스템 사용자 정보를 조회하고 관리하는 기능"
+      "첫번째_identifier": {
+        "friendlyName": "친화적 이름",
+        "description": "상세 설명"
       },
-      "deleteGroup": {
-        "friendlyName": "그룹 삭제",
-        "description": "사용자 그룹을 시스템에서 영구적으로 제거하는 기능"
+      "두번째_identifier": {
+        "friendlyName": "친화적 이름",
+        "description": "상세 설명"
       }
     }
     
-    모든 항목에 대해 응답하세요. 누락하지 마세요.
+    절대 항목을 누락하지 마세요. 모든 입력에 대해 응답하세요.
     """;
 
         try {
             // 입력 데이터를 더 간단한 형식으로 변환
-            Map<String, String> simplifiedInput = new HashMap<>();
+            List<String> identifiersList = new ArrayList<>();
             for (Map<String, String> resource : batch) {
                 String identifier = resource.get("identifier");
-                String owner = resource.get("owner");
-                simplifiedInput.put(identifier, owner != null ? owner : "unknown");
+                identifiersList.add(identifier);
             }
 
-            String inputJson = objectMapper.writeValueAsString(simplifiedInput);
-            log.info("🔥 AI에게 전송할 배치 (크기: {}): {}", batch.size(),
-                    inputJson.length() > 200 ? inputJson.substring(0, 200) + "..." : inputJson);
+            // 리스트 형식으로 입력 제공 (더 명확함)
+            String inputText = "다음 " + identifiersList.size() + "개의 기술 항목에 대해 모두 응답하세요:\n\n";
+            for (int i = 0; i < identifiersList.size(); i++) {
+                inputText += (i + 1) + ". " + identifiersList.get(i) + "\n";
+            }
+
+            log.info("🔥 AI에게 전송할 배치 (크기: {}):\n{}", batch.size(), inputText);
 
             SystemMessage systemMessage = new SystemMessage(systemPrompt);
-            UserMessage userMessage = new UserMessage("다음 기술 항목들에 대해 친화적인 이름과 설명을 제안해주세요:\n" + inputJson);
+            UserMessage userMessage = new UserMessage(inputText);
             Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
 
             ChatResponse response = chatModel.call(prompt);
@@ -797,22 +809,24 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             log.debug("🔥 AI 원본 응답: {}", jsonResponse);
 
             // 강화된 JSON 파싱
-            return parseAiResponseEnhanced(jsonResponse, batch);
+            Map<String, ResourceNameSuggestion> result = parseAiResponseEnhanced(jsonResponse, batch);
+
+            // 응답 검증
+            log.info("🔥 배치 크기: {}, 파싱된 항목 수: {}", batch.size(), result.size());
+            if (result.size() < batch.size()) {
+                log.error("🔥 [AI 오류] 일부 항목 누락! 요청: {}, 응답: {}", batch.size(), result.size());
+
+                // 누락된 항목 상세 로깅
+                Set<String> requested = identifiersList.stream().collect(Collectors.toSet());
+                Set<String> responded = result.keySet();
+                requested.removeAll(responded);
+                log.error("🔥 [AI 오류] 누락된 항목들: {}", requested);
+            }
+
+            return result;
 
         } catch (Exception e) {
             log.error("🔥 배치 처리 중 오류 발생", e);
-
-            // Fallback: 배치의 모든 항목에 대해 기본값 반환 - AI 디버깅을 위해 주석처리
-        /*
-        return batch.stream()
-                .collect(Collectors.toMap(
-                        resource -> resource.get("identifier"),
-                        resource -> new ResourceNameSuggestion(
-                                generateFallbackFriendlyName(resource.get("identifier")),
-                                "AI 추천 실패로 기본 이름을 사용합니다."
-                        )
-                ));
-        */
 
             // AI 오류 시 빈 맵 반환하여 문제점 명확히 파악
             log.error("🔥 [AI 오류] 배치 처리 완전 실패, 빈 결과 반환");
@@ -1045,6 +1059,386 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return sb.toString();
     }
 
+    /**
+     * AI 응답을 파싱하는 개선된 메서드
+     */
+    private Map<String, ResourceNameSuggestion> parseAiResponse(String jsonStr) throws Exception {
+        log.debug("🔥 파싱 시작, JSON 길이: {}, 첫 100자: {}",
+                jsonStr.length(),
+                jsonStr.substring(0, Math.min(100, jsonStr.length())));
+
+        // 빈 JSON 체크
+        if (jsonStr.trim().equals("{}") || jsonStr.trim().isEmpty()) {
+            log.warn("🔥 빈 JSON 응답 감지");
+            return new HashMap<>();
+        }
+
+        // 더 유연한 ObjectMapper 사용
+        ObjectMapper lenientMapper = new ObjectMapper()
+                .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .configure(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES, false)
+                .configure(JsonParser.Feature.ALLOW_COMMENTS, true)
+                .configure(JsonParser.Feature.ALLOW_TRAILING_COMMA, true)
+                .configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true)
+                .configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true)
+                .configure(JsonParser.Feature.ALLOW_BACKSLASH_ESCAPING_ANY_CHARACTER, true);
+
+        try {
+            // 1차 시도: 일반 파싱
+            Map<String, Map<String, String>> rawResponseMap = lenientMapper.readValue(
+                    jsonStr,
+                    new TypeReference<Map<String, Map<String, String>>>() {}
+            );
+
+            // ResourceNameSuggestion 객체로 변환
+            return convertToResourceNameSuggestions(rawResponseMap);
+
+        } catch (Exception e) {
+            log.warn("🔥 1차 파싱 실패, 복구 시도: {}", e.getMessage());
+
+            // 2차 시도: JSON 구조 분석 후 복구
+            String analyzedJson = analyzeAndFixJsonStructure(jsonStr);
+
+            if (analyzedJson != null && !analyzedJson.equals(jsonStr)) {
+                try {
+                    Map<String, Map<String, String>> rawResponseMap = lenientMapper.readValue(
+                            analyzedJson,
+                            new TypeReference<Map<String, Map<String, String>>>() {}
+                    );
+                    return convertToResourceNameSuggestions(rawResponseMap);
+                } catch (Exception e2) {
+                    log.warn("🔥 구조 분석 후 파싱도 실패: {}", e2.getMessage());
+                }
+            }
+
+            // 3차 시도: JSON 복구
+            String repairedJson = repairJson(jsonStr);
+            log.debug("🔥 복구된 JSON: {}", repairedJson);
+
+            try {
+                Map<String, Map<String, String>> rawResponseMap = lenientMapper.readValue(
+                        repairedJson,
+                        new TypeReference<Map<String, Map<String, String>>>() {}
+                );
+
+                return convertToResourceNameSuggestions(rawResponseMap);
+            } catch (Exception e3) {
+                log.error("🔥 3차 파싱도 실패: {}", e3.getMessage());
+
+                // 4차 시도: 수동 파싱
+                return manualJsonParse(jsonStr);
+            }
+        }
+    }
+
+    /**
+     * JSON 구조를 분석하고 수정하는 메서드
+     */
+    private String analyzeAndFixJsonStructure(String json) {
+        try {
+            // 잘못된 형식 패턴 감지 및 수정
+            // 패턴 1: {"friendlyName": "이름", "description": "설명"} 형태가 최상위에 있는 경우
+            if (json.trim().startsWith("{") && json.contains("\"friendlyName\"") && !json.contains(":{")) {
+                log.info("🔥 잘못된 JSON 구조 감지: 최상위에 friendlyName이 직접 있음");
+                // 임시 키로 감싸기
+                return "{\"temp_key\": " + json + "}";
+            }
+
+            // 패턴 2: 값이 문자열로만 되어 있는 경우
+            // 예: {"key": "value"} -> {"key": {"friendlyName": "value", "description": "설명 없음"}}
+            ObjectMapper mapper = new ObjectMapper();
+            try {
+                JsonNode root = mapper.readTree(json);
+                if (root.isObject()) {
+                    ObjectNode newRoot = mapper.createObjectNode();
+                    Iterator<Map.Entry<String, JsonNode>> fields = root.fields();
+
+                    while (fields.hasNext()) {
+                        Map.Entry<String, JsonNode> field = fields.next();
+                        String key = field.getKey();
+                        JsonNode value = field.getValue();
+
+                        if (value.isTextual()) {
+                            // 문자열 값을 객체로 변환
+                            ObjectNode newValue = mapper.createObjectNode();
+                            newValue.put("friendlyName", value.asText());
+                            newValue.put("description", "AI가 설명을 제공하지 않았습니다.");
+                            newRoot.set(key, newValue);
+                        } else if (value.isObject() && (!value.has("friendlyName") || !value.has("description"))) {
+                            // 필수 필드가 없는 객체 수정
+                            ObjectNode objValue = (ObjectNode) value;
+                            if (!objValue.has("friendlyName")) {
+                                objValue.put("friendlyName", key);
+                            }
+                            if (!objValue.has("description")) {
+                                objValue.put("description", "설명 없음");
+                            }
+                            newRoot.set(key, objValue);
+                        } else {
+                            newRoot.set(key, value);
+                        }
+                    }
+
+                    return mapper.writeValueAsString(newRoot);
+                }
+            } catch (Exception e) {
+                log.debug("🔥 JSON 구조 분석 중 오류: {}", e.getMessage());
+            }
+        } catch (Exception e) {
+            log.error("🔥 JSON 구조 수정 실패: {}", e.getMessage());
+        }
+
+        return json;
+    }
+
+    /**
+     * JSON 복구 메서드 (개선된 버전)
+     */
+    private String repairJson(String json) {
+        String repaired = json.trim();
+
+        // 1. 잘못된 백슬래시 수정
+        repaired = repaired.replaceAll("\\\\(?![\"\\\\nrtbf/])", "\\\\\\\\");
+
+        // 2. 잘못된 쉼표 제거
+        repaired = repaired.replaceAll(",\\s*}", "}");
+        repaired = repaired.replaceAll(",\\s*]", "]");
+
+        // 3. 이스케이프되지 않은 따옴표 처리
+        // 문자열 내부의 따옴표만 이스케이프
+        StringBuilder sb = new StringBuilder();
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int i = 0; i < repaired.length(); i++) {
+            char c = repaired.charAt(i);
+
+            if (!escaped && c == '"') {
+                if (inString && i + 1 < repaired.length() && repaired.charAt(i + 1) == '"') {
+                    // 연속된 따옴표 발견
+                    sb.append("\\\"");
+                    i++; // 다음 따옴표 건너뛰기
+                } else {
+                    inString = !inString;
+                    sb.append(c);
+                }
+            } else {
+                sb.append(c);
+            }
+
+            escaped = (c == '\\' && !escaped);
+        }
+
+        repaired = sb.toString();
+
+        // 4. 줄바꿈 문자 이스케이프
+        if (!repaired.contains("\\n")) {
+            repaired = repaired.replaceAll("\n", "\\\\n");
+        }
+        if (!repaired.contains("\\r")) {
+            repaired = repaired.replaceAll("\r", "\\\\r");
+        }
+
+        // 5. 불완전한 JSON 마무리
+        long openBraces = repaired.chars().filter(c -> c == '{').count();
+        long closeBraces = repaired.chars().filter(c -> c == '}').count();
+
+        while (openBraces > closeBraces) {
+            // 마지막 항목이 완전한지 확인
+            int lastComma = repaired.lastIndexOf(',');
+            int lastCloseBrace = repaired.lastIndexOf('}');
+
+            if (lastComma > lastCloseBrace) {
+                // 불완전한 항목 제거
+                repaired = repaired.substring(0, lastComma);
+            }
+
+            repaired += "}";
+            closeBraces++;
+        }
+
+        return repaired;
+    }
+
+    /**
+     * 수동 JSON 파싱 (최후의 수단) - 개선된 버전
+     */
+    private Map<String, ResourceNameSuggestion> manualJsonParse(String json) {
+        log.info("🔥 수동 JSON 파싱 시작");
+        Map<String, ResourceNameSuggestion> result = new HashMap<>();
+
+        try {
+            // 여러 패턴 시도
+            List<Pattern> patterns = Arrays.asList(
+                    // 패턴 1: 표준 형식
+                    Pattern.compile(
+                            "\"([^\"]+)\"\\s*:\\s*\\{\\s*\"friendlyName\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"description\"\\s*:\\s*\"([^\"]+)\"\\s*\\}",
+                            Pattern.MULTILINE | Pattern.DOTALL
+                    ),
+                    // 패턴 2: description이 먼저 오는 경우
+                    Pattern.compile(
+                            "\"([^\"]+)\"\\s*:\\s*\\{\\s*\"description\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"friendlyName\"\\s*:\\s*\"([^\"]+)\"\\s*\\}",
+                            Pattern.MULTILINE | Pattern.DOTALL
+                    ),
+                    // 패턴 3: 한 필드만 있는 경우 (friendlyName만)
+                    Pattern.compile(
+                            "\"([^\"]+)\"\\s*:\\s*\\{\\s*\"friendlyName\"\\s*:\\s*\"([^\"]+)\"\\s*\\}",
+                            Pattern.MULTILINE | Pattern.DOTALL
+                    ),
+                    // 패턴 4: 단순 키-값 형태
+                    Pattern.compile(
+                            "\"([^\"]+)\"\\s*:\\s*\"([^\"]+)\"",
+                            Pattern.MULTILINE
+                    )
+            );
+
+            for (int i = 0; i < patterns.size(); i++) {
+                Pattern pattern = patterns.get(i);
+                Matcher matcher = pattern.matcher(json);
+
+                while (matcher.find()) {
+                    String identifier = matcher.group(1);
+
+                    if (i == 0) {
+                        // 표준 형식
+                        String friendlyName = matcher.group(2);
+                        String description = matcher.group(3);
+                        result.put(identifier.trim(), new ResourceNameSuggestion(friendlyName.trim(), description.trim()));
+                    } else if (i == 1) {
+                        // description이 먼저
+                        String description = matcher.group(2);
+                        String friendlyName = matcher.group(3);
+                        result.put(identifier.trim(), new ResourceNameSuggestion(friendlyName.trim(), description.trim()));
+                    } else if (i == 2) {
+                        // friendlyName만
+                        String friendlyName = matcher.group(2);
+                        result.put(identifier.trim(), new ResourceNameSuggestion(friendlyName.trim(), "설명 없음"));
+                    } else if (i == 3 && !result.containsKey(identifier)) {
+                        // 단순 키-값 (이미 파싱된 항목은 덮어쓰지 않음)
+                        String value = matcher.group(2);
+                        result.put(identifier.trim(), new ResourceNameSuggestion(value.trim(), "AI가 설명을 제공하지 않았습니다."));
+                    }
+
+                    log.debug("🔥 수동 파싱 성공 (패턴 {}): {} -> {}",
+                            i + 1, identifier, result.get(identifier.trim()).friendlyName());
+                }
+            }
+
+            if (result.isEmpty()) {
+                log.warn("🔥 수동 파싱으로도 항목을 찾을 수 없음");
+
+                // 최후의 시도: JsonNode로 부분 파싱
+                try {
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode root = mapper.readTree(json);
+
+                    if (root.isObject()) {
+                        Iterator<String> fieldNames = root.fieldNames();
+                        while (fieldNames.hasNext()) {
+                            String fieldName = fieldNames.next();
+                            JsonNode value = root.get(fieldName);
+
+                            if (value.isTextual()) {
+                                // 텍스트 값만 있는 경우
+                                result.put(fieldName, new ResourceNameSuggestion(
+                                        value.asText(),
+                                        "AI가 설명을 제공하지 않았습니다."
+                                ));
+                            } else if (value.isObject()) {
+                                // 객체인 경우 가능한 필드 추출
+                                String friendlyName = fieldName;
+                                String description = "설명 없음";
+
+                                if (value.has("friendlyName")) {
+                                    friendlyName = value.get("friendlyName").asText();
+                                }
+                                if (value.has("description")) {
+                                    description = value.get("description").asText();
+                                }
+
+                                result.put(fieldName, new ResourceNameSuggestion(friendlyName, description));
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("🔥 JsonNode 파싱도 실패: {}", e.getMessage());
+                }
+            }
+
+            log.info("🔥 수동 파싱 완료, 찾은 항목 수: {}", result.size());
+
+        } catch (Exception e) {
+            log.error("🔥 수동 파싱 실패: {}", e.getMessage());
+        }
+
+        return result;
+    }
+
+    /**
+     * Map을 ResourceNameSuggestion으로 변환
+     */
+    private Map<String, ResourceNameSuggestion> convertToResourceNameSuggestions(
+            Map<String, Map<String, String>> rawResponseMap) {
+
+        Map<String, ResourceNameSuggestion> result = new HashMap<>();
+
+        for (Map.Entry<String, Map<String, String>> entry : rawResponseMap.entrySet()) {
+            String key = entry.getKey();
+            Map<String, String> suggestionData = entry.getValue();
+
+            String friendlyName = suggestionData.get("friendlyName");
+            String description = suggestionData.get("description");
+
+            // 필수 필드 검증
+            if (friendlyName == null || friendlyName.trim().isEmpty()) {
+                friendlyName = generateFallbackFriendlyName(key);
+                log.warn("🔥 friendlyName이 없어 기본값 사용: {}", friendlyName);
+            }
+
+            if (description == null || description.trim().isEmpty()) {
+                description = "AI가 설명을 생성하지 못했습니다.";
+                log.warn("🔥 description이 없어 기본값 사용");
+            }
+
+            result.put(key, new ResourceNameSuggestion(friendlyName.trim(), description.trim()));
+        }
+
+        return result;
+    }
+
+    /**
+     * Fallback용 기본 친화적 이름 생성 (기존 메서드 유지)
+     */
+    private String generateFallbackFriendlyName(String identifier) {
+        if (identifier == null || identifier.isEmpty()) {
+            return "알 수 없는 리소스";
+        }
+
+        // URL 경로에서 마지막 부분 추출
+        if (identifier.startsWith("/")) {
+            String[] parts = identifier.split("/");
+            for (int i = parts.length - 1; i >= 0; i--) {
+                if (!parts[i].isEmpty() && !parts[i].matches("\\{.*\\}")) {
+                    return parts[i] + " 기능";
+                }
+            }
+        }
+
+        // 메서드명에서 이름 추출
+        if (identifier.contains(".")) {
+            String[] parts = identifier.split("\\.");
+            String lastPart = parts[parts.length - 1];
+            if (lastPart.contains("()")) {
+                lastPart = lastPart.replace("()", "");
+            }
+            // camelCase를 공백으로 분리
+            String formatted = lastPart.replaceAll("([a-z])([A-Z])", "$1 $2").toLowerCase();
+            return formatted + " 기능";
+        }
+
+        return identifier + " 기능";
+    }
+
     @Override
     public ResourceNameSuggestion suggestResourceName(String technicalIdentifier, String serviceOwner) {
         String systemPrompt = """
@@ -1236,6 +1630,45 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         } catch (Exception e) {
             log.error("AI 정책 생성 또는 파싱에 실패했습니다. Natural Query: {}, AI Response: {}", naturalLanguageQuery, jsonResponse, e);
             throw new IllegalStateException("AI를 통한 정책 생성에 실패했습니다. AI 응답을 확인해주세요.", e);
+        }
+    }
+
+    /**
+     * [최종 구현] Just-in-Time AI Validation
+     * 관리자가 빌더에서 조건을 선택하는 순간, AI에게 호환성을 실시간으로 물어봅니다.
+     */
+    @Override
+    public ConditionValidationResponse validateCondition(String resourceIdentifier, String conditionSpel) {
+        ManagedResource resource = managedResourceRepository.findByResourceIdentifier(resourceIdentifier)
+                .orElseThrow(() -> new IllegalArgumentException("Resource not found: " + resourceIdentifier));
+
+        // 1. 리소스의 컨텍스트 정보(파라미터, 반환 타입)를 가져옵니다.
+        String contextInfo = String.format("Method Parameters: %s, Return Type: %s",
+                resource.getParameterTypes(), resource.getReturnType());
+
+        // 2. AI 에게 전달할 프롬프트를 생성합니다.
+        String systemPrompt = String.format("""
+            당신은 Spring SpEL 표현식 유효성 검증 전문가입니다. 주어진 '메서드 컨텍스트' 내에서 'SpEL 표현식'이 오류 없이 실행될 수 있는지 평가해주십시오.
+
+            - 메서드 컨텍스트: %s
+            - 검증할 SpEL 표현식: %s
+            
+            SpEL의 변수(예: #userId, #returnObject)가 메서드 컨텍스트의 파라미터 이름이나 반환값으로 사용될 수 있는지 확인해야 합니다.
+            
+            다음 JSON 형식으로만 응답해주십시오:
+            {"isCompatible": true/false, "reason": "한국어 요약 이유"}
+            """, contextInfo, conditionSpel);
+
+        // 3. AI 호출 및 결과 파싱
+        SystemMessage systemMessage = new SystemMessage(systemPrompt);
+        Prompt prompt = new Prompt(List.of(systemMessage));
+
+        ChatResponse response = chatModel.call(prompt);
+        String jsonResponse = response.getResult().getOutput().getText();
+        try {
+            return objectMapper.readValue(jsonResponse, ConditionValidationResponse.class);
+        } catch (JsonProcessingException e) {
+            return new ConditionValidationResponse(false, "AI 응답 분석에 실패했습니다.");
         }
     }
 }

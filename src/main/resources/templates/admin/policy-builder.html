@@ -810,11 +810,9 @@
                             <div id="conditionsPalette" class="max-h-64 overflow-y-auto dark-scroll pr-2">
                                 <div th:each="cond : ${allConditions}"
                                      class="palette-item"
-                                     th:classappend="${!cond.isCompatible} ? 'disabled' : ''"
-                                     th:draggable="${cond.isCompatible}"
+                                     draggable="true"
                                      th:data-info="${cond.id + ':' + cond.name}"
-                                     th:data-required-variables="${#strings.listJoin(cond.requiredVariables, ',')}"
-                                     th:title="${!cond.isCompatible ? '현재 리소스 컨텍스트에서는 사용할 수 없는 조건입니다.' : cond.description}"
+                                     th:data-spel="${cond.spelTemplate}" data-type="condition">
                                      data-type="condition">
                                     <i class="fas fa-clock text-orange-400"></i>
                                     <span th:text="${cond.name}"></span>

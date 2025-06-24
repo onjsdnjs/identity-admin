@@ -1,8 +1,5 @@
 package io.spring.identityadmin.ai;
-import io.spring.identityadmin.ai.dto.PolicyAnalysisReport;
-import io.spring.identityadmin.ai.dto.RecommendedRoleDto;
-import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
-import io.spring.identityadmin.ai.dto.TrustAssessment;
+import io.spring.identityadmin.ai.dto.*;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
@@ -67,5 +64,7 @@ public interface AINativeIAMAdvisor {
      * @return 기술 식별자를 Key로, 제안된 이름/설명을 Value로 갖는 Map
      */
     Map<String, ResourceNameSuggestion> suggestResourceNamesInBatch(List<Map<String, String>> resourcesToSuggest);
+
+    ConditionValidationResponse validateCondition(String resourceIdentifier, String conditionSpel);
 
 }

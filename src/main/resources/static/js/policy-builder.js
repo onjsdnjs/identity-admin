@@ -89,8 +89,18 @@
                     map.forEach((value, key) => {
                         const chip = document.createElement('span');
                         chip.className = 'policy-chip';
-                        chip.dataset.key = key;
-                        chip.innerHTML = `${value.name} <button class="remove-chip-btn" data-type="${type}" data-key="${key}">&times;</button>`;
+
+                        // 조건 칩의 경우, 유효성 검증 결과에 따라 아이콘 추가
+                        if (type === 'condition' && value.isValidated) {
+                            const iconClass = value.isCompatible ? 'fa-check-circle text-green-500' : 'fa-exclamation-triangle text-red-500';
+                            chip.innerHTML = `${value.name} <i class="fas ${iconClass} ml-2"></i>`;
+                            if (!value.isCompatible) {
+                                chip.title = value.reason; // 툴팁으로 실패 사유 표시
+                                chip.classList.add('invalid-chip');
+                            }
+                        } else {
+                            chip.innerHTML = `${value.name} <button class="remove-chip-btn">&times;</button>`;
+                        }
                         canvasEl.appendChild(chip);
                     });
                 }
@@ -181,6 +191,13 @@
                         }
                         throw error;
                     }
+                }
+
+                async validateCondition(resourceIdentifier, conditionSpel) {
+                    return this.fetchApi('/api/ai/policies/validate-condition', {
+                        method: 'POST',
+                        body: JSON.stringify({ resourceIdentifier, conditionSpel })
+                    });
                 }
 
                 savePolicy(dto) {
@@ -372,6 +389,39 @@
 
                     this.state.add(type, id, { id, name });
                     this.ui.renderAll(this.state);
+                    if (type === 'condition' && window.resourceContext) {
+                        const droppedItem = e.dataTransfer.getData("text/plain");
+                        const spelTemplate = this.findSpelForCondition(id); // data-spel 속성에서 가져옴
+                        if (spelTemplate) {
+                            this.validateConditionRealtime(id, spelTemplate);
+                        }
+                    }
+                }
+
+                findSpelForCondition(conditionId) {
+                    const item = this.elements.conditionsPalette.querySelector(`.palette-item[data-info^="${conditionId}:"]`);
+                    return item ? item.dataset.spel : null;
+                }
+
+                async validateConditionRealtime(conditionId, spel) {
+                    const resourceIdentifier = window.resourceContext.resourceIdentifier;
+                    const chip = this.elements.conditionsCanvas.querySelector(`[data-key="${conditionId}"]`);
+                    if (chip) chip.innerHTML += ' <i class="fas fa-spinner fa-spin"></i>'; // 검증 중 표시
+
+                    try {
+                        const response = await this.api.validateCondition(resourceIdentifier, spel); // 신규 API 호출
+                        const conditionState = this.state.conditions.get(conditionId);
+                        conditionState.isValidated = true;
+                        conditionState.isCompatible = response.isCompatible;
+                        conditionState.reason = response.reason;
+                    } catch (error) {
+                        const conditionState = this.state.conditions.get(conditionId);
+                        conditionState.isValidated = true;
+                        conditionState.isCompatible = false;
+                        conditionState.reason = "호환성 검증 중 오류가 발생했습니다.";
+                    } finally {
+                        this.ui.renderAll(this.state); // 검증 결과를 반영하여 UI 다시 렌더링
+                    }
                 }
 
                 handleChipRemove(type, key) {
