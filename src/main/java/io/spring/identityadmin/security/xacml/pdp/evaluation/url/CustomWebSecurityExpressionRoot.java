@@ -15,19 +15,19 @@ public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
 
     private final RiskEngine riskEngine;
     private final AttributeInformationPoint attributePIP;
-    private final AINativeIAMAdvisor advisor; // RiskEngine 대신 주입
+    private final AINativeIAMAdvisor aINativeIAMAdvisor; // RiskEngine 대신 주입
     private final AuthorizationContext authorizationContext;
-    private TrustAssessment trustAssessment; // 평가 결과를 캐싱
+    private TrustAssessment cachedAssessment; // 평가 결과를 캐싱
 
     public CustomWebSecurityExpressionRoot(Authentication authentication, HttpServletRequest request,
                                            RiskEngine riskEngine, AttributeInformationPoint attributePIP,
-                                           AINativeIAMAdvisor advisor, // RiskEngine 대신 주입
+                                           AINativeIAMAdvisor aINativeIAMAdvisor, // RiskEngine 대신 주입
                                            AuthorizationContext authorizationContext) {
         super(() -> authentication, request);
         this.riskEngine = riskEngine;
         this.attributePIP = attributePIP;
         this.authorizationContext = authorizationContext;
-        this.advisor = advisor;
+        this.aINativeIAMAdvisor = aINativeIAMAdvisor;
     }
 
     public int getRiskScore() {
@@ -36,14 +36,27 @@ public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
     }
 
     public double getTrustScore() {
-        if (this.trustAssessment == null) {
-            this.trustAssessment = advisor.assessContext(this.authorizationContext);
+        if (this.cachedAssessment == null) {
+            this.cachedAssessment = aINativeIAMAdvisor.assessContext(this.authorizationContext);
         }
-        return this.trustAssessment.score();
+        return this.cachedAssessment.score();
+    }
+
+    /**
+     * AI 신뢰도 평가를 수행하고, 그 결과를 컨텍스트에 저장합니다.
+     * @return AI가 평가한 신뢰도 평가 결과 객체
+     */
+    public TrustAssessment assessContext() {
+        if (this.cachedAssessment == null) {
+            this.cachedAssessment = aINativeIAMAdvisor.assessContext(this.authorizationContext);
+            // 평가 결과를 컨텍스트의 attributes 맵에 저장하여, 상위 로직(감사 로그)에서 참조할 수 있도록 함
+            this.authorizationContext.attributes().put("ai_assessment", this.cachedAssessment);
+        }
+        return this.cachedAssessment;
     }
 
     public AINativeIAMAdvisor getAi() {
-        return this.advisor;
+        return this.aINativeIAMAdvisor;
     }
 
     public Object getAttribute(String key) {
