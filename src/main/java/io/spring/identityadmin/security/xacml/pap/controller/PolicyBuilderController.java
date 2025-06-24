@@ -157,18 +157,11 @@ public class PolicyBuilderController {
         Map<String, Object> resourceContext = new HashMap<>();
         resourceContext.put("resourceIdentifier", resource.getResourceIdentifier());
         try {
-            List<String> variables = List.of();
-            if (StringUtils.hasText(resource.getAvailableContextVariables())) {
-                try {
-                    variables = objectMapper.readValue(resource.getAvailableContextVariables(), new TypeReference<>() {});
-                } catch (IOException e) {
-                    log.error("리소스 ID {}의 컨텍스트 변수 파싱 실패", resourceId, e);
-                }
-            }
-            resourceContext.put("availableVariables", variables);
-        } catch (NullPointerException e) {
-            resourceContext.put("availableVariables", List.of());
+            resourceContext.put("parameterInfo", objectMapper.readValue(resource.getParameterTypes(), new TypeReference<List<Map<String, String>>>() {}));
+        } catch (Exception e) {
+            resourceContext.put("parameterInfo", Collections.emptyList());
         }
+        resourceContext.put("returnObjectType", resource.getReturnType());
 
         model.addAttribute("resourceContext", resourceContext);
 

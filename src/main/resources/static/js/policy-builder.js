@@ -892,20 +892,24 @@
                 }
 
                 initializeFromContext() {
-                    if (window.resourceContext?.availableVariables) {
-                        const availableVars = new Set(window.resourceContext.availableVariables);
-                        if (this.elements.conditionsPalette) {
-                            this.elements.conditionsPalette.querySelectorAll('.palette-item').forEach(item => {
-                                const requiredVars = item.dataset.requiredVariables?.split(',').filter(v => v);
-                                if (requiredVars?.length > 0) {
-                                    const isCompatible = requiredVars.every(v => availableVars.has(v.trim()));
-                                    if (!isCompatible) {
-                                        item.classList.add('disabled');
-                                        item.title = '현재 리소스 컨텍스트에서는 사용할 수 없는 조건입니다.';
-                                    }
-                                }
-                            });
+                    if (window.resourceContext) {
+                        const availableParamTypes = new Set(
+                            (window.resourceContext.parameterInfo || []).map(p => p.type)
+                        );
+                        if (window.resourceContext.returnObjectType) {
+                            availableParamTypes.add(window.resourceContext.returnObjectType);
                         }
+
+                        // 조건 팔레트의 각 아이템을 순회하며 호환성 검사
+                        this.elements.conditionsPalette.querySelectorAll('.palette-item').forEach(item => {
+                            // 예시: data-required-type="Document" 와 같은 속성이 템플릿에 있다고 가정
+                            const requiredType = item.dataset.requiredType;
+
+                            if (requiredType && !availableParamTypes.has(requiredType)) {
+                                item.classList.add('disabled'); // 호환되지 않으면 비활성화
+                                item.title = `이 조건은 '${requiredType}' 타입의 정보가 필요하지만, 현재 리소스는 제공하지 않습니다.`;
+                            }
+                        });
                     }
                     if (window.preselectedPermission) {
                         const perm = window.preselectedPermission;

@@ -6,11 +6,13 @@ import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;
 import io.spring.identityadmin.security.xacml.pip.risk.RiskEngine;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.access.expression.WebSecurityExpressionRoot;
 
 import java.util.Map;
 
+@Slf4j
 public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
 
     private final RiskEngine riskEngine;
@@ -30,29 +32,38 @@ public class CustomWebSecurityExpressionRoot extends WebSecurityExpressionRoot {
         this.aINativeIAMAdvisor = aINativeIAMAdvisor;
     }
 
-    public int getRiskScore() {
-        // [최종 수정] 자신이 가진 표준 컨텍스트 객체를 그대로 전달합니다.
-        return riskEngine.calculateRiskScore(this.authorizationContext);
-    }
-
-    public double getTrustScore() {
-        if (this.cachedAssessment == null) {
-            this.cachedAssessment = aINativeIAMAdvisor.assessContext(this.authorizationContext);
-        }
-        return this.cachedAssessment.score();
-    }
-
     /**
-     * AI 신뢰도 평가를 수행하고, 그 결과를 컨텍스트에 저장합니다.
-     * @return AI가 평가한 신뢰도 평가 결과 객체
+     * [최종 코어 메서드] AI 신뢰도 평가를 수행하고, 그 결과를 컨텍스트와 내부 캐시에 저장합니다.
+     * SpEL에서 #ai.assessContext() 와 같이 호출하여 전체 평가 결과에 접근할 때 사용됩니다.
+     * @return AI가 평가한 신뢰도 평가 결과 객체 (점수, 위험 태그, 요약 포함)
      */
     public TrustAssessment assessContext() {
         if (this.cachedAssessment == null) {
+            log.debug("AI context assessment cache is empty. Requesting new assessment...");
             this.cachedAssessment = aINativeIAMAdvisor.assessContext(this.authorizationContext);
-            // 평가 결과를 컨텍스트의 attributes 맵에 저장하여, 상위 로직(감사 로그)에서 참조할 수 있도록 함
+            // 평가 결과를 컨텍스트의 attributes 맵에 저장하여, 감사 로그 등 상위 로직에서 참조할 수 있도록 함
             this.authorizationContext.attributes().put("ai_assessment", this.cachedAssessment);
         }
         return this.cachedAssessment;
+    }
+
+    /**
+     * [편의 메서드] 신뢰도 '점수'만 간단히 확인하고 싶을 때 사용합니다.
+     * SpEL 에서 #ai.getTrustScore() 와 같이 사용됩니다.
+     * @return 신뢰도 점수 (0.0 ~ 1.0)
+     */
+    public double getTrustScore() {
+        return assessContext().score();
+    }
+
+    /**
+     * [편의 메서드] 신뢰도를 0-100점 스케일의 '위험도'로 변환하여 확인하고 싶을 때 사용합니다.
+     * SpEL 에서 #ai.getRiskScore() 와 같이 사용됩니다.
+     * @return 위험도 점수 (0 ~ 100)
+     */
+    public int getRiskScore() {
+        // 예: 신뢰도 0.8 -> 위험도 20점
+        return (int) Math.round((1.0 - getTrustScore()) * 100);
     }
 
     public AINativeIAMAdvisor getAi() {

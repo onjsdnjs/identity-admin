@@ -75,23 +75,6 @@ public class MethodResourceScanner implements ResourceScanner {
                         continue;
                     }
 
-                    List<String> contextVariables = new ArrayList<>();
-                    for (Parameter parameter : method.getParameters()) {
-                        PdpContextVariable pdpVar = parameter.getAnnotation(PdpContextVariable.class);
-                        if (pdpVar != null && !pdpVar.value().isBlank()) {
-                            contextVariables.add("#" + pdpVar.value());
-                        }
-                    }
-
-                    String variablesAsJson = "[]";
-                    try {
-                        if (!contextVariables.isEmpty()) {
-                            variablesAsJson = objectMapper.writeValueAsString(contextVariables);
-                        }
-                    } catch (JsonProcessingException e) {
-                        log.error("컨텍스트 변수 목록을 JSON으로 변환하는 데 실패했습니다.", e);
-                    }
-
                     String params = Arrays.stream(method.getParameterTypes())
                             .map(Class::getSimpleName)
                             .collect(Collectors.joining(","));
@@ -101,17 +84,23 @@ public class MethodResourceScanner implements ResourceScanner {
                     String description = protectableAnnotation.description();
                     String sourceCodeLocation = String.format("%s.java", targetClass.getName().replace('.', '/'));
 
+                    String parameterTypesJson = Arrays.stream(method.getParameters())
+                            .map(p -> String.format("{\"name\":\"%s\", \"type\":\"%s\"}", p.getName(), p.getType().getSimpleName()))
+                            .collect(Collectors.joining(",", "[", "]"));
+
                     resources.add(ManagedResource.builder()
                             .resourceIdentifier(identifier)
                             .resourceType(ManagedResource.ResourceType.METHOD)
                             .friendlyName(friendlyName)
                             .description(description)
                             .serviceOwner(targetClass.getSimpleName())
-                            .parameterTypes(params)
-                            .returnType(method.getReturnType().getSimpleName())
+                            .parameterTypes(parameterTypesJson)
+                            .returnType(method.getReturnType().getName())
                             .sourceCodeLocation(sourceCodeLocation)
                             .status(ManagedResource.Status.NEEDS_DEFINITION)
-                            .availableContextVariables(variablesAsJson)
+                            .availableContextVariables(
+                                    Arrays.stream(method.getParameters()).map(p -> "#" + p.getName()).collect(Collectors.joining(",", "[", "]"))
+                            )
                             .build());
                 }
             } catch (Exception e) {

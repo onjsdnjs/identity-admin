@@ -44,7 +44,7 @@ public class MySecurityConfig {
         http.formLogin(form -> form.loginPage("/login").defaultSuccessUrl("/admin"));
         http.authenticationProvider(customAuthenticationProvider);
         http.csrf(AbstractHttpConfigurer::disable);
-        http.addFilterAfter(asepConfigurer.asepFilter(), SecurityContextHolderFilter.class);
+//        http.addFilterAfter(asepConfigurer.asepFilter(), SecurityContextHolderFilter.class);
         return http.build();
     }
 

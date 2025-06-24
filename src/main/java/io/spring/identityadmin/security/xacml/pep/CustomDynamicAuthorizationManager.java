@@ -140,8 +140,10 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
 
                 AuthorizationManager<RequestAuthorizationContext> manager = mapping.getEntry();
                 AuthorizationDecision decision = manager.check(authenticationSupplier, context);
-
                 logAuthorizationAttempt(authentication, authorizationContext, decision);
+                if(!decision.isGranted()){
+
+                }
                 return decision;
             }
         }
@@ -158,7 +160,7 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
      */
     private void logAuthorizationAttempt(Authentication authentication, AuthorizationContext context, AuthorizationDecision decision) {
 
-        String principal = (authentication != null && authentication.isAuthenticated()) ? ((UserDto)authentication.getPrincipal()).getName() : "anonymousUser";
+        String principal = (authentication != null && authentication.getPrincipal() instanceof UserDto userDto) ? userDto.getName() : "anonymousUser";
         String resource = context.resource().identifier();
         String action = context.action();
         String result = decision.isGranted() ? "ALLOW" : "DENY";
