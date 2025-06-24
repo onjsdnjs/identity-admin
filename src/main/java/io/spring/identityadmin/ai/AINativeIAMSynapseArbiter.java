@@ -17,7 +17,11 @@ import io.spring.identityadmin.security.xacml.pap.service.BusinessPolicyService;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
-import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.anthropic.AnthropicChatModel;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -30,8 +34,6 @@ import reactor.core.publisher.Flux;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.spring.identityadmin.domain.entity.policy.Policy.Effect.ALLOW;
@@ -40,7 +42,7 @@ import static io.spring.identityadmin.domain.entity.policy.Policy.Effect.ALLOW;
 @Service
 public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
-    private final ChatClient chatClient;
+    private final AnthropicChatModel chatModel;
     private final VectorStore vectorStore;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
@@ -52,7 +54,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
     private final ConditionTemplateRepository conditionTemplateRepository;
 
     public AINativeIAMSynapseArbiter(
-            ChatClient chatClient,
+            AnthropicChatModel chatModel,
             VectorStore vectorStore,
             ObjectMapper objectMapper,
             UserRepository userRepository,
@@ -63,7 +65,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             PermissionRepository permissionRepository,
         ConditionTemplateRepository conditionTemplateRepository) {
 
-        this.chatClient = chatClient;
+        this.chatModel = chatModel;
         this.vectorStore = vectorStore;
         this.objectMapper = objectMapper;
         this.userRepository = userRepository;
@@ -91,7 +93,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         // 2. 시스템 메타데이터 구성 (실제 DB 데이터)
         String systemMetadata = buildSystemMetadata();
 
-        // 🔥 3. 자연스러운 한국어 프롬프트 - 인코딩 안정성 확보하면서 한글 유지
+        // 3. 시스템 메시지와 사용자 메시지 구성
         String systemPrompt = String.format("""
         당신은 IAM 정책 분석 AI '아비터'입니다. 
         
@@ -144,16 +146,16 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         위 요구사항을 분석하여 정책을 구성해주세요.
         """, naturalLanguageQuery, contextInfo);
 
-        // 4. ChatClient 스트리밍 호출 with 인코딩 안정화
-        return chatClient.prompt()
-                .system(systemPrompt)
-                .user(userPrompt)
-                .stream()
-                .content()
-                // 🔥 인코딩 안정성을 위한 처리
+        // 4. ChatModel 스트리밍 호출 (ChatClient 방식에서 변경)
+        SystemMessage systemMessage = new SystemMessage(systemPrompt);
+        UserMessage userMessage = new UserMessage(userPrompt);
+        Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
+        return chatModel.stream(prompt)
+                .mapNotNull(chatResponse -> chatResponse.getResult().getOutput().getText())
                 .map(this::cleanTextChunk)
-                .filter(chunk -> !chunk.trim().isEmpty()) // 빈 청크 필터링
-                .delayElements(Duration.ofMillis(10)) // 안정적인 전송을 위한 딜레이
+                .filter(chunk -> !chunk.trim().isEmpty())
+                .delayElements(Duration.ofMillis(10))
                 .doOnNext(chunk -> {
                     String logChunk = chunk.length() > 50 ? chunk.substring(0, 50) + "..." : chunk;
                     log.debug("🔥 AI 응답 청크: [{}]", logChunk);
@@ -216,7 +218,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
     }
 
     /**
-     * [기존 유지] 일반 방식의 정책 생성 (fallback용)
+     * 일반 방식의 정책 생성 (fallback용)
      */
     @Override
     public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery) {
@@ -266,11 +268,13 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             %s
             """, naturalLanguageQuery, contextInfo);
 
-        String jsonResponse = chatClient.prompt()
-                .system(systemPrompt)
-                .user(userPrompt)
-                .call()
-                .content();
+        // ChatModel을 직접 사용하여 호출
+        SystemMessage systemMessage = new SystemMessage(systemPrompt);
+        UserMessage userMessage = new UserMessage(userPrompt);
+        Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
+        ChatResponse response = chatModel.call(prompt);
+        String jsonResponse = response.getResult().getOutput().getText();
 
         try {
             // JSON 정제 적용
@@ -291,6 +295,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             return createFallbackPolicyData(naturalLanguageQuery);
         }
     }
+
 
     /**
      * 개선된 JSON 추출 및 정제 메서드 - 한글 마커 지원
@@ -603,7 +608,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
     @Override
     public TrustAssessment assessContext(AuthorizationContext context) {
-        // 1. RAG 패턴: Vector DB 에서 관련 과거 접근 기록 검색 (기존과 유사)
+        // 1. RAG 패턴: Vector DB 에서 관련 과거 접근 기록 검색
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(context.subject().getName() + " " + context.resource().identifier())
                 .topK(5)
@@ -613,45 +618,47 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
         UserDto user = (UserDto) context.subject().getPrincipal();
 
-        // 2. [수정] AI의 '연쇄적 추론'을 유도하는 강화된 프롬프트
-        String userPromptTemplate = """
+        // 2. 시스템 및 사용자 메시지 구성
+        String systemPrompt = """
+            당신은 IAM 시스템의 모든 컨텍스트를 분석하여 접근 요청의 신뢰도를 판결하는 AI 보안 전문가 '아비터(Arbiter)'입니다.
+            당신은 반드시 연쇄적 추론(Chain-of-Thought) 방식으로 분석을 수행한 뒤, 최종 결론을 JSON 형식으로만 반환해야 합니다.
+            JSON 형식: {"score": 0.xx, "riskTags": ["위험_태그"], "summary": "한국어 요약 설명"}
+            """;
+
+        String userPrompt = String.format("""
             **1. 현재 접근 요청 상세 정보:**
-            - 사용자: {name} (ID: {userId})
-            - 역할: {roles}
-            - 소속 그룹: {groups}
-            - 접근 리소스: {resource}
-            - 요청 행위: {action}
-            - 접속 IP 주소: {ip}
+            - 사용자: %s (ID: %s)
+            - 역할: %s
+            - 소속 그룹: %s
+            - 접근 리소스: %s
+            - 요청 행위: %s
+            - 접속 IP 주소: %s
             
             **2. 해당 사용자의 과거 접근 패턴 요약 (최근 5건):**
-            {history}
+            %s
             
             **3. 분석 및 평가:**
             위 정보를 바탕으로, 다음 단계에 따라 현재 접근 요청의 위험도를 분석하고 신뢰도를 평가하라.
             - **Anomalies (이상 징후):** 과거 패턴과 비교하여 현재 요청에서 나타나는 이상 징후(예: 새로운 IP, 평소와 다른 시간대, 접근한 적 없는 리소스)를 모두 찾아 목록으로 나열하라.
             - **Reasoning (추론 과정):** 식별된 이상 징후와 사용자의 역할/권한을 종합하여, 이 요청이 왜 위험하거나 안전하다고 판단했는지 그 이유를 단계별로 설명하라.
             - **Final Assessment (최종 판결):** 위 분석을 바탕으로 최종 신뢰도 점수(score), 위험 태그(riskTags), 그리고 한국어 요약(summary)을 결정하라.
-            """;
+            """,
+                user.getName(), user.getUsername(),
+                context.attributes().getOrDefault("userRoles", "N/A"),
+                context.attributes().getOrDefault("userGroups", "N/A"),
+                context.resource().identifier(),
+                context.action(),
+                context.environment().remoteIp() != null ? context.environment().remoteIp() : "알 수 없음",
+                historyContent
+        );
 
-        String jsonResponse = chatClient.prompt()
-                .system("""
-                    당신은 IAM 시스템의 모든 컨텍스트를 분석하여 접근 요청의 신뢰도를 판결하는 AI 보안 전문가 '아비터(Arbiter)'입니다.
-                    당신은 반드시 연쇄적 추론(Chain-of-Thought) 방식으로 분석을 수행한 뒤, 최종 결론을 JSON 형식으로만 반환해야 합니다.
-                    JSON 형식: {"score": 0.xx, "riskTags": ["위험_태그"], "summary": "한국어 요약 설명"}
-                    """)
-                .user(userSpec -> userSpec
-                        .text(userPromptTemplate)
-                        .param("userId", user.getUsername())
-                        .param("name", user.getName())
-                        .param("roles", context.attributes().getOrDefault("userRoles", "N/A"))
-                        .param("groups", context.attributes().getOrDefault("userGroups", "N/A"))
-                        .param("resource", context.resource().identifier())
-                        .param("action", context.action())
-                        .param("history", historyContent)
-                        .param("ip", context.environment().remoteIp() != null ? context.environment().remoteIp() : "알 수 없음")
-                )
-                .call()
-                .content();
+        // ChatModel 직접 사용
+        SystemMessage systemMessage = new SystemMessage(systemPrompt);
+        UserMessage userMessage = new UserMessage(userPrompt);
+        Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
+        ChatResponse response = chatModel.call(prompt);
+        String jsonResponse = response.getResult().getOutput().getText();
 
         // 3. AI의 JSON 응답을 DTO 객체로 변환하여 반환
         try {
@@ -669,7 +676,6 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             return Map.of();
         }
 
-        // 1. AI에 전달할 프롬프트 구성
         String systemPrompt = """
             당신은 소프트웨어의 기술적 용어를 일반 비즈니스 사용자가 이해하기 쉬운 이름과 설명으로 만드는 네이밍 전문가입니다.
             주어진 JSON 배열 형태의 기술 정보 목록을 받아서, 각 항목에 대해 명확하고 직관적인 'friendlyName'과 'description'을 한국어로 추천해주세요.
@@ -685,45 +691,43 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             """;
 
         try {
-            // 2. 추천이 필요한 리소스 목록을 JSON 문자열로 변환하여 프롬프트에 삽입
             String resourcesJson = objectMapper.writeValueAsString(resourcesToSuggest);
 
-            String jsonResponse = chatClient.prompt()
-                    .system(systemPrompt)
-                    .user(resourcesJson)
-                    .call()
-                    .content();
+            SystemMessage systemMessage = new SystemMessage(systemPrompt);
+            UserMessage userMessage = new UserMessage(resourcesJson);
+            Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
 
-            // 3. AI의 응답을 Map 형태로 변환하여 반환
+            ChatResponse response = chatModel.call(prompt);
+            String jsonResponse = response.getResult().getOutput().getText();
+
             return objectMapper.readValue(jsonResponse, new TypeReference<>() {});
 
         } catch (Exception e) {
             log.error("AI 리소스 이름 배치 추천 실패", e);
-            // 실패 시 빈 Map 반환
             return Map.of();
         }
     }
 
     @Override
     public ResourceNameSuggestion suggestResourceName(String technicalIdentifier, String serviceOwner) {
-        // [수정] AI에 전달할 프롬프트를 모두 한국어로 작성합니다.
-        String userPromptTemplate = """
-            - 소유 서비스: {owner}
-            - 기술 식별자: {identifier}
+        String systemPrompt = """
+            당신은 소프트웨어의 기술적 용어를 일반 비즈니스 사용자가 이해하기 쉬운 이름과 설명으로 만드는 네이밍 전문가입니다.
+            주어진 기술 정보를 바탕으로, IAM 관리자가 쉽게 이해할 수 있도록 명확하고 직관적인 '친화적 이름(friendlyName)'과 '설명(description)'을 한국어로 추천해주세요.
+            응답은 반드시 아래 명시된 JSON 형식으로만 제공해야 합니다.
+            JSON 형식: {"friendlyName": "추천 이름", "description": "상세 설명"}
             """;
 
-        String jsonResponse = chatClient.prompt()
-                .system("""
-                    당신은 소프트웨어의 기술적 용어를 일반 비즈니스 사용자가 이해하기 쉬운 이름과 설명으로 만드는 네이밍 전문가입니다.
-                    주어진 기술 정보를 바탕으로, IAM 관리자가 쉽게 이해할 수 있도록 명확하고 직관적인 '친화적 이름(friendlyName)'과 '설명(description)'을 한국어로 추천해주세요.
-                    응답은 반드시 아래 명시된 JSON 형식으로만 제공해야 합니다.
-                    JSON 형식: {"friendlyName": "추천 이름", "description": "상세 설명"}
-                    """)
-                .user(spec -> spec.text(userPromptTemplate)
-                        .param("owner", serviceOwner)
-                        .param("identifier", technicalIdentifier))
-                .call()
-                .content();
+        String userPrompt = String.format("""
+            - 소유 서비스: %s
+            - 기술 식별자: %s
+            """, serviceOwner, technicalIdentifier);
+
+        SystemMessage systemMessage = new SystemMessage(systemPrompt);
+        UserMessage userMessage = new UserMessage(userPrompt);
+        Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
+        ChatResponse response = chatModel.call(prompt);
+        String jsonResponse = response.getResult().getOutput().getText();
 
         try {
             return objectMapper.readValue(jsonResponse, ResourceNameSuggestion.class);
@@ -760,15 +764,10 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             return List.of();
         }
 
-        // 3. AI에 전달할 프롬프트 구성
-        String promptString = """
+        // 3. AI 프롬프트 구성 및 ChatModel 호출
+        String systemPrompt = """
             당신은 조직의 역할(Role) 할당을 최적화하는 IAM 컨설턴트입니다.
             '대상 사용자'와 '유사 동료 그룹'의 정보를 바탕으로, 대상 사용자에게 가장 필요할 것으로 보이는 역할을 최대 3개까지 추천해주세요.
-            
-            **분석 정보:**
-            - 대상 사용자: {targetUser}
-            - 대상 사용자의 현재 역할: {currentUserRoles}
-            - 유사 동료 그룹의 프로필 및 보유 역할 정보: {similarUsers}
             
             **당신의 임무:**
             1. 유사 동료 그룹이 공통적으로 가지고 있지만, 대상 사용자는 없는 역할을 후보로 식별합니다.
@@ -779,17 +778,25 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             [{"roleId": 123, "roleName": "추천 역할명", "reason": "추천 이유", "confidence": 0.xx}]
             """;
 
-        // 4. ChatClient를 사용하여 GPT에 추론 요청
-        String jsonResponse = chatClient.prompt()
-                .user(spec -> spec.text(promptString)
-                        .param("targetUser", userProfileQuery)
-                        .param("currentUserRoles", String.join(", ", currentUserRoles))
-                        .param("similarUsers", similarUserDocs.stream().map(Document::getText).collect(Collectors.joining("\n---\n")))
-                )
-                .call()
-                .content();
+        String userPrompt = String.format("""
+            **분석 정보:**
+            - 대상 사용자: %s
+            - 대상 사용자의 현재 역할: %s
+            - 유사 동료 그룹의 프로필 및 보유 역할 정보: %s
+            """,
+                userProfileQuery,
+                String.join(", ", currentUserRoles),
+                similarUserDocs.stream().map(Document::getText).collect(Collectors.joining("\n---\n"))
+        );
 
-        // 5. AI의 JSON 응답을 DTO 리스트로 변환하여 반환
+        SystemMessage systemMessage = new SystemMessage(systemPrompt);
+        UserMessage userMessage = new UserMessage(userPrompt);
+        Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
+        ChatResponse response = chatModel.call(prompt);
+        String jsonResponse = response.getResult().getOutput().getText();
+
+        // 4. AI의 JSON 응답을 DTO 리스트로 변환하여 반환
         try {
             return objectMapper.readValue(jsonResponse, new TypeReference<List<RecommendedRoleDto>>() {});
         } catch (Exception e) {
@@ -814,13 +821,9 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             return List.of();
         }
 
-        // 2. AI에 전달할 프롬프트 구성
-        String promptString = """
+        String systemPrompt = """
             당신은 최고 수준의 IAM 보안 감사관입니다.
             다음은 우리 시스템에 존재하는 모든 접근 제어 정책 목록(JSON 형식)입니다.
-            
-            **전체 정책 목록:**
-            {policies}
             
             **당신의 임무:**
             1. 전체 정책들을 면밀히 분석하여, 잠재적인 보안 위험이나 비효율성을 식별합니다.
@@ -831,12 +834,17 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             [{"insightType": "문제 유형(예: SOD_VIOLATION)", "description": "상세 설명", "relatedEntityIds": [관련 정책/역할 ID], "recommendation": "개선 권장 사항"}]
             """;
 
-        // 3. ChatClient를 사용하여 GPT에 분석 요청
-        String jsonResponse = chatClient.prompt()
-                .user(spec -> spec.text(promptString)
-                        .param("policies", String.join("\n", allPolicies)))
-                .call()
-                .content();
+        String userPrompt = String.format("""
+            **전체 정책 목록:**
+            %s
+            """, String.join("\n", allPolicies));
+
+        SystemMessage systemMessage = new SystemMessage(systemPrompt);
+        UserMessage userMessage = new UserMessage(userPrompt);
+        Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
+        ChatResponse response = chatModel.call(prompt);
+        String jsonResponse = response.getResult().getOutput().getText();
 
         // 4. AI의 JSON 응답을 DTO 리스트로 변환하여 반환
         try {
@@ -847,15 +855,9 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         }
     }
 
-    /**
-     * 관리자의 자연어 요구사항을 분석하여, 시스템이 실행할 수 있는 정책(Policy) 초안을 생성합니다.
-     * AI를 사용하여 자연어를 구조화된 BusinessPolicyDto JSON으로 변환한 뒤,
-     * 이를 BusinessPolicyService에 전달하여 실제 정책을 생성합니다.
-     */
     @Override
     @Transactional
     public PolicyDto generatePolicyFromText(String naturalLanguageQuery) {
-        // 1. AI에 전달할 프롬프트 구성
         String systemPrompt = """
             당신은 사용자의 자연어 요청을 분석하여, IAM 시스템이 이해할 수 있는 구조화된 JSON 데이터로 변환하는 AI 에이전트입니다.
             요청을 분석하여 주체(subjects), 리소스(resources), 행위(actions), 그리고 SpEL 형식의 조건(condition)을 추출해야 합니다.
@@ -876,12 +878,12 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             }
             """;
 
-        // 2. ChatClient를 사용하여 AI 모델에 JSON 생성 요청
-        String jsonResponse = chatClient.prompt()
-                .system(systemPrompt)
-                .user(naturalLanguageQuery)
-                .call()
-                .content();
+        SystemMessage systemMessage = new SystemMessage(systemPrompt);
+        UserMessage userMessage = new UserMessage(naturalLanguageQuery);
+        Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
+        ChatResponse response = chatModel.call(prompt);
+        String jsonResponse = response.getResult().getOutput().getText();
 
         try {
             // 3. AI가 생성한 JSON 응답을 BusinessPolicyDto 객체로 변환
