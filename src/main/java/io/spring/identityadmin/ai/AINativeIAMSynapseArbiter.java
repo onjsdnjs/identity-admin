@@ -95,64 +95,78 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
         // 3. 시스템 메시지와 사용자 메시지 구성
         String systemPrompt = String.format("""
-        당신은 IAM 정책 분석 AI '아비터'입니다. 
-        
-        🎯 임무: 자연어 요구사항을 분석하여 구체적인 정책 구성 요소로 변환
-        
-        📋 시스템 정보:
-        %s
-        
-        🔄 작업 단계:
-        1. 키워드 분석: 요구사항에서 주요 키워드 추출
-        2. 컨텍스트 매핑: 시스템의 실제 역할/권한과 매핑
-        3. 조건 해석: 시간/장소/상황 조건들 식별
-        4. JSON 구성: 최종 정책 구조 생성
-        
-        ⚠️ 중요 규칙:
-        - 모든 ID는 위 시스템 정보에서 실제로 존재하는 숫자여야 함
-        - 역할명/권한명으로 추론하되, 가장 가까운 실제 ID 사용
-        - JSON은 반드시 정확한 형식으로 출력
-        - 분석 과정을 단계별로 한국어로 설명 후 JSON 출력
-        - 마지막에 반드시 명확한 JSON 마커 사용
-        
-        [매우 중요] roleIds, permissionIds 배열에는 반드시 이름이 아닌 '숫자 ID'를 포함해야 합니다.
-        conditions 맵의 키 또한 '숫자 ID'여야 합니다.
-        
-        📤 최종 출력 형식:
-        [한국어로 분석 과정 설명...]
-        
-        ===JSON시작===
-        {
-          "policyName": "정책 이름",
-          "description": "정책 설명", 
-          "roleIds": [실제_역할_ID들],
-          "permissionIds": [실제_권한_ID들],
-          "conditions": {"조건템플릿_ID": ["파라미터값"]},
-          "aiRiskAssessmentEnabled": false,
-          "requiredTrustScore": 0.7,
-          "customConditionSpel": "",
-          "effect": "ALLOW"
-        }
-        ===JSON끝===
-        """, systemMetadata);
+    당신은 IAM 정책 분석 AI '아비터'입니다. 
+    
+    🎯 임무: 자연어 요구사항을 분석하여 구체적인 정책 구성 요소로 변환
+    
+    📋 시스템 정보:
+    %s
+    
+    🔄 작업 단계:
+    1. 키워드 분석: 요구사항에서 주요 키워드 추출
+    2. 컨텍스트 매핑: 시스템의 실제 역할/권한과 매핑
+    3. 조건 해석: 시간/장소/상황 조건들 식별
+    4. JSON 구성: 최종 정책 구조 생성
+    
+    ⚠️ 중요 규칙:
+    - 모든 ID는 위 시스템 정보에서 실제로 존재하는 숫자여야 함
+    - 역할명/권한명으로 추론하되, 가장 가까운 실제 ID 사용
+    - JSON은 반드시 정확한 형식으로 출력
+    - 분석 과정을 단계별로 한국어로 설명 후 JSON 출력
+    - 마지막에 반드시 명확한 JSON 마커 사용
+    
+    [매우 중요] roleIds, permissionIds 배열에는 반드시 이름이 아닌 '숫자 ID'를 포함해야 합니다.
+    conditions 맵의 키 또한 '숫자 ID'여야 합니다.
+    
+    📤 최종 출력 형식:
+    [한국어로 분석 과정 설명...]
+    
+    ===JSON시작===
+    {
+      "policyName": "정책 이름",
+      "description": "정책 설명", 
+      "roleIds": [실제_역할_ID들],
+      "permissionIds": [실제_권한_ID들],
+      "conditions": {"조건템플릿_ID": ["파라미터값"]},
+      "aiRiskAssessmentEnabled": false,
+      "requiredTrustScore": 0.7,
+      "customConditionSpel": "",
+      "effect": "ALLOW"
+    }
+    ===JSON끝===
+    """, systemMetadata);
 
         String userPrompt = String.format("""
-        **자연어 요구사항:**
-        "%s"
-        
-        **참고 컨텍스트:**
-        %s
-        
-        위 요구사항을 분석하여 정책을 구성해주세요.
-        """, naturalLanguageQuery, contextInfo);
+    **자연어 요구사항:**
+    "%s"
+    
+    **참고 컨텍스트:**
+    %s
+    
+    위 요구사항을 분석하여 정책을 구성해주세요.
+    """, naturalLanguageQuery, contextInfo);
 
-        // 4. ChatModel 스트리밍 호출 (ChatClient 방식에서 변경)
+        // 4. ChatModel 스트리밍 호출 - 안전한 방식으로 수정
         SystemMessage systemMessage = new SystemMessage(systemPrompt);
         UserMessage userMessage = new UserMessage(userPrompt);
         Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
 
         return chatModel.stream(prompt)
-                .mapNotNull(chatResponse -> chatResponse.getResult().getOutput().getText())
+                .doOnNext(chatResponse -> log.debug("🔥 ChatResponse 수신: {}", chatResponse))
+                .filter(chatResponse -> chatResponse != null) // null 체크
+                .filter(chatResponse -> chatResponse.getResult() != null) // getResult() null 체크
+                .filter(chatResponse -> chatResponse.getResult().getOutput() != null) // getOutput() null 체크
+                .map(chatResponse -> {
+                    try {
+                        String content = chatResponse.getResult().getOutput().getText();
+                        log.debug("🔥 추출된 컨텐츠: {}", content != null ? content.substring(0, Math.min(50, content.length())) + "..." : "null");
+                        return content != null ? content : "";
+                    } catch (Exception e) {
+                        log.warn("🔥 컨텐츠 추출 실패: {}", e.getMessage());
+                        return "";
+                    }
+                })
+                .filter(content -> !content.isEmpty()) // 빈 컨텐츠 필터링
                 .map(this::cleanTextChunk)
                 .filter(chunk -> !chunk.trim().isEmpty())
                 .delayElements(Duration.ofMillis(10))

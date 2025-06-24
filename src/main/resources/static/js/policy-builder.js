@@ -427,12 +427,15 @@
                 }
 
                 // 🔥 간단하고 견고한 스트리밍 구현
+                // 🔥 개선된 스트리밍 처리 로직
                 async trySimpleStreaming(query, thoughtLog) {
                     try {
+                        console.log('🔥 스트리밍 API 호출 시작...');
+
                         const response = await this.api.generatePolicyFromTextStream(query);
 
                         if (!response.ok) {
-                            console.warn('스트리밍 API 응답 실패:', response.status);
+                            console.warn('스트리밍 API 응답 실패:', response.status, response.statusText);
                             return false;
                         }
 
@@ -441,115 +444,67 @@
                             return false;
                         }
 
-                        let fullText = '';
-                        let buffer = ''; // 🔥 불완전한 라인을 위한 버퍼
-                        const reader = response.body.getReader();
-                        const decoder = new TextDecoder();
+                        console.log('🔥 스트리밍 응답 헤더:', response.headers.get('content-type'));
 
-                        console.log('🔥 스트리밍 시작...');
+                        let fullText = '';
+                        let cleanFullText = ''; // 🔥 data: 제거된 텍스트
+                        const reader = response.body.getReader();
+                        const decoder = new TextDecoder('utf-8');
+
+                        // 초기 로그 메시지 표시
+                        if (thoughtLog) {
+                            thoughtLog.innerHTML = '<div style="color: #6c757d; font-style: italic;">🤖 AI가 정책을 분석하고 있습니다...</div><br>';
+                        }
+
+                        console.log('🔥 스트리밍 읽기 시작...');
 
                         while (true) {
                             const { value, done } = await reader.read();
+
                             if (done) {
                                 console.log('🔥 스트리밍 완료');
-                                // 마지막 버퍼 처리
-                                if (buffer.trim()) {
-                                    if (buffer.startsWith('data: ')) {
-                                        const finalData = buffer.substring(6);
-                                        if (finalData && finalData !== '[DONE]') {
-                                            fullText += finalData;
-                                            if (thoughtLog) {
-                                                // 🔥 마지막 데이터도 HTML 포맷팅 적용
-                                                let displayData = finalData;
-                                                
-                                                // HTML 안전 처리
-                                                displayData = displayData
-                                                    .replace(/&/g, '&amp;')
-                                                    .replace(/</g, '&lt;')
-                                                    .replace(/>/g, '&gt;');
-                                                
-                                                // 실제 AI 응답 패턴 기반 개행
-                                                displayData = displayData
-                                                    .replace(/\*\*([^*]+)\*\*/g, '<br><br><strong>$1</strong><br>')
-                                                    .replace(/([.!?])([가-힣A-Z])/g, '$1<br><br>$2')
-                                                    .replace(/([a-z])([A-Z가-힣])/g, '$1<br>$2')
-                                                    .replace(/(\d)([가-힣A-Z])/g, '$1<br>$2')
-                                                    .replace(/([가-힣])([A-Z])/g, '$1<br>$2')
-                                                    .replace(/→/g, '<br>→ ')
-                                                    .replace(/(\([^)]*\))/g, '<br>$1<br>')
-                                                    .replace(/:/g, ':<br>')
-                                                    .replace(/JSON/g, '<br><span style="color: #007acc; font-weight: bold;">JSON</span><br>')
-                                                    .replace(/<br>{2,}/g, '<br><br>');
-                                                
-                                                // 키워드 색상 강조
-                                                displayData = displayData
-                                                    .replace(/분석|구성|매핑/g, '<span style="color: #28a745;">🔍 $&</span>')
-                                                    .replace(/역할|권한|조건/g, '<span style="color: #fd7e14;">📋 $&</span>')
-                                                    .replace(/정책/g, '<span style="color: #dc3545;">🎯 $&</span>');
-                                                
-                                                thoughtLog.innerHTML += displayData;
-                                            }
-                                        }
-                                    }
-                                }
                                 break;
                             }
 
                             const chunk = decoder.decode(value, { stream: true });
-                            console.log('🔥 수신 청크:', JSON.stringify(chunk));
+                            console.log('🔥 수신된 청크:', JSON.stringify(chunk));
 
-                            // 🔥 버퍼에 청크 추가
-                            buffer += chunk;
-
-                            // 🔥 완전한 라인들 처리
-                            const lines = buffer.split('\n');
-
-                            // 마지막 라인은 불완전할 수 있으므로 버퍼에 보관
-                            buffer = lines.pop() || '';
+                            // SSE 형식 파싱
+                            const lines = chunk.split('\n');
 
                             for (const line of lines) {
                                 console.log('🔥 처리할 라인:', JSON.stringify(line));
 
                                 if (line.startsWith('data: ')) {
-                                    const data = line.substring(6);
+                                    const data = line.substring(6).trim();
                                     console.log('🔥 추출된 데이터:', JSON.stringify(data));
 
                                     if (data && data !== '[DONE]') {
                                         fullText += data;
+                                        cleanFullText += data; // 🔥 data: 접두사 없이 저장
 
-                                        // 실시간 표시 - 자연스러운 텍스트로
+                                        // 실시간 표시
                                         if (thoughtLog) {
-                                            // 🔥 스마트한 개행 처리 (HTML 기반)
-                                            let displayData = data;
-                                            
-                                            // 1. HTML 안전 처리
-                                            displayData = displayData
-                                                .replace(/&/g, '&amp;')
-                                                .replace(/</g, '&lt;')
-                                                .replace(/>/g, '&gt;');
-                                            
-                                            // 2. 실제 AI 응답 패턴 기반 개행
-                                            displayData = displayData
-                                                .replace(/\*\*([^*]+)\*\*/g, '<br><br><strong>$1</strong><br>')  // **제목** → 강조 + 개행
-                                                .replace(/([.!?])([가-힣A-Z])/g, '$1<br><br>$2')                // 문장끝 + 한글/영문 시작 → 개행
-                                                .replace(/([a-z])([A-Z가-힣])/g, '$1<br>$2')                    // 소문자 + 대문자/한글 → 개행 
-                                                .replace(/(\d)([가-힣A-Z])/g, '$1<br>$2')                       // 숫자 + 한글/영문 → 개행
-                                                .replace(/([가-힣])([A-Z])/g, '$1<br>$2')                       // 한글 + 영문 대문자 → 개행
-                                                .replace(/→/g, '<br>→ ')                                        // 화살표 앞 개행
-                                                .replace(/(\([^)]*\))/g, '<br>$1<br>')                          // 괄호 내용 앞뒤 개행
-                                                .replace(/:/g, ':<br>')                                         // 콜론 뒤 개행
-                                                .replace(/JSON/g, '<br><span style="color: #007acc; font-weight: bold;">JSON</span><br>') // JSON 강조
-                                                .replace(/<br>{2,}/g, '<br><br>');                              // 과도한 개행 정리
-                                            
-                                            // 3. 키워드 색상 강조 
-                                            displayData = displayData
-                                                .replace(/분석|구성|매핑/g, '<span style="color: #28a745;">🔍 $&</span>')  // 초록색
-                                                .replace(/역할|권한|조건/g, '<span style="color: #fd7e14;">📋 $&</span>')  // 주황색
-                                                .replace(/정책/g, '<span style="color: #dc3545;">🎯 $&</span>');          // 빨간색
-                                            
-                                            // 4. innerHTML 사용으로 HTML 렌더링
-                                            thoughtLog.innerHTML += displayData;
-                                            thoughtLog.scrollTop = thoughtLog.scrollHeight;
+                                            this.displayStreamingData(thoughtLog, data);
+                                        }
+                                    } else if (data === '[DONE]') {
+                                        console.log('🔥 스트리밍 완료 신호 수신');
+                                        break;
+                                    }
+                                } else if (line.startsWith('event: ') || line.startsWith('id: ')) {
+                                    // SSE 메타데이터는 무시
+                                    continue;
+                                } else if (line.trim() === '') {
+                                    // 빈 라인은 무시
+                                    continue;
+                                } else {
+                                    // data: 접두사 없는 데이터도 처리 (서버 설정에 따라)
+                                    const trimmedLine = line.trim();
+                                    if (trimmedLine && trimmedLine !== '[DONE]') {
+                                        fullText += trimmedLine;
+                                        cleanFullText += trimmedLine; // 🔥 깨끗한 텍스트에도 추가
+                                        if (thoughtLog) {
+                                            this.displayStreamingData(thoughtLog, trimmedLine);
                                         }
                                     }
                                 }
@@ -557,10 +512,11 @@
                         }
 
                         console.log('🔥 스트리밍 완료, 전체 길이:', fullText.length);
-                        console.log('🔥 전체 텍스트 미리보기:', fullText.substring(0, 300) + '...');
+                        console.log('🔥 깨끗한 텍스트 길이:', cleanFullText.length);
+                        console.log('🔥 깨끗한 텍스트 미리보기:', cleanFullText.substring(0, 300) + '...');
 
-                        // 🔥 JSON 추출 시도
-                        const jsonData = this.extractSimpleJson(fullText);
+                        // 🔥 깨끗한 텍스트로 JSON 추출 시도
+                        const jsonData = this.extractSimpleJson(cleanFullText);
                         if (jsonData) {
                             this.populateBuilderWithAIData(jsonData);
                             this.showMessage('AI 정책 초안이 스트리밍으로 생성되었습니다!', 'success');
@@ -571,8 +527,48 @@
                         return false;
 
                     } catch (error) {
-                        console.warn('스트리밍 오류:', error);
+                        console.error('스트리밍 오류:', error);
+                        if (thoughtLog) {
+                            thoughtLog.innerHTML += `<div style="color: #dc3545;">❌ 스트리밍 오류: ${error.message}</div>`;
+                        }
                         return false;
+                    }
+                }
+
+// 🔥 스트리밍 데이터 표시 메서드 분리
+                displayStreamingData(thoughtLog, data) {
+                    try {
+                        // HTML 안전 처리
+                        let displayData = data
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;');
+
+                        // 스마트한 개행 처리
+                        displayData = displayData
+                            .replace(/\*\*([^*]+)\*\*/g, '<br><br><strong>$1</strong><br>')
+                            .replace(/([.!?])([가-힣A-Z])/g, '$1<br><br>$2')
+                            .replace(/([a-z])([A-Z가-힣])/g, '$1<br>$2')
+                            .replace(/(\d)([가-힣A-Z])/g, '$1<br>$2')
+                            .replace(/([가-힣])([A-Z])/g, '$1<br>$2')
+                            .replace(/→/g, '<br>→ ')
+                            .replace(/(\([^)]*\))/g, '<br>$1<br>')
+                            .replace(/:/g, ':<br>')
+                            .replace(/JSON/g, '<br><span style="color: #007acc; font-weight: bold;">JSON</span><br>')
+                            .replace(/<br>{2,}/g, '<br><br>');
+
+                        // 키워드 색상 강조
+                        displayData = displayData
+                            .replace(/분석|구성|매핑/g, '<span style="color: #28a745;">🔍 $&</span>')
+                            .replace(/역할|권한|조건/g, '<span style="color: #fd7e14;">📋 $&</span>')
+                            .replace(/정책/g, '<span style="color: #dc3545;">🎯 $&</span>');
+
+                        thoughtLog.innerHTML += displayData;
+                        thoughtLog.scrollTop = thoughtLog.scrollHeight;
+
+                    } catch (error) {
+                        console.error('스트리밍 데이터 표시 오류:', error);
+                        thoughtLog.innerHTML += data; // 오류 시 원본 텍스트 표시
                     }
                 }
 
