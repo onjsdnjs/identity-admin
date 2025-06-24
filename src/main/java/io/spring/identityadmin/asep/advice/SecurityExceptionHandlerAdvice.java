@@ -1,4 +1,4 @@
-package io.spring.identityadmin.asep.exception;
+package io.spring.identityadmin.asep.advice;
 
 import io.spring.identityadmin.asep.ErrorCode;
 import io.spring.identityadmin.asep.ErrorResponse;
@@ -16,7 +16,7 @@ import java.time.Instant;
 @Configuration
 public class SecurityExceptionHandlerAdvice {
 
-    @SecurityExceptionHandler({ RuntimeException.class})
+    @SecurityExceptionHandler({RuntimeException.class})
     public ResponseEntity<ErrorResponse> handleException(RuntimeException e, HttpServletRequest request) {
 
         ErrorResponse body = new ErrorResponse(
