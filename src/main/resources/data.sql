@@ -42,7 +42,7 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 2. 권한은 생성되었으나 정책은 없는 상태
 INSERT INTO MANAGED_RESOURCE (id, resource_identifier, resource_type, friendly_name, description, status) VALUES
-    (102, 'io.spring.identityadmin.common.DocumentService.getDocumentById(java.lang.Long)', 'METHOD', '특정 문서 조회', 'ID로 특정 문서를 조회하는 핵심 서비스 메서드', 'PERMISSION_CREATED')
+    (102, 'io.spring.identityadmin.admin.iam.service.impl.DocumentService.getDocumentById(java.lang.Long)', 'METHOD', '특정 문서 조회', 'ID로 특정 문서를 조회하는 핵심 서비스 메서드', 'PERMISSION_CREATED')
 ON CONFLICT (id) DO NOTHING;
 INSERT INTO PERMISSION (permission_id, permission_name, friendly_name, description, target_type, action_type, managed_resource_id) VALUES
     (102, 'METHOD_IOSPRINGIDENTITYADMIN_COMMON_DOCUMENTSERVICE_GETDOCUMENTBYID_JAVALANGLONG', '특정 문서 조회', 'ID로 특정 문서를 조회하는 핵심 서비스 메서드', 'METHOD', 'EXECUTE', 102)
@@ -69,7 +69,7 @@ INSERT INTO POLICY (id, name, description, effect, priority, friendly_descriptio
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO POLICY_TARGET (id, policy_id, target_type, target_identifier) VALUES
-    (201, 201, 'METHOD', 'io.spring.identityadmin.common.DocumentService.getDocumentById(java.lang.Long)')
+    (201, 201, 'METHOD', 'io.spring.identityadmin.admin.iam.service.impl.DocumentService.getDocumentById(java.lang.Long)')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO POLICY_RULE (id, policy_id, description) VALUES
@@ -139,7 +139,7 @@ ON CONFLICT (permission_id) DO UPDATE SET
 
 -- Pre/Post 인가 테스트용 메서드에 대한 권한 (리소스 ID: 201, 가상)
 INSERT INTO MANAGED_RESOURCE (id, resource_identifier, resource_type, friendly_name, description, status) VALUES
-    (201, 'io.spring.identityadmin.common.DocumentService.updateDocument(java.lang.Long,java.lang.String)', 'METHOD', '문서 업데이트', 'ID와 새로운 내용으로 문서를 업데이트하는 기능', 'POLICY_CONNECTED')
+    (201, 'io.spring.identityadmin.admin.iam.service.impl.DocumentService.updateDocument(java.lang.Long,java.lang.String)', 'METHOD', '문서 업데이트', 'ID와 새로운 내용으로 문서를 업데이트하는 기능', 'POLICY_CONNECTED')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO PERMISSION (permission_id, permission_name, friendly_name, description, target_type, action_type, managed_resource_id) VALUES

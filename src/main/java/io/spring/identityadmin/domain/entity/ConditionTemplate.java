@@ -38,6 +38,9 @@ public class ConditionTemplate implements Serializable {
     @Column(length = 1024)
     private String description; // 조건에 대한 설명
 
+    @Column(length = 1024)
+    private String requiredTargetType;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

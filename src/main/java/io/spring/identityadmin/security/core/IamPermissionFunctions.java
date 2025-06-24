@@ -1,6 +1,6 @@
 package io.spring.identityadmin.security.core;
 
-import io.spring.identityadmin.common.DocumentService;
+import io.spring.identityadmin.admin.iam.service.impl.DocumentService;
 import io.spring.identityadmin.domain.entity.Document;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;

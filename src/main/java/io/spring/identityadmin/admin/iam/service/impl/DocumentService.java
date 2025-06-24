@@ -1,8 +1,8 @@
-package io.spring.identityadmin.common;
+package io.spring.identityadmin.admin.iam.service.impl;
 
-import io.spring.identityadmin.repository.DocumentRepository;
 import io.spring.identityadmin.domain.entity.Document;
-import io.spring.identityadmin.resource.PdpContextVariable;
+import io.spring.identityadmin.repository.DocumentRepository;
+import io.spring.identityadmin.resource.Protectable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -16,15 +16,9 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-@Transactional(readOnly = true) // 기본적으로 읽기 전용 트랜잭션 적용
 public class DocumentService {
 
     private final DocumentRepository documentRepository;
-
-    public Document getDocumentById(Long id, @PdpContextVariable("owner") String username) {
-        return null;
-    }
-
 
     /**
      * 특정 문서의 소유자가 현재 사용자인지 확인합니다.
@@ -71,6 +65,7 @@ public class DocumentService {
      * @return 생성된 Document 엔티티
      */
     @Transactional
+    @Protectable
     public Document createDocument(Document document) {
         log.info("Creating new document with title: '{}' by owner: '{}'", document.getTitle(), document.getOwnerUsername());
         document.setCreatedAt(LocalDateTime.now()); // 생성 시간 자동 설정

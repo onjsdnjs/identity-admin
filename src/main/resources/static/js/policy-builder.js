@@ -894,7 +894,7 @@
                 initializeFromContext() {
                     if (window.resourceContext) {
                         const availableParamTypes = new Set(
-                            (window.resourceContext.parameterInfo || []).map(p => p.type)
+                            (window.resourceContext.parameterTypes || []).map(p => p.type)
                         );
                         if (window.resourceContext.returnObjectType) {
                             availableParamTypes.add(window.resourceContext.returnObjectType);
