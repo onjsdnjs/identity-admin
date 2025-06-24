@@ -1,6 +1,10 @@
 package io.spring.identityadmin.ai;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.io.JsonEOFException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.identityadmin.ai.dto.*;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
@@ -34,6 +38,8 @@ import reactor.core.publisher.Flux;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.spring.identityadmin.domain.entity.policy.Policy.Effect.ALLOW;
@@ -687,39 +693,356 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
     @Override
     public Map<String, ResourceNameSuggestion> suggestResourceNamesInBatch(List<Map<String, String>> resourcesToSuggest) {
         if (resourcesToSuggest == null || resourcesToSuggest.isEmpty()) {
+            log.warn("🔥 suggestResourceNamesInBatch: 입력 데이터가 비어있습니다.");
             return Map.of();
         }
 
-        String systemPrompt = """
-            당신은 소프트웨어의 기술적 용어를 일반 비즈니스 사용자가 이해하기 쉬운 이름과 설명으로 만드는 네이밍 전문가입니다.
-            주어진 JSON 배열 형태의 기술 정보 목록을 받아서, 각 항목에 대해 명확하고 직관적인 'friendlyName'과 'description'을 한국어로 추천해주세요.
-            
-            응답은 반드시 아래 명시된 '기술 식별자(identifier)를 Key로 갖는 JSON 객체' 형식으로만 제공해야 합니다.
-            입력된 모든 항목에 대한 응답을 포함해야 합니다.
-            
-            응답 JSON 형식:
-            {
-              "기술_식별자_1": {"friendlyName": "추천 이름 1", "description": "상세 설명 1"},
-              "기술_식별자_2": {"friendlyName": "추천 이름 2", "description": "상세 설명 2"}
+        log.info("🔥 AI 배치 추천 시작 - 요청 리소스 수: {}", resourcesToSuggest.size());
+
+        // 입력 데이터 로깅
+        resourcesToSuggest.forEach(resource ->
+                log.debug("🔥 요청 리소스: identifier={}, owner={}",
+                        resource.get("identifier"), resource.get("owner")));
+
+        // 배치 크기 제한 (AI 응답 품질 향상을 위해)
+        final int BATCH_SIZE = 10;
+        Map<String, ResourceNameSuggestion> allResults = new HashMap<>();
+
+        // 배치 처리
+        for (int i = 0; i < resourcesToSuggest.size(); i += BATCH_SIZE) {
+            int endIndex = Math.min(i + BATCH_SIZE, resourcesToSuggest.size());
+            List<Map<String, String>> batch = resourcesToSuggest.subList(i, endIndex);
+
+            log.info("🔥 배치 처리 중: {}/{} (배치 크기: {})",
+                    i + 1, resourcesToSuggest.size(), batch.size());
+
+            Map<String, ResourceNameSuggestion> batchResult = processBatch(batch);
+            allResults.putAll(batchResult);
+        }
+
+        // 누락된 항목에 대한 fallback 처리 - AI 디버깅을 위해 주석처리
+    /*
+    for (Map<String, String> resource : resourcesToSuggest) {
+        String identifier = resource.get("identifier");
+        if (!allResults.containsKey(identifier)) {
+            log.warn("🔥 AI 응답에서 누락된 항목 발견, fallback 생성: {}", identifier);
+            allResults.put(identifier, new ResourceNameSuggestion(
+                    generateFallbackFriendlyName(identifier),
+                    "AI 추천을 받지 못한 항목입니다."
+            ));
+        }
+    }
+    */
+
+        // AI 응답 누락 검증 (fallback 없이 경고만)
+        for (Map<String, String> resource : resourcesToSuggest) {
+            String identifier = resource.get("identifier");
+            if (!allResults.containsKey(identifier)) {
+                log.error("🔥 [AI 오류] 응답에서 누락됨: {}", identifier);
             }
-            """;
+        }
+
+        log.info("🔥 최종 결과 - 총 항목 수: {}", allResults.size());
+        return allResults;
+    }
+
+    private Map<String, ResourceNameSuggestion> processBatch(List<Map<String, String>> batch) {
+        // 개선된 시스템 프롬프트
+        String systemPrompt = """
+    당신은 소프트웨어의 기술적 용어를 일반 비즈니스 사용자가 이해하기 쉬운 이름과 설명으로 만드는 네이밍 전문가입니다.
+    
+    **중요한 규칙:**
+    1. 각 항목마다 반드시 friendlyName과 description을 모두 제공해야 합니다
+    2. 모든 입력 항목에 대해 빠짐없이 응답해야 합니다
+    3. 순수한 JSON 형식으로만 응답하세요 (마크다운 없음)
+    4. 한글로 친화적이고 명확한 이름과 설명을 작성하세요
+    5. 기술 용어는 비즈니스 용어로 변환하세요
+    
+    **응답 예시:**
+    {
+      "/api/users": {
+        "friendlyName": "사용자 관리",
+        "description": "시스템 사용자 정보를 조회하고 관리하는 기능"
+      },
+      "deleteGroup": {
+        "friendlyName": "그룹 삭제",
+        "description": "사용자 그룹을 시스템에서 영구적으로 제거하는 기능"
+      }
+    }
+    
+    모든 항목에 대해 응답하세요. 누락하지 마세요.
+    """;
 
         try {
-            String resourcesJson = objectMapper.writeValueAsString(resourcesToSuggest);
+            // 입력 데이터를 더 간단한 형식으로 변환
+            Map<String, String> simplifiedInput = new HashMap<>();
+            for (Map<String, String> resource : batch) {
+                String identifier = resource.get("identifier");
+                String owner = resource.get("owner");
+                simplifiedInput.put(identifier, owner != null ? owner : "unknown");
+            }
+
+            String inputJson = objectMapper.writeValueAsString(simplifiedInput);
+            log.info("🔥 AI에게 전송할 배치 (크기: {}): {}", batch.size(),
+                    inputJson.length() > 200 ? inputJson.substring(0, 200) + "..." : inputJson);
 
             SystemMessage systemMessage = new SystemMessage(systemPrompt);
-            UserMessage userMessage = new UserMessage(resourcesJson);
+            UserMessage userMessage = new UserMessage("다음 기술 항목들에 대해 친화적인 이름과 설명을 제안해주세요:\n" + inputJson);
             Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
 
             ChatResponse response = chatModel.call(prompt);
             String jsonResponse = response.getResult().getOutput().getText();
 
-            return objectMapper.readValue(jsonResponse, new TypeReference<>() {});
+            log.info("🔥 AI 원본 응답 길이: {}", jsonResponse.length());
+            log.debug("🔥 AI 원본 응답: {}", jsonResponse);
+
+            // 강화된 JSON 파싱
+            return parseAiResponseEnhanced(jsonResponse, batch);
 
         } catch (Exception e) {
-            log.error("AI 리소스 이름 배치 추천 실패", e);
-            return Map.of();
+            log.error("🔥 배치 처리 중 오류 발생", e);
+
+            // Fallback: 배치의 모든 항목에 대해 기본값 반환 - AI 디버깅을 위해 주석처리
+        /*
+        return batch.stream()
+                .collect(Collectors.toMap(
+                        resource -> resource.get("identifier"),
+                        resource -> new ResourceNameSuggestion(
+                                generateFallbackFriendlyName(resource.get("identifier")),
+                                "AI 추천 실패로 기본 이름을 사용합니다."
+                        )
+                ));
+        */
+
+            // AI 오류 시 빈 맵 반환하여 문제점 명확히 파악
+            log.error("🔥 [AI 오류] 배치 처리 완전 실패, 빈 결과 반환");
+            return new HashMap<>();
         }
+    }
+
+    /**
+     * 강화된 AI 응답 파싱 메서드
+     */
+    private Map<String, ResourceNameSuggestion> parseAiResponseEnhanced(String jsonResponse, List<Map<String, String>> originalBatch) {
+        Map<String, ResourceNameSuggestion> result = new HashMap<>();
+
+        try {
+            // 1단계: JSON 정제
+            String cleanedJson = cleanJsonResponse(jsonResponse);
+            log.debug("🔥 정제된 JSON: {}", cleanedJson);
+
+            // 2단계: 다양한 파싱 전략 시도
+            result = tryMultipleParsingStrategies(cleanedJson);
+
+            // 3단계: 파싱 결과 검증
+            if (result.isEmpty()) {
+                log.warn("🔥 모든 파싱 전략 실패, 정규식 파싱 시도");
+                result = regexParsing(cleanedJson);
+            }
+
+            // 4단계: 누락된 항목 확인 및 보완 - AI 디버깅을 위해 주석처리
+            Set<String> requestedIdentifiers = originalBatch.stream()
+                    .map(m -> m.get("identifier"))
+                    .collect(Collectors.toSet());
+
+            Set<String> parsedIdentifiers = result.keySet();
+            Set<String> missingIdentifiers = new HashSet<>(requestedIdentifiers);
+            missingIdentifiers.removeAll(parsedIdentifiers);
+
+            if (!missingIdentifiers.isEmpty()) {
+                log.error("🔥 [AI 오류] 파싱 후에도 누락된 항목: {}", missingIdentifiers);
+                // fallback 처리 주석
+            /*
+            for (String missing : missingIdentifiers) {
+                result.put(missing, new ResourceNameSuggestion(
+                        generateFallbackFriendlyName(missing),
+                        "AI 응답에서 누락된 항목입니다."
+                ));
+            }
+            */
+            }
+
+        } catch (Exception e) {
+            log.error("🔥 강화된 파싱 실패", e);
+
+            // 전체 실패 시 모든 항목에 대해 fallback - AI 디버깅을 위해 주석처리
+        /*
+        for (Map<String, String> resource : originalBatch) {
+            String identifier = resource.get("identifier");
+            result.put(identifier, new ResourceNameSuggestion(
+                    generateFallbackFriendlyName(identifier),
+                    "파싱 오류로 인한 기본값"
+            ));
+        }
+        */
+
+            // AI 오류를 명확히 파악하기 위해 빈 결과 반환
+            log.error("🔥 [AI 오류] 모든 파싱 전략 실패");
+        }
+
+        return result;
+    }
+
+    /**
+     * JSON 응답 정제 - 더 강력한 정제
+     */
+    private String cleanJsonResponse(String response) {
+        if (response == null || response.trim().isEmpty()) {
+            return "{}";
+        }
+
+        String cleaned = response.trim();
+
+        // 1. 마크다운 제거
+        cleaned = cleaned.replaceAll("```json\\s*", "");
+        cleaned = cleaned.replaceAll("```\\s*", "");
+
+        // 2. JSON 앞뒤 텍스트 제거
+        int firstBrace = cleaned.indexOf('{');
+        int lastBrace = cleaned.lastIndexOf('}');
+
+        if (firstBrace >= 0 && lastBrace > firstBrace) {
+            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+        }
+
+        // 3. 이스케이프 문자 정규화
+        cleaned = normalizeEscapes(cleaned);
+
+        // 4. 유니코드 이스케이프 처리
+        cleaned = decodeUnicode(cleaned);
+
+        // 5. 잘못된 쉼표 제거
+        cleaned = cleaned.replaceAll(",\\s*}", "}");
+        cleaned = cleaned.replaceAll(",\\s*]", "]");
+
+        return cleaned;
+    }
+
+    /**
+     * 다양한 파싱 전략 시도
+     */
+    private Map<String, ResourceNameSuggestion> tryMultipleParsingStrategies(String json) {
+        Map<String, ResourceNameSuggestion> result = new HashMap<>();
+
+        // 전략 1: 표준 ObjectMapper
+        try {
+            ObjectMapper mapper = new ObjectMapper()
+                    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                    .configure(JsonParser.Feature.ALLOW_COMMENTS, true)
+                    .configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
+
+            Map<String, Map<String, String>> parsed = mapper.readValue(
+                    json,
+                    new TypeReference<Map<String, Map<String, String>>>() {}
+            );
+
+            for (Map.Entry<String, Map<String, String>> entry : parsed.entrySet()) {
+                String friendlyName = entry.getValue().get("friendlyName");
+                String description = entry.getValue().get("description");
+
+                if (friendlyName != null && description != null) {
+                    result.put(entry.getKey(), new ResourceNameSuggestion(friendlyName, description));
+                }
+            }
+
+            if (!result.isEmpty()) {
+                log.info("🔥 표준 파싱 성공, 항목 수: {}", result.size());
+                return result;
+            }
+        } catch (Exception e) {
+            log.debug("🔥 표준 파싱 실패: {}", e.getMessage());
+        }
+
+        // 전략 2: JsonNode 사용
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode root = mapper.readTree(json);
+
+            if (root.isObject()) {
+                Iterator<Map.Entry<String, JsonNode>> fields = root.fields();
+                while (fields.hasNext()) {
+                    Map.Entry<String, JsonNode> field = fields.next();
+                    String key = field.getKey();
+                    JsonNode value = field.getValue();
+
+                    if (value.has("friendlyName") && value.has("description")) {
+                        String friendlyName = value.get("friendlyName").asText();
+                        String description = value.get("description").asText();
+                        result.put(key, new ResourceNameSuggestion(friendlyName, description));
+                    }
+                }
+            }
+
+            if (!result.isEmpty()) {
+                log.info("🔥 JsonNode 파싱 성공, 항목 수: {}", result.size());
+                return result;
+            }
+        } catch (Exception e) {
+            log.debug("🔥 JsonNode 파싱 실패: {}", e.getMessage());
+        }
+
+        return result;
+    }
+
+    /**
+     * 정규식을 사용한 최후의 파싱
+     */
+    private Map<String, ResourceNameSuggestion> regexParsing(String json) {
+        Map<String, ResourceNameSuggestion> result = new HashMap<>();
+
+        // 패턴: "identifier": {"friendlyName": "name", "description": "desc"}
+        Pattern pattern = Pattern.compile(
+                "\"([^\"]+)\"\\s*:\\s*\\{\\s*\"friendlyName\"\\s*:\\s*\"([^\"]+)\"\\s*,\\s*\"description\"\\s*:\\s*\"([^\"]+)\"\\s*\\}",
+                Pattern.MULTILINE | Pattern.DOTALL
+        );
+
+        Matcher matcher = pattern.matcher(json);
+
+        while (matcher.find()) {
+            String identifier = matcher.group(1);
+            String friendlyName = matcher.group(2);
+            String description = matcher.group(3);
+
+            if (identifier != null && friendlyName != null && description != null) {
+                result.put(identifier, new ResourceNameSuggestion(friendlyName, description));
+                log.debug("🔥 정규식 파싱 성공: {} -> {}", identifier, friendlyName);
+            }
+        }
+
+        log.info("🔥 정규식 파싱 결과, 항목 수: {}", result.size());
+        return result;
+    }
+
+    /**
+     * 이스케이프 문자 정규화
+     */
+    private String normalizeEscapes(String text) {
+        // 줄바꿈 정규화
+        text = text.replace("\\n", " ");
+        text = text.replace("\\r", "");
+        text = text.replace("\\t", " ");
+
+        // 연속된 공백 제거
+        text = text.replaceAll("\\s+", " ");
+
+        return text;
+    }
+
+    /**
+     * 유니코드 이스케이프 디코딩
+     */
+    private String decodeUnicode(String text) {
+        Pattern pattern = Pattern.compile("\\\\u([0-9a-fA-F]{4})");
+        Matcher matcher = pattern.matcher(text);
+
+        StringBuffer sb = new StringBuffer();
+        while (matcher.find()) {
+            int codePoint = Integer.parseInt(matcher.group(1), 16);
+            matcher.appendReplacement(sb, String.valueOf((char) codePoint));
+        }
+        matcher.appendTail(sb);
+
+        return sb.toString();
     }
 
     @Override

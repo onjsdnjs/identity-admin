@@ -134,27 +134,145 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
      * [구현 완료] 리소스 배치에 대한 AI 추천 및 저장 로직.
      * 비동기 작업 내에서 별도의 트랜잭션으로 실행되도록 설정합니다.
      */
+    /**
+     * [구현 완료] 리소스 배치에 대한 AI 추천 및 저장 로직.
+     * 비동기 작업 내에서 별도의 트랜잭션으로 실행되도록 설정합니다.
+     */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processResourceBatch(List<ManagedResource> batch) {
-        log.info("{}개 리소스 배치의 AI 추천 처리를 시작합니다.", batch.size());
+        log.info("🔥 {}개 리소스 배치의 AI 추천 처리를 시작합니다.", batch.size());
+
+        // 입력 데이터 검증
+        if (batch == null || batch.isEmpty()) {
+            log.warn("🔥 배치가 비어있어 처리를 건너뜁니다.");
+            return;
+        }
+
+        // AI 요청 데이터 준비
         List<Map<String, String>> resourcesToSuggest = batch.stream()
-                .map(r -> Map.of("identifier", r.getResourceIdentifier(), "owner", r.getServiceOwner()))
+                .filter(Objects::nonNull)
+                .filter(r -> r.getResourceIdentifier() != null && !r.getResourceIdentifier().trim().isEmpty())
+                .map(r -> {
+                    String identifier = r.getResourceIdentifier();
+                    String owner = r.getServiceOwner() != null ? r.getServiceOwner() : "Unknown";
+
+                    log.debug("🔥 AI 요청 데이터 준비: identifier={}, owner={}", identifier, owner);
+                    return Map.of("identifier", identifier, "owner", owner);
+                })
                 .collect(Collectors.toList());
 
-        Map<String, ResourceNameSuggestion> suggestionsMap = aINativeIAMAdvisor.suggestResourceNamesInBatch(resourcesToSuggest);
+        if (resourcesToSuggest.isEmpty()) {
+            log.warn("🔥 유효한 리소스가 없어 AI 추천을 건너뜁니다.");
+            // 그래도 기본값으로 저장
+            managedResourceRepository.saveAll(batch);
+            return;
+        }
 
-        batch.forEach(resource -> {
-            ResourceNameSuggestion suggestion = suggestionsMap.get(resource.getResourceIdentifier());
-            if (suggestion != null) {
-                resource.setFriendlyName(suggestion.friendlyName());
-                resource.setDescription(suggestion.description());
-            } else {
-                log.warn("AI가 리소스 '{}'에 대한 추천을 반환하지 않았습니다.", resource.getResourceIdentifier());
+        log.info("🔥 {}개의 유효한 리소스에 대해 AI 추천을 요청합니다.", resourcesToSuggest.size());
+
+        try {
+            // AI 추천 요청
+            Map<String, ResourceNameSuggestion> suggestionsMap = aINativeIAMAdvisor.suggestResourceNamesInBatch(resourcesToSuggest);
+
+            log.info("🔥 AI로부터 {}개의 추천을 받았습니다.", suggestionsMap.size());
+
+            // 각 리소스에 AI 추천 적용
+            int appliedCount = 0;
+            int skippedCount = 0;
+
+            for (ManagedResource resource : batch) {
+                if (resource.getResourceIdentifier() == null) {
+                    log.warn("🔥 리소스 식별자가 null인 리소스를 건너뜁니다: {}", resource);
+                    skippedCount++;
+                    continue;
+                }
+
+                ResourceNameSuggestion suggestion = suggestionsMap.get(resource.getResourceIdentifier());
+
+                if (suggestion != null) {
+                    String oldFriendlyName = resource.getFriendlyName();
+                    String oldDescription = resource.getDescription();
+
+                    resource.setFriendlyName(suggestion.friendlyName());
+                    resource.setDescription(suggestion.description());
+
+                    log.debug("🔥 AI 추천 적용: '{}' -> friendlyName='{}', description='{}'",
+                            resource.getResourceIdentifier(),
+                            suggestion.friendlyName(),
+                            suggestion.description());
+
+                    appliedCount++;
+                } else {
+                    log.warn("🔥 AI가 리소스 '{}'에 대한 추천을 반환하지 않았습니다. 기본값을 유지합니다.",
+                            resource.getResourceIdentifier());
+
+                    // 기본값 설정 (필요한 경우)
+                    if (resource.getFriendlyName() == null || resource.getFriendlyName().trim().isEmpty()) {
+                        resource.setFriendlyName(generateFallbackFriendlyName(resource.getResourceIdentifier()));
+                    }
+                    if (resource.getDescription() == null || resource.getDescription().trim().isEmpty()) {
+                        resource.setDescription("AI 추천을 받지 못한 리소스입니다.");
+                    }
+
+                    skippedCount++;
+                }
             }
-        });
 
-        managedResourceRepository.saveAll(batch);
-        log.info("{}개의 리소스 배치 처리가 완료되었습니다.", batch.size());
+            // 배치 저장
+            managedResourceRepository.saveAll(batch);
+
+            log.info("🔥 배치 처리 완료 - 전체: {}개, AI 적용: {}개, 기본값 사용: {}개",
+                    batch.size(), appliedCount, skippedCount);
+
+        } catch (Exception e) {
+            log.error("🔥 AI 추천 처리 중 오류 발생. 기본값으로 저장합니다.", e);
+
+            // 오류 발생 시 기본값으로 설정하여 저장
+            batch.forEach(resource -> {
+                if (resource.getFriendlyName() == null || resource.getFriendlyName().trim().isEmpty()) {
+                    resource.setFriendlyName(generateFallbackFriendlyName(resource.getResourceIdentifier()));
+                }
+                if (resource.getDescription() == null || resource.getDescription().trim().isEmpty()) {
+                    resource.setDescription("AI 추천 실패로 기본값을 사용합니다.");
+                }
+            });
+
+            managedResourceRepository.saveAll(batch);
+            log.info("🔥 {}개의 리소스가 기본값으로 저장되었습니다.", batch.size());
+        }
+    }
+
+    /**
+     * Fallback용 기본 친화적 이름 생성
+     */
+    private String generateFallbackFriendlyName(String identifier) {
+        if (identifier == null || identifier.isEmpty()) {
+            return "알 수 없는 리소스";
+        }
+
+        // URL 경로에서 마지막 부분 추출
+        if (identifier.startsWith("/")) {
+            String[] parts = identifier.split("/");
+            for (int i = parts.length - 1; i >= 0; i--) {
+                if (!parts[i].isEmpty() && !parts[i].matches("\\{.*\\}")) {  // 경로 변수 제외
+                    return parts[i] + " 기능";
+                }
+            }
+        }
+
+        // 메서드명에서 이름 추출
+        if (identifier.contains(".")) {
+            String[] parts = identifier.split("\\.");
+            String lastPart = parts[parts.length - 1];
+            if (lastPart.contains("()")) {
+                lastPart = lastPart.replace("()", "");
+            }
+            // camelCase를 공백으로 분리
+            String formatted = lastPart.replaceAll("([a-z])([A-Z])", "$1 $2").toLowerCase();
+            return formatted + " 기능";
+        }
+
+        return identifier + " 기능";
     }
 
     @Override
