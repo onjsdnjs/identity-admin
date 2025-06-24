@@ -1,11 +1,18 @@
 package io.spring.identityadmin.security.xacml.pep;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.identityadmin.admin.monitoring.service.AuditLogService;
+import io.spring.identityadmin.ai.dto.TrustAssessment;
+import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.domain.entity.policy.PolicyTarget;
+import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
+import io.spring.identityadmin.security.xacml.pip.context.ContextHandler;
 import io.spring.identityadmin.security.xacml.prp.PolicyRetrievalPoint;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authorization.AuthorizationDecision;
@@ -34,6 +41,8 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
     private List<RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>>> mappings;
     private static final Pattern AUTHORITY_PATTERN = Pattern.compile("^[A-Z_]+$");
     private final AuditLogService auditLogService;
+    private final ObjectMapper objectMapper;
+    private final ContextHandler contextHandler;
 
     @PostConstruct
     public void initialize() {
@@ -117,31 +126,58 @@ public class CustomDynamicAuthorizationManager implements AuthorizationManager<R
     }
 
     @Override
-    public AuthorizationDecision check(Supplier<Authentication> authentication, RequestAuthorizationContext context) {
+    public AuthorizationDecision check(Supplier<Authentication> authenticationSupplier, RequestAuthorizationContext context) {
         log.trace("Checking authorization for request: {}", context.getRequest().getRequestURI());
 
-        String principal = authentication.get().getName();
-        String resource = context.getRequest().getRequestURI();
-        String action = context.getRequest().getMethod();
-        String clientIp = context.getRequest().getRemoteAddr();
+        final HttpServletRequest request = context.getRequest();
+        final Authentication authentication = authenticationSupplier.get();
+
+        AuthorizationContext authorizationContext = contextHandler.create(authentication, request);
 
         for (RequestMatcherEntry<AuthorizationManager<RequestAuthorizationContext>> mapping : this.mappings) {
             if (mapping.getRequestMatcher().matcher(context.getRequest()).isMatch()) {
                 log.debug("Request matched by '{}'. Delegating to its AuthorizationManager.", mapping.getRequestMatcher());
 
                 AuthorizationManager<RequestAuthorizationContext> manager = mapping.getEntry();
-                AuthorizationDecision decision = manager.check(authentication, context);
+                AuthorizationDecision decision = manager.check(authenticationSupplier, context);
 
-                String reason = "Policy rule matched: " + mapping.getRequestMatcher();
-                auditLogService.logDecision(principal, resource, action, decision.isGranted() ? "ALLOW" : "DENY", reason, clientIp);
-
+                logAuthorizationAttempt(authentication, authorizationContext, decision);
                 return decision;
             }
         }
         log.trace("No matching policy found for request. Denying access by default.");
         AuthorizationDecision authorizationDecision = new AuthorizationDecision(true);
-        auditLogService.logDecision(principal, resource, action, "DENY", "No matching policy found (Default Deny)", clientIp);
+        logAuthorizationAttempt(authentication, authorizationContext, authorizationDecision);
+
         return authorizationDecision;
+    }
+
+    /**
+     * 인가 시도 및 그 결과를 상세히 감사 로그에 기록합니다.
+     * XAI의 핵심인 AI 평가 근거를 포함합니다.
+     */
+    private void logAuthorizationAttempt(Authentication authentication, AuthorizationContext context, AuthorizationDecision decision) {
+
+        String principal = (authentication != null && authentication.isAuthenticated()) ? ((UserDto)authentication.getPrincipal()).getName() : "anonymousUser";
+        String resource = context.resource().identifier();
+        String action = context.action();
+        String result = decision.isGranted() ? "ALLOW" : "DENY";
+        String clientIp = context.environment().remoteIp();
+
+        String reason;
+        TrustAssessment assessment = (TrustAssessment) context.attributes().get("ai_assessment");
+
+        if (assessment != null) {
+            try {
+                reason = "AI 평가 결과: " + objectMapper.writeValueAsString(assessment);
+            } catch (JsonProcessingException e) {
+                reason = "AI 평가 결과 직렬화 실패. 점수: " + assessment.score();
+            }
+        } else {
+            reason = "정적 규칙 매칭"; // AI 평가가 없었다면 일반 규칙 매칭
+        }
+
+        auditLogService.logDecision(principal, resource, action, result, reason, clientIp);
     }
 
     public synchronized void reload() {

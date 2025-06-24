@@ -16,7 +16,7 @@ import java.time.Instant;
 @Configuration
 public class SecurityExceptionHandlerAdvice {
 
-    @SecurityExceptionHandler({RuntimeException.class})
+    @SecurityExceptionHandler({Exception.class})
     public ResponseEntity<ErrorResponse> handleException(RuntimeException e, HttpServletRequest request) {
 
         ErrorResponse body = new ErrorResponse(
