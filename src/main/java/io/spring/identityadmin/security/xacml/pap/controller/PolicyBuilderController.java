@@ -94,21 +94,26 @@ public class PolicyBuilderController {
      */
     private void addContextAwareConditionsToModel(Model model) {
         List<ConditionTemplate> allConditions = conditionTemplateRepository.findAll();
-
-        // 현재 컨텍스트에서 사용 가능한 모든 '타입' 목록을 계산합니다.
         Set<String> availableTypes = getAvailableTypesFromModel(model);
 
         List<ConditionTemplateDto> conditionDtos = allConditions.stream().map(cond -> {
             String requiredType = cond.getRequiredTargetType();
 
-            // [핵심] 호환성 여부를 '타입' 기반으로 정확하게 판단합니다.
-            // 템플릿이 특정 타입을 요구하지 않거나, 요구하는 타입이 사용 가능한 타입 목록에 있으면 활성화됩니다.
+            // 1. 호환성 여부를 '타입' 기반으로 정확하게 판단합니다.
             boolean isCompatible = !StringUtils.hasText(requiredType) || availableTypes.contains(requiredType);
 
-            return new ConditionTemplateDto(cond.getId(), cond.getName(), cond.getDescription(),
-                    // UI 표시용으로 required_context_variables를 그대로 전달할 수 있음
-                    Set.of(requiredType != null ? requiredType : ""),
-                    isCompatible);
+            // 2. SpEL 템플릿에서 실제 필요한 변수 목록을 추출합니다.
+            Set<String> requiredVars = extractVariablesFromSpel(cond.getSpelTemplate());
+
+            // 3. [핵심 수정] 올바른 인자를 사용하여 DTO를 생성합니다.
+            return new ConditionTemplateDto(
+                    cond.getId(),
+                    cond.getName(),
+                    cond.getDescription(),
+                    requiredVars,       // 실제 필요한 변수 Set 전달
+                    isCompatible,
+                    cond.getSpelTemplate() // SpEL 템플릿 원본 전달
+            );
         }).toList();
 
         model.addAttribute("allConditions", conditionDtos);

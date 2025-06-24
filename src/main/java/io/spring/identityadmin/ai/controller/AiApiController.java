@@ -1,11 +1,12 @@
 package io.spring.identityadmin.ai.controller;
 
 import io.spring.identityadmin.ai.AINativeIAMAdvisor;
+import io.spring.identityadmin.ai.dto.ConditionValidationRequest;
+import io.spring.identityadmin.ai.dto.ConditionValidationResponse;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,8 +15,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Flux;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.Map;
 // 기존 AiApiController를 참고하여 스트리밍 메서드를 추가하는 예시
 
@@ -25,7 +24,7 @@ import java.util.Map;
 @Slf4j
 public class AiApiController {
 
-    private final AINativeIAMAdvisor aiAdvisor;
+    private final AINativeIAMAdvisor aiNativeIAMAdvisor;
 
     /**
      * AI로 정책 초안을 스트리밍 방식으로 생성합니다.
@@ -42,7 +41,7 @@ public class AiApiController {
         log.info("🔥 AI 스트리밍 정책 생성 요청: {}", naturalLanguageQuery);
 
         try {
-            return aiAdvisor.generatePolicyFromTextStream(naturalLanguageQuery)
+            return aiNativeIAMAdvisor.generatePolicyFromTextStream(naturalLanguageQuery)
                     .map(chunk -> ServerSentEvent.<String>builder()
                             .data(chunk)
                             .build())
@@ -77,12 +76,20 @@ public class AiApiController {
         log.info("AI 정책 생성 요청: {}", naturalLanguageQuery);
 
         try {
-            AiGeneratedPolicyDraftDto result = aiAdvisor.generatePolicyFromTextByAi(naturalLanguageQuery);
+            AiGeneratedPolicyDraftDto result = aiNativeIAMAdvisor.generatePolicyFromTextByAi(naturalLanguageQuery);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("AI 정책 생성 실패", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .build();
         }
+    }
+
+    @PostMapping("/policies/validate-condition")
+    public ResponseEntity<ConditionValidationResponse> validateCondition(@RequestBody ConditionValidationRequest request) {
+        ConditionValidationResponse response = aiNativeIAMAdvisor.validateCondition(
+                request.resourceIdentifier(), request.conditionSpel()
+        );
+        return ResponseEntity.ok(response);
     }
 }
