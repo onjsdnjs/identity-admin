@@ -1647,28 +1647,87 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                 resource.getParameterTypes(), resource.getReturnType());
 
         // 2. AI 에게 전달할 프롬프트를 생성합니다.
-        String systemPrompt = String.format("""
+        String systemPrompt = """
             당신은 Spring SpEL 표현식 유효성 검증 전문가입니다. 주어진 '메서드 컨텍스트' 내에서 'SpEL 표현식'이 오류 없이 실행될 수 있는지 평가해주십시오.
-
-            - 메서드 컨텍스트: %s
-            - 검증할 SpEL 표현식: %s
             
             SpEL의 변수(예: #userId, #returnObject)가 메서드 컨텍스트의 파라미터 이름이나 반환값으로 사용될 수 있는지 확인해야 합니다.
             
-            다음 JSON 형식으로만 응답해주십시오:
-            {"isCompatible": true/false, "reason": "한국어 요약 이유"}
+            [매우 중요] 응답은 반드시 순수한 JSON 형식이어야 합니다. 마크다운 코드 블록(```)을 사용하지 마세요.
+            
+            정확히 다음 형식으로만 응답하세요:
+            {"isCompatible": true, "reason": "한국어 설명"}
+            또는
+            {"isCompatible": false, "reason": "한국어 설명"}
+            """;
+
+        String userPrompt = String.format("""
+            다음 컨텍스트에서 SpEL 표현식의 호환성을 검증해주세요:
+            
+            **메서드 컨텍스트:**
+            %s
+            
+            **검증할 SpEL 표현식:**
+            %s
+            
+            이 표현식이 위 컨텍스트에서 오류 없이 실행될 수 있는지 평가하고, 순수 JSON으로만 응답해주세요.
             """, contextInfo, conditionSpel);
 
         // 3. AI 호출 및 결과 파싱
         SystemMessage systemMessage = new SystemMessage(systemPrompt);
-        Prompt prompt = new Prompt(List.of(systemMessage));
+        UserMessage userMessage = new UserMessage(userPrompt);
+        Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
 
-        ChatResponse response = chatModel.call(prompt);
-        String jsonResponse = response.getResult().getOutput().getText();
         try {
-            return objectMapper.readValue(jsonResponse, ConditionValidationResponse.class);
+            ChatResponse response = chatModel.call(prompt);
+            String aiResponse = response.getResult().getOutput().getText();
+
+            // JSON 응답 로깅
+            log.debug("AI SpEL 검증 원본 응답: {}", aiResponse);
+
+            // JSON 정제 - 마크다운 코드 블록 제거
+            String cleanedJson = cleanJsonForValidation(aiResponse);
+            log.debug("정제된 JSON: {}", cleanedJson);
+
+            return objectMapper.readValue(cleanedJson, ConditionValidationResponse.class);
         } catch (JsonProcessingException e) {
-            return new ConditionValidationResponse(false, "AI 응답 분석에 실패했습니다.");
+            log.error("AI 응답 파싱 실패. 원본 응답: {}", e.getMessage());
+            return new ConditionValidationResponse(false, "AI 응답 형식이 올바르지 않습니다.");
+        } catch (Exception e) {
+            log.error("SpEL 검증 중 오류 발생: {}", e.getMessage());
+            return new ConditionValidationResponse(false, "검증 중 오류가 발생했습니다: " + e.getMessage());
         }
+    }
+
+    /**
+     * AI 응답에서 JSON만 추출하는 메서드
+     */
+    private String cleanJsonForValidation(String response) {
+        if (response == null || response.trim().isEmpty()) {
+            return "{}";
+        }
+
+        String cleaned = response.trim();
+
+        // 1. 마크다운 코드 블록 제거
+        cleaned = cleaned.replaceAll("```json\\s*", "");
+        cleaned = cleaned.replaceAll("```\\s*", "");
+
+        // 2. JSON 객체만 추출 (첫 번째 { 부터 마지막 } 까지)
+        int startIdx = cleaned.indexOf('{');
+        int endIdx = cleaned.lastIndexOf('}');
+
+        if (startIdx >= 0 && endIdx > startIdx) {
+            cleaned = cleaned.substring(startIdx, endIdx + 1);
+        }
+
+        // 3. 잘못된 쉼표 제거
+        cleaned = cleaned.replaceAll(",\\s*}", "}");
+
+        // 4. 이스케이프 문자 정규화
+        cleaned = cleaned.replace("\\n", " ");
+        cleaned = cleaned.replace("\\r", "");
+        cleaned = cleaned.replace("\\t", " ");
+
+        return cleaned;
     }
 }

@@ -85,7 +85,7 @@ public class AiApiController {
         }
     }
 
-    @PostMapping("/policies/validate-condition")
+    @PostMapping("/validate-condition")
     public ResponseEntity<ConditionValidationResponse> validateCondition(@RequestBody ConditionValidationRequest request) {
         ConditionValidationResponse response = aiNativeIAMAdvisor.validateCondition(
                 request.resourceIdentifier(), request.conditionSpel()
