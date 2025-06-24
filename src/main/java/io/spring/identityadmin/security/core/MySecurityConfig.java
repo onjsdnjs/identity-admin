@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.StreamWriteConstraints;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import io.spring.identityadmin.admin.monitoring.service.AuditLogService;
+import io.spring.identityadmin.asep.configurer.AsepConfigurer;
+import io.spring.identityadmin.asep.filter.ASEPFilter;
 import io.spring.identityadmin.security.xacml.pdp.evaluation.method.CustomMethodSecurityExpressionHandler;
 import io.spring.identityadmin.security.xacml.pdp.evaluation.method.CustomPermissionEvaluator;
 import io.spring.identityadmin.security.xacml.pep.CustomDynamicAuthorizationManager;
@@ -26,6 +28,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 
 @Configuration
 @RequiredArgsConstructor
@@ -35,12 +38,13 @@ public class MySecurityConfig {
     private final CustomAuthenticationProvider customAuthenticationProvider;
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AsepConfigurer asepConfigurer) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .anyRequest().access(customDynamicAuthorizationManager));
         http.formLogin(form -> form.loginPage("/login").defaultSuccessUrl("/admin"));
         http.authenticationProvider(customAuthenticationProvider);
         http.csrf(AbstractHttpConfigurer::disable);
+        http.addFilterAfter(asepConfigurer.asepFilter(), SecurityContextHolderFilter.class);
         return http.build();
     }
 

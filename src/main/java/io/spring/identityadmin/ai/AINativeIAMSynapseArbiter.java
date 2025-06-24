@@ -153,7 +153,7 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
 
         return chatModel.stream(prompt)
                 .doOnNext(chatResponse -> log.debug("🔥 ChatResponse 수신: {}", chatResponse))
-                .filter(chatResponse -> chatResponse != null) // null 체크
+                .filter(Objects::nonNull) // null 체크
                 .filter(chatResponse -> chatResponse.getResult() != null) // getResult() null 체크
                 .filter(chatResponse -> chatResponse.getResult().getOutput() != null) // getOutput() null 체크
                 .map(chatResponse -> {

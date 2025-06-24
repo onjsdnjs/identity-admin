@@ -38,4 +38,7 @@ public class AuditLog {
     private String reason; // 결정 근거 (예: Policy ID: 1, 에러 메시지)
 
     private String clientIp; // 요청 클라이언트 IP
+
+    @Column(columnDefinition = "TEXT")
+    private String details; // AI의 판단 근거 등 상세 정보를 JSON 형태로 저장
 }
