@@ -11,15 +11,19 @@ spring:
     anthropic:
       api-key: ${ANTHROPIC_API_KEY}
       chat:
+        enabled: true
         options:
           model: claude-sonnet-4-20250514
           temperature: 0.3  # JSON 생성에는 낮은 temperature가 좋음
 
+    # OpenAI는 embedding용으로만 사용
     openai:
       api-key: ${OPENAI_API_KEY}
-      base-url: https://api.openai.com  # 명시적 설정
+      base-url: https://api.openai.com
+      chat:
+        enabled: false  # chat 비활성화, embedding만 사용
       embedding:
-        enabled: true  # 명시적으로 활성화
+        enabled: true
         options:
           model: text-embedding-3-small
 
@@ -30,7 +34,7 @@ spring:
         distance-type: COSINE_DISTANCE
         dimensions: 1536
         initialize-schema: true
-        max-document-batch-size: 10000 # Optional: Maximum number of documents per batch
+        max-document-batch-size: 10000
 
   jpa:
     database: POSTGRESQL

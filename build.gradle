@@ -54,11 +54,12 @@ dependencies {
     // Database
     implementation 'org.postgresql:postgresql:42.7.6'
 
-    implementation platform("org.springframework.ai:spring-ai-bom:1.0.0-SNAPSHOT")
-//    implementation 'org.springframework.ai:spring-ai-starter-model-openai'
-    implementation 'org.springframework.ai:spring-ai-starter-model-anthropic'
-    implementation 'org.springframework.ai:spring-ai-anthropic'
-    implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
+    // Spring AI 의존성 임시 비활성화 (문제 원인 파악)
+     implementation platform("org.springframework.ai:spring-ai-bom:1.0.0-SNAPSHOT")
+     implementation 'org.springframework.ai:spring-ai-starter-model-openai'  // OpenAI starter 사용
+     implementation 'org.springframework.ai:spring-ai-starter-model-anthropic'
+     implementation 'org.springframework.ai:spring-ai-anthropic'
+     implementation 'org.springframework.ai:spring-ai-starter-vector-store-pgvector'
 
     // ModelMapper
     implementation 'org.modelmapper:modelmapper:3.2.3'
