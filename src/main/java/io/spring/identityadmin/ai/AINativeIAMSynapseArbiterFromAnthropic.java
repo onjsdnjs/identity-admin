@@ -1,8 +1,8 @@
+/*
 package io.spring.identityadmin.ai;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.io.JsonEOFException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -20,12 +20,12 @@ import io.spring.identityadmin.security.xacml.pap.service.BusinessPolicyService;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
-import org.springframework.ai.anthropic.AnthropicChatModel;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.document.Document;
+import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.context.annotation.Lazy;
@@ -45,9 +45,9 @@ import static io.spring.identityadmin.domain.entity.policy.Policy.Effect.ALLOW;
 
 @Slf4j
 @Service
-public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
+public class AINativeIAMSynapseArbiterFromAnthropic implements AINativeIAMAdvisor {
 
-    private final AnthropicChatModel chatModel;
+    private final OllamaChatModel chatModel;
     private final VectorStore vectorStore;
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
@@ -59,8 +59,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
     private final ConditionTemplateRepository conditionTemplateRepository;
     private final ManagedResourceRepository managedResourceRepository;
 
-    public AINativeIAMSynapseArbiter(
-            AnthropicChatModel chatModel,
+    public AINativeIAMSynapseArbiterFromAnthropic(
+            OllamaChatModel chatModel,
             VectorStore vectorStore,
             ObjectMapper objectMapper,
             UserRepository userRepository,
@@ -189,9 +189,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                 });
     }
 
-    /**
+    */
+/**
      * 🔥 텍스트 청크 정제 - 한글 인코딩 안정성 확보
-     */
+     *//*
+
     private String cleanTextChunk(String chunk) {
         if (chunk == null || chunk.isEmpty()) {
             return "";
@@ -212,9 +214,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         }
     }
 
-    /**
+    */
+/**
      * 시스템의 실제 메타데이터를 구성합니다.
-     */
+     *//*
+
     private String buildSystemMetadata() {
         StringBuilder metadata = new StringBuilder();
 
@@ -239,9 +243,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return metadata.toString();
     }
 
-    /**
+    */
+/**
      * 일반 방식의 정책 생성 (fallback용)
-     */
+     *//*
+
     @Override
     public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery) {
         // RAG 검색
@@ -319,9 +325,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
     }
 
 
-    /**
+    */
+/**
      * 개선된 JSON 추출 및 정제 메서드 - 한글 마커 지원
-     */
+     *//*
+
     private String extractAndCleanJson(String aiResponse) {
         if (aiResponse == null || aiResponse.trim().isEmpty()) {
             throw new IllegalArgumentException("AI 응답이 비어있습니다.");
@@ -363,8 +371,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         };
 
         for (String pattern : patterns) {
-            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.DOTALL);
-            java.util.regex.Matcher m = p.matcher(response);
+            Pattern p = Pattern.compile(pattern, Pattern.DOTALL);
+            Matcher m = p.matcher(response);
             if (m.find()) {
                 String extractedJson = m.group(1).trim();
                 log.debug("🔥 마크다운 패턴으로 추출된 JSON: {}", extractedJson);
@@ -385,9 +393,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         throw new IllegalArgumentException("JSON 추출에 실패했습니다");
     }
 
-    /**
+    */
+/**
      * 매칭되는 중괄호를 찾는 헬퍼 메서드
-     */
+     *//*
+
     private int findMatchingBrace(String text, int start) {
         if (start == -1 || start >= text.length() || text.charAt(start) != '{') {
             return -1;
@@ -408,9 +418,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return -1;
     }
 
-    /**
+    */
+/**
      * JSON 문자열 정제 메서드 개선
-     */
+     *//*
+
     private String cleanJsonString(String jsonStr) {
         if (jsonStr == null || jsonStr.trim().isEmpty()) {
             return jsonStr;
@@ -441,9 +453,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return cleaned;
     }
 
-    /**
+    */
+/**
      * AI 파싱 실패 시 기본 정책 데이터를 생성하는 fallback 메서드
-     */
+     *//*
+
     private AiGeneratedPolicyDraftDto createFallbackPolicyData(String naturalLanguageQuery) {
         log.info("🔥 AI 파싱 실패, fallback 정책 데이터 생성");
 
@@ -469,9 +483,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         );
     }
 
-    /**
+    */
+/**
      * 키워드 기반 기본 매핑 - 더 정확한 한글 키워드 검색
-     */
+     *//*
+
     private void tryBasicKeywordMapping(String query, BusinessPolicyDto dto) {
         String lowerQuery = query.toLowerCase();
 
@@ -520,10 +536,12 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         }
     }
 
-    /**
+    */
+/**
      * [신규] AI 응답 DTO를 시스템 내부용 DTO로 변환하는 헬퍼 메서드.
      * 역할/권한 이름이 문자열로 들어와도 DB 조회를 통해 ID로 변환합니다.
-     */
+     *//*
+
     private BusinessPolicyDto translateAiResponseToBusinessDto(AiResponseDto aiResponse) {
         Set<Long> resolvedRoleIds = aiResponse.roleIds().stream()
                 .map(this::resolveRoleId)
@@ -723,7 +741,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         }
 
         // 누락된 항목에 대한 fallback 처리 - AI 디버깅을 위해 주석처리
-    /*
+    */
+/*
     for (Map<String, String> resource : resourcesToSuggest) {
         String identifier = resource.get("identifier");
         if (!allResults.containsKey(identifier)) {
@@ -734,7 +753,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             ));
         }
     }
-    */
+    *//*
+
 
         // AI 응답 누락 검증 (fallback 없이 경고만)
         for (Map<String, String> resource : resourcesToSuggest) {
@@ -834,9 +854,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         }
     }
 
-    /**
+    */
+/**
      * 강화된 AI 응답 파싱 메서드
-     */
+     *//*
+
     private Map<String, ResourceNameSuggestion> parseAiResponseEnhanced(String jsonResponse, List<Map<String, String>> originalBatch) {
         Map<String, ResourceNameSuggestion> result = new HashMap<>();
 
@@ -866,21 +888,24 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
             if (!missingIdentifiers.isEmpty()) {
                 log.error("🔥 [AI 오류] 파싱 후에도 누락된 항목: {}", missingIdentifiers);
                 // fallback 처리 주석
-            /*
+            */
+/*
             for (String missing : missingIdentifiers) {
                 result.put(missing, new ResourceNameSuggestion(
                         generateFallbackFriendlyName(missing),
                         "AI 응답에서 누락된 항목입니다."
                 ));
             }
-            */
+            *//*
+
             }
 
         } catch (Exception e) {
             log.error("🔥 강화된 파싱 실패", e);
 
             // 전체 실패 시 모든 항목에 대해 fallback - AI 디버깅을 위해 주석처리
-        /*
+        */
+/*
         for (Map<String, String> resource : originalBatch) {
             String identifier = resource.get("identifier");
             result.put(identifier, new ResourceNameSuggestion(
@@ -888,7 +913,8 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
                     "파싱 오류로 인한 기본값"
             ));
         }
-        */
+        *//*
+
 
             // AI 오류를 명확히 파악하기 위해 빈 결과 반환
             log.error("🔥 [AI 오류] 모든 파싱 전략 실패");
@@ -897,9 +923,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return result;
     }
 
-    /**
+    */
+/**
      * JSON 응답 정제 - 더 강력한 정제
-     */
+     *//*
+
     private String cleanJsonResponse(String response) {
         if (response == null || response.trim().isEmpty()) {
             return "{}";
@@ -932,9 +960,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return cleaned;
     }
 
-    /**
+    */
+/**
      * 다양한 파싱 전략 시도
-     */
+     *//*
+
     private Map<String, ResourceNameSuggestion> tryMultipleParsingStrategies(String json) {
         Map<String, ResourceNameSuggestion> result = new HashMap<>();
 
@@ -998,9 +1028,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return result;
     }
 
-    /**
+    */
+/**
      * 정규식을 사용한 최후의 파싱
-     */
+     *//*
+
     private Map<String, ResourceNameSuggestion> regexParsing(String json) {
         Map<String, ResourceNameSuggestion> result = new HashMap<>();
 
@@ -1027,9 +1059,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return result;
     }
 
-    /**
+    */
+/**
      * 이스케이프 문자 정규화
-     */
+     *//*
+
     private String normalizeEscapes(String text) {
         // 줄바꿈 정규화
         text = text.replace("\\n", " ");
@@ -1042,9 +1076,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return text;
     }
 
-    /**
+    */
+/**
      * 유니코드 이스케이프 디코딩
-     */
+     *//*
+
     private String decodeUnicode(String text) {
         Pattern pattern = Pattern.compile("\\\\u([0-9a-fA-F]{4})");
         Matcher matcher = pattern.matcher(text);
@@ -1059,9 +1095,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return sb.toString();
     }
 
-    /**
+    */
+/**
      * AI 응답을 파싱하는 개선된 메서드
-     */
+     *//*
+
     private Map<String, ResourceNameSuggestion> parseAiResponse(String jsonStr) throws Exception {
         log.debug("🔥 파싱 시작, JSON 길이: {}, 첫 100자: {}",
                 jsonStr.length(),
@@ -1131,9 +1169,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         }
     }
 
-    /**
+    */
+/**
      * JSON 구조를 분석하고 수정하는 메서드
-     */
+     *//*
+
     private String analyzeAndFixJsonStructure(String json) {
         try {
             // 잘못된 형식 패턴 감지 및 수정
@@ -1191,9 +1231,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return json;
     }
 
-    /**
+    */
+/**
      * JSON 복구 메서드 (개선된 버전)
-     */
+     *//*
+
     private String repairJson(String json) {
         String repaired = json.trim();
 
@@ -1260,9 +1302,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return repaired;
     }
 
-    /**
+    */
+/**
      * 수동 JSON 파싱 (최후의 수단) - 개선된 버전
-     */
+     *//*
+
     private Map<String, ResourceNameSuggestion> manualJsonParse(String json) {
         log.info("🔥 수동 JSON 파싱 시작");
         Map<String, ResourceNameSuggestion> result = new HashMap<>();
@@ -1374,9 +1418,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return result;
     }
 
-    /**
+    */
+/**
      * Map을 ResourceNameSuggestion으로 변환
-     */
+     *//*
+
     private Map<String, ResourceNameSuggestion> convertToResourceNameSuggestions(
             Map<String, Map<String, String>> rawResponseMap) {
 
@@ -1406,9 +1452,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return result;
     }
 
-    /**
+    */
+/**
      * Fallback용 기본 친화적 이름 생성 (기존 메서드 유지)
-     */
+     *//*
+
     private String generateFallbackFriendlyName(String identifier) {
         if (identifier == null || identifier.isEmpty()) {
             return "알 수 없는 리소스";
@@ -1633,10 +1681,12 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         }
     }
 
-    /**
+    */
+/**
      * [최종 구현] Just-in-Time AI Validation
      * 관리자가 빌더에서 조건을 선택하는 순간, AI에게 호환성을 실시간으로 물어봅니다.
-     */
+     *//*
+
     @Override
     public ConditionValidationResponse validateCondition(String resourceIdentifier, String conditionSpel) {
         ManagedResource resource = managedResourceRepository.findByResourceIdentifier(resourceIdentifier)
@@ -1698,9 +1748,11 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         }
     }
 
-    /**
+    */
+/**
      * AI 응답에서 JSON만 추출하는 메서드
-     */
+     *//*
+
     private String cleanJsonForValidation(String response) {
         if (response == null || response.trim().isEmpty()) {
             return "{}";
@@ -1731,3 +1783,4 @@ public class AINativeIAMSynapseArbiter implements AINativeIAMAdvisor {
         return cleaned;
     }
 }
+*/

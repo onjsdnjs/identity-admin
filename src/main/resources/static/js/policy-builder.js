@@ -702,8 +702,7 @@
                     }
                 }
 
-                // 🔥 간단하고 견고한 스트리밍 구현
-                // 🔥 개선된 스트리밍 처리 로직
+                // 🔥 개선된 스트리밍 구현
                 async trySimpleStreaming(query, thoughtLog) {
                     try {
                         console.log('🔥 스트리밍 API 호출 시작...');
@@ -723,7 +722,7 @@
                         console.log('🔥 스트리밍 응답 헤더:', response.headers.get('content-type'));
 
                         let fullText = '';
-                        let cleanFullText = ''; // 🔥 data: 제거된 텍스트
+                        let cleanFullText = '';
                         const reader = response.body.getReader();
                         const decoder = new TextDecoder('utf-8');
 
@@ -734,64 +733,73 @@
 
                         console.log('🔥 스트리밍 읽기 시작...');
 
+                        // SSE 파싱을 위한 버퍼
+                        let buffer = '';
+                        let jsonStarted = false;
+                        let jsonBuffer = '';
+
                         while (true) {
                             const { value, done } = await reader.read();
 
                             if (done) {
                                 console.log('🔥 스트리밍 완료');
+                                // 버퍼에 남은 데이터 처리
+                                if (buffer) {
+                                    this.processSSELine(buffer, thoughtLog);
+                                    cleanFullText += this.extractDataFromSSE(buffer);
+                                }
                                 break;
                             }
 
                             const chunk = decoder.decode(value, { stream: true });
-                            console.log('🔥 수신된 청크:', JSON.stringify(chunk));
+                            buffer += chunk;
 
-                            // SSE 형식 파싱
-                            const lines = chunk.split('\n');
+                            // 줄 단위로 SSE 파싱
+                            const lines = buffer.split('\n');
+
+                            // 마지막 줄은 불완전할 수 있으므로 버퍼에 보관
+                            buffer = lines.pop() || '';
 
                             for (const line of lines) {
-                                console.log('🔥 처리할 라인:', JSON.stringify(line));
+                                if (line.trim() === '') continue; // 빈 줄 무시
 
                                 if (line.startsWith('data: ')) {
-                                    const data = line.substring(6).trim();
-                                    console.log('🔥 추출된 데이터:', JSON.stringify(data));
+                                    const data = line.substring(6);
 
-                                    if (data && data !== '[DONE]') {
-                                        fullText += data;
-                                        cleanFullText += data; // 🔥 data: 접두사 없이 저장
-
-                                        // 실시간 표시
-                                        if (thoughtLog) {
-                                            this.displayStreamingData(thoughtLog, data);
-                                        }
-                                    } else if (data === '[DONE]') {
+                                    if (data === '[DONE]') {
                                         console.log('🔥 스트리밍 완료 신호 수신');
                                         break;
                                     }
-                                } else if (line.startsWith('event: ') || line.startsWith('id: ')) {
-                                    // SSE 메타데이터는 무시
-                                    continue;
-                                } else if (line.trim() === '') {
-                                    // 빈 라인은 무시
-                                    continue;
-                                } else {
-                                    // data: 접두사 없는 데이터도 처리 (서버 설정에 따라)
-                                    const trimmedLine = line.trim();
-                                    if (trimmedLine && trimmedLine !== '[DONE]') {
-                                        fullText += trimmedLine;
-                                        cleanFullText += trimmedLine; // 🔥 깨끗한 텍스트에도 추가
+
+                                    cleanFullText += data;
+
+                                    // JSON 블록 감지
+                                    if (data.includes('===JSON시작===')) {
+                                        jsonStarted = true;
+                                        jsonBuffer = data;
+                                    } else if (jsonStarted && !data.includes('===JSON끝===')) {
+                                        jsonBuffer += data;
+                                    } else if (data.includes('===JSON끝===')) {
+                                        jsonBuffer += data;
+                                        jsonStarted = false;
+
+                                        // 완전한 JSON 블록 표시
                                         if (thoughtLog) {
-                                            this.displayStreamingData(thoughtLog, trimmedLine);
+                                            this.displayStreamingData(thoughtLog, jsonBuffer);
                                         }
+                                        jsonBuffer = '';
+                                    } else if (!jsonStarted && thoughtLog) {
+                                        // 일반 텍스트 실시간 표시
+                                        this.displayStreamingData(thoughtLog, data);
                                     }
                                 }
                             }
                         }
 
-                        console.log('🔥 스트리밍 완료, 전체 길이:', fullText.length);
-                        console.log('🔥 깨끗한 텍스트 길이:', cleanFullText.length);
+                        console.log('🔥 스트리밍 완료, 전체 길이:', cleanFullText.length);
                         console.log('🔥 깨끗한 텍스트 미리보기:', cleanFullText.substring(0, 300) + '...');
 
-                        // 🔥 깨끗한 텍스트로 JSON 추출 시도
+                        // JSON 추출 시도
                         const jsonData = this.extractSimpleJson(cleanFullText);
                         if (jsonData) {
                             this.populateBuilderWithAIData(jsonData);
@@ -811,228 +819,229 @@
                     }
                 }
 
-// 🔥 스트리밍 데이터 표시 메서드 분리
-                displayStreamingData(thoughtLog, data) {
-                    try {
-                        // HTML 안전 처리
-                        let displayData = data
-                            .replace(/&/g, '&amp;')
-                            .replace(/</g, '&lt;')
-                            .replace(/>/g, '&gt;');
-
-                        // 스마트한 개행 처리
-                        displayData = displayData
-                            .replace(/\*\*([^*]+)\*\*/g, '<br><br><strong>$1</strong><br>')
-                            .replace(/([.!?])([가-힣A-Z])/g, '$1<br><br>$2')
-                            .replace(/([a-z])([A-Z가-힣])/g, '$1<br>$2')
-                            .replace(/(\d)([가-힣A-Z])/g, '$1<br>$2')
-                            .replace(/([가-힣])([A-Z])/g, '$1<br>$2')
-                            .replace(/→/g, '<br>→ ')
-                            .replace(/(\([^)]*\))/g, '<br>$1<br>')
-                            .replace(/:/g, ':<br>')
-                            .replace(/JSON/g, '<br><span style="color: #007acc; font-weight: bold;">JSON</span><br>')
-                            .replace(/<br>{2,}/g, '<br><br>');
-
-                        // 키워드 색상 강조
-                        displayData = displayData
-                            .replace(/분석|구성|매핑/g, '<span style="color: #28a745;">🔍 $&</span>')
-                            .replace(/역할|권한|조건/g, '<span style="color: #fd7e14;">📋 $&</span>')
-                            .replace(/정책/g, '<span style="color: #dc3545;">🎯 $&</span>');
-
-                        thoughtLog.innerHTML += displayData;
-                        thoughtLog.scrollTop = thoughtLog.scrollHeight;
-
-                    } catch (error) {
-                        console.error('스트리밍 데이터 표시 오류:', error);
-                        thoughtLog.innerHTML += data; // 오류 시 원본 텍스트 표시
+// SSE 라인에서 데이터 추출
+                extractDataFromSSE(line) {
+                    if (line.startsWith('data: ')) {
+                        return line.substring(6);
                     }
+                    return '';
                 }
 
-                // 🔥 간단한 JSON 추출 (복잡한 로직 제거)
+// 🔥 개선된 JSON 추출 메서드
                 extractSimpleJson(text) {
                     console.log('🔥 간단 JSON 추출 시도...');
                     console.log('🔥 전체 텍스트 길이:', text.length);
-                    console.log('🔥 텍스트 끝부분 500자:', text.substring(Math.max(0, text.length - 500)));
-                    
+
                     try {
-                        // 1. JSON 마커 방식 (다양한 패턴)
+                        // 1. 한국어 JSON 마커 방식 (최우선)
+                        const koreanMarkerRegex = /===JSON시작===([\s\S]*?)===JSON끝===/;
+                        const koreanMatch = text.match(koreanMarkerRegex);
+
+                        if (koreanMatch) {
+                            try {
+                                let jsonStr = koreanMatch[1].trim();
+                                console.log('🔥 한국어 마커로 추출된 JSON:', jsonStr.substring(0, 200) + '...');
+
+                                // JSON 정제 - 주석 제거 및 클린업
+                                jsonStr = this.cleanJsonString(jsonStr);
+
+                                const parsed = JSON.parse(jsonStr);
+                                console.log('🔥 한국어 마커 JSON 파싱 성공:', parsed);
+
+                                // policyData가 있으면 그대로 반환, 없으면 래핑
+                                if (parsed.policyData) {
+                                    return parsed;
+                                } else {
+                                    return {
+                                        policyData: parsed,
+                                        roleIdToNameMap: this.createIdToNameMap('role', parsed.roleIds),
+                                        permissionIdToNameMap: this.createIdToNameMap('permission', parsed.permissionIds),
+                                        conditionIdToNameMap: this.createIdToNameMap('condition', Object.keys(parsed.conditions || {}))
+                                    };
+                                }
+                            } catch (e) {
+                                console.log('🔥 한국어 마커 JSON 파싱 실패:', e.message);
+                            }
+                        }
+
+                        // 2. 영어 마커 방식들
                         const markerPatterns = [
-                            // 🔥 서버에서 사용하는 한국어 마커 (가장 우선)
-                            /===JSON시작===([\s\S]*?)===JSON끝===/,
-                            /===JSON시작===([\s\S]*)/,  // 끝 마커가 없는 경우
-                            /([\s\S]*?)===JSON끝===/,   // 시작 마커가 없는 경우
-                            
-                            // 기존 영어 마커들
                             /<<JSON_START>>([\s\S]*?)<<JSON_END>>/,
                             /<<<JSON_START>>>([\s\S]*?)<<<JSON_END>>>/,
                             /JSON_START([\s\S]*?)JSON_END/,
                             /\*\*JSON\*\*([\s\S]*?)\*\*\/JSON\*\*/,
                         ];
-                        
+
                         for (const pattern of markerPatterns) {
                             const match = text.match(pattern);
                             if (match) {
                                 try {
-                                    const jsonStr = match[1].trim();
-                                    console.log('🔥 마커로 추출된 JSON:', jsonStr.substring(0, 200) + '...');
-                                    
-                                    // JSON 유효성 검사 전에 간단한 정제
-                                    let cleanedJson = jsonStr
-                                        .replace(/```json\s*/g, '')  // 마크다운 제거
-                                        .replace(/```\s*/g, '')      // 마크다운 제거
-                                        .replace(/^[^{]*({.*})[^}]*$/s, '$1')  // 앞뒤 잡다한 텍스트 제거
-                                        .trim();
-                                    
-                                    const parsed = JSON.parse(cleanedJson);
-                                    console.log('🔥 마커 JSON 파싱 성공:', parsed);
-                                    return parsed;
+                                    let jsonStr = match[1].trim();
+                                    jsonStr = this.cleanJsonString(jsonStr);
+                                    const parsed = JSON.parse(jsonStr);
+                                    console.log('🔥 영어 마커 JSON 파싱 성공:', parsed);
+
+                                    if (parsed.policyData) {
+                                        return parsed;
+                                    } else {
+                                        return {
+                                            policyData: parsed,
+                                            roleIdToNameMap: this.createIdToNameMap('role', parsed.roleIds),
+                                            permissionIdToNameMap: this.createIdToNameMap('permission', parsed.permissionIds),
+                                            conditionIdToNameMap: this.createIdToNameMap('condition', Object.keys(parsed.conditions || {}))
+                                        };
+                                    }
                                 } catch (e) {
-                                    console.log('🔥 마커 JSON 파싱 실패:', e.message);
-                                    console.log('🔥 실패한 JSON 내용:', match[1]?.substring(0, 100) + '...');
+                                    console.log('🔥 영어 마커 JSON 파싱 실패:', e.message);
                                     continue;
                                 }
                             }
                         }
-                        
-                        // 2. 중괄호 기반 추출 (더 관대하게)
-                        const jsonCandidates = [];
-                        
-                        // 2-1. 가장 큰 중괄호 블록 찾기
-                        let maxStart = -1, maxEnd = -1, maxLength = 0;
-                        
-                        for (let i = 0; i < text.length; i++) {
-                            if (text[i] === '{') {
-                                const end = this.findMatchingBrace(text, i);
-                                if (end > i) {
-                                    const length = end - i + 1;
-                                    if (length > maxLength) {
-                                        maxStart = i;
-                                        maxEnd = end;
-                                        maxLength = length;
-                                    }
-                                    
-                                    // 후보로 추가
-                                    const candidate = text.substring(i, end + 1);
-                                    if (candidate.length > 50) { // 너무 짧은 건 제외
-                                        jsonCandidates.push(candidate);
-                                    }
-                                }
-                            }
-                        }
-                        
-                        console.log('🔥 JSON 후보 개수:', jsonCandidates.length);
-                        
-                        // 2-2. 후보들을 시도 (긴 것부터)
-                        jsonCandidates.sort((a, b) => b.length - a.length);
-                        
-                        for (const candidate of jsonCandidates) {
+
+                        // 3. 중괄호 기반 추출 (fallback)
+                        const jsonMatch = text.match(/\{[\s\S]*"policyName"[\s\S]*"effect"[\s\S]*\}/);
+                        if (jsonMatch) {
                             try {
-                                console.log('🔥 JSON 후보 시도:', candidate.substring(0, 100) + '...');
-                                const parsed = JSON.parse(candidate);
-                                
-                                // policyData 또는 roleIds가 있으면 유효한 응답으로 간주
-                                if (parsed.policyData || parsed.roleIds || parsed.policyName) {
-                                    console.log('🔥 유효한 JSON 발견:', parsed);
+                                let jsonStr = jsonMatch[0];
+                                jsonStr = this.cleanJsonString(jsonStr);
+                                const parsed = JSON.parse(jsonStr);
+                                console.log('🔥 중괄호 기반 JSON 파싱 성공:', parsed);
+
+                                if (parsed.policyData) {
                                     return parsed;
+                                } else {
+                                    return {
+                                        policyData: parsed,
+                                        roleIdToNameMap: this.createIdToNameMap('role', parsed.roleIds),
+                                        permissionIdToNameMap: this.createIdToNameMap('permission', parsed.permissionIds),
+                                        conditionIdToNameMap: this.createIdToNameMap('condition', Object.keys(parsed.conditions || {}))
+                                    };
                                 }
                             } catch (e) {
-                                console.log('🔥 JSON 후보 파싱 실패:', e.message);
-                                continue;
+                                console.log('🔥 중괄호 기반 JSON 파싱 실패:', e.message);
                             }
                         }
-                        
-                        // 3. 키워드 기반 추출 (한국어 패턴)
-                        const patterns = [
-                            /"policyName"[\s\S]*?"effect"[\s\S]*?"ALLOW"/,
-                            /"roleIds"[\s\S]*?\[[\s\S]*?\]/,
-                            /"permissionIds"[\s\S]*?\[[\s\S]*?\]/,
-                            /\{[\s\S]*?"policyName"[\s\S]*?\}/,
-                            // 🔥 깨진 응답에서 자주 나타나는 패턴들 추가
-                            /"고객데이터조회정책"[\s\S]*?"ALLOW"/,
-                            /"평업무.*고객.*데이터.*조회"[\s\S]*?\[[\s\S]*?\]/,
-                            /["'](\d+)["'][\s\S]*?false[\s\S]*?[",]/  // ID 패턴
-                        ];
-                        
-                        for (const pattern of patterns) {
-                            const match = text.match(pattern);
-                            if (match) {
-                                try {
-                                    console.log('🔥 패턴 매치:', pattern.toString());
-                                    console.log('🔥 매치된 내용:', match[0]);
-                                    
-                                    // 매치된 부분을 확장해서 완전한 JSON 찾기
-                                    const matchStart = text.indexOf(match[0]);
-                                    
-                                    // 🔥 더 관대한 JSON 경계 찾기
-                                    let jsonStart = matchStart;
-                                    let jsonEnd = matchStart + match[0].length - 1;
-                                    
-                                    // 앞쪽에서 { 찾기 (더 멀리까지)
-                                    for (let i = matchStart - 1; i >= Math.max(0, matchStart - 200); i--) {
-                                        if (text[i] === '{') {
-                                            jsonStart = i;
-                                            break;
-                                        }
-                                    }
-                                    
-                                    // 뒤쪽에서 } 찾기 (더 멀리까지)
-                                    for (let i = jsonEnd; i < Math.min(text.length, jsonEnd + 200); i++) {
-                                        if (text[i] === '}') {
-                                            jsonEnd = i;
-                                            break;
-                                        }
-                                    }
-                                    
-                                    if (jsonStart < jsonEnd) {
-                                        const expandedJson = text.substring(jsonStart, jsonEnd + 1);
-                                        console.log('🔥 확장된 JSON 시도:', expandedJson);
-                                        
-                                        // �� JSON 수정 시도 (일반적인 오류 패턴 수정)
-                                        let fixedJson = expandedJson
-                                            .replace(/["'](\d+)["']\s*:\s*\[/g, '"$1": [')  // ID 키 정규화
-                                            .replace(/,(\s*[}\]])/g, '$1')                   // 끝의 잉여 콤마 제거
-                                            .replace(/([}\]])\s*,/g, '$1')                   // 잉여 콤마 제거
-                                            .replace(/"\s*,\s*"/g, '", "')                   // 문자열 간 콤마 정규화
-                                            .replace(/:\s*"([^"]*)"(\s*[,}\]])/g, ': "$1"$2'); // 문자열 값 정규화
-                                        
-                                        const parsed = JSON.parse(fixedJson);
-                                        console.log('🔥 패턴 기반 JSON 성공:', parsed);
-                                        return parsed;
-                                    }
-                                } catch (e) {
-                                    console.log('🔥 패턴 기반 JSON 실패:', e.message);
-                                    continue;
-                                }
-                            }
-                        }
-                        
+
                         console.warn('🔥 JSON 추출 실패 - 모든 방법 시도함');
                         return null;
-                        
+
                     } catch (error) {
                         console.error('🔥 JSON 추출 오류:', error);
                         return null;
                     }
                 }
 
-                // 🔥 중괄호 매칭 헬퍼 메서드
-                findMatchingBrace(text, start) {
-                    if (start >= text.length || text[start] !== '{') {
-                        return -1;
-                    }
-                    
-                    let braceCount = 1;
-                    for (let i = start + 1; i < text.length; i++) {
-                        if (text[i] === '{') {
-                            braceCount++;
-                        } else if (text[i] === '}') {
-                            braceCount--;
-                            if (braceCount === 0) {
-                                return i;
+// 🔥 JSON 문자열 정제 메서드
+                cleanJsonString(jsonStr) {
+                    console.log('🔥 JSON 정제 시작, 원본 길이:', jsonStr.length);
+
+                    // 1. 마크다운 코드 블록 제거
+                    let cleaned = jsonStr
+                        .replace(/```json\s*/g, '')
+                        .replace(/```\s*/g, '');
+
+                    // 2. 주석 제거 (// 스타일)
+                    cleaned = cleaned.split('\n').map(line => {
+                        // 문자열 내부가 아닌 // 주석만 제거
+                        let inString = false;
+                        let result = '';
+                        for (let i = 0; i < line.length; i++) {
+                            if (line[i] === '"' && (i === 0 || line[i-1] !== '\\')) {
+                                inString = !inString;
                             }
+                            if (!inString && line[i] === '/' && line[i+1] === '/') {
+                                break; // 주석 시작, 나머지 줄 무시
+                            }
+                            result += line[i];
                         }
+                        return result.trim();
+                    }).join('\n');
+
+                    // 3. /* */ 스타일 주석 제거
+                    cleaned = cleaned.replace(/\/\*[\s\S]*?\*\//g, '');
+
+                    // 4. 잘못된 쉼표 제거
+                    cleaned = cleaned
+                        .replace(/,\s*}/g, '}')
+                        .replace(/,\s*]/g, ']')
+                        .replace(/,(\s*[}\]])/g, '$1');
+
+                    // 5. 불필요한 공백 정리
+                    cleaned = cleaned
+                        .replace(/\s+/g, ' ')
+                        .replace(/\s*:\s*/g, ':')
+                        .replace(/\s*,\s*/g, ',')
+                        .replace(/\s*{\s*/g, '{')
+                        .replace(/\s*}\s*/g, '}')
+                        .replace(/\s*\[\s*/g, '[')
+                        .replace(/\s*]\s*/g, ']');
+
+                    // 6. conditional 필드 제거 (있는 경우)
+                    if (cleaned.includes('"conditional"')) {
+                        cleaned = cleaned.replace(/"conditional"\s*:\s*(true|false)\s*,?/g, '');
                     }
-                    return -1;
+
+                    console.log('🔥 정제된 JSON 길이:', cleaned.length);
+                    console.log('🔥 정제된 JSON 미리보기:', cleaned.substring(0, 200) + '...');
+
+                    return cleaned.trim();
+                }
+
+// ID to Name 매핑 생성 헬퍼
+                createIdToNameMap(type, ids) {
+                    if (!ids || !Array.isArray(ids)) return {};
+
+                    const map = {};
+                    const dataSource = type === 'role' ? window.allRoles :
+                        type === 'permission' ? window.allPermissions :
+                            type === 'condition' ? window.allConditions : [];
+
+                    ids.forEach(id => {
+                        const item = dataSource.find(item => item.id == id);
+                        if (item) {
+                            map[id] = type === 'role' ? item.roleName :
+                                type === 'permission' ? item.friendlyName :
+                                    type === 'condition' ? item.name : '';
+                        }
+                    });
+
+                    return map;
+                }
+
+// 🔥 스트리밍 데이터 표시 개선
+                displayStreamingData(thoughtLog, data) {
+                    try {
+                        // JSON 블록은 코드 블록으로 표시
+                        if (data.includes('===JSON시작===') || data.includes('===JSON끝===')) {
+                            thoughtLog.innerHTML += `<div style="background: #1e1e1e; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                <pre style="color: #4fc3f7; font-family: monospace; margin: 0; white-space: pre-wrap;">${this.escapeHtml(data)}</pre>
+            </div>`;
+                        } else {
+                            // 일반 텍스트는 포맷팅하여 표시
+                            let displayData = this.escapeHtml(data);
+
+                            // 키워드 하이라이팅
+                            displayData = displayData
+                                .replace(/분석|구성|매핑/g, '<span style="color: #28a745;">🔍 $&</span>')
+                                .replace(/역할|권한|조건/g, '<span style="color: #fd7e14;">📋 $&</span>')
+                                .replace(/정책/g, '<span style="color: #dc3545;">🎯 $&</span>')
+                                .replace(/\*\*([^*]+)\*\*/g, '<br><strong>$1</strong><br>');
+
+                            thoughtLog.innerHTML += displayData + ' ';
+                        }
+
+                        thoughtLog.scrollTop = thoughtLog.scrollHeight;
+                    } catch (error) {
+                        console.error('스트리밍 데이터 표시 오류:', error);
+                        thoughtLog.innerHTML += this.escapeHtml(data) + ' ';
+                    }
+                }
+
+// HTML 이스케이프 헬퍼
+                escapeHtml(text) {
+                    const div = document.createElement('div');
+                    div.textContent = text;
+                    return div.innerHTML;
                 }
 
                 populateBuilderWithAIData(draftDto) {
