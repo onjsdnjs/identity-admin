@@ -3,7 +3,7 @@ package io.spring.identityadmin.admin.metadata.controller;
 import io.spring.identityadmin.admin.metadata.service.FunctionCatalogService;
 import io.spring.identityadmin.domain.dto.FunctionCatalogUpdateDto;
 import io.spring.identityadmin.resource.ResourceEnhancementService;
-import io.spring.identityadmin.resource.ResourceRegistryService;
+import io.spring.identityadmin.resource.service.ResourceRegistryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;

@@ -226,6 +226,33 @@
                     });
                 }
 
+                /**
+                 * 🔄 3단계: 특정 리소스에 대한 실시간 조건 추천 API 호출
+                 */
+                async recommendConditions(resourceIdentifier, context = "") {
+                    return this.fetchApi('/api/ai/policies/recommend-conditions', {
+                        method: 'POST',
+                        body: JSON.stringify({ 
+                            resourceIdentifier: resourceIdentifier,
+                            context: context
+                        })
+                    });
+                }
+
+                /**
+                 * 🔄 개선: 권한명 기반 스마트 조건 매칭 API 호출
+                 */
+                async smartMatchConditions(permissionName, resourceIdentifier, context = "") {
+                    return this.fetchApi('/api/ai/policies/smart-match-conditions', {
+                        method: 'POST',
+                        body: JSON.stringify({ 
+                            permissionName: permissionName,
+                            resourceIdentifier: resourceIdentifier,
+                            context: context
+                        })
+                    });
+                }
+
                 savePolicy(dto) {
                     return this.fetchApi('/api/policies/build-from-business-rule', {
                         method: 'POST',
@@ -233,14 +260,24 @@
                     });
                 }
 
-                async generatePolicyFromText(query) {
+                async generatePolicyFromText(query, availableItems = null) {
+                    const requestBody = { 
+                        naturalLanguageQuery: query
+                    };
+                    
+                    // 사용 가능한 항목들이 있으면 포함
+                    if (availableItems) {
+                        requestBody.availableItems = availableItems;
+                        console.log('🎯 AI에게 사용 가능한 항목들 전송:', availableItems);
+                    }
+                    
                     return this.fetchApi('/api/ai/policies/generate-from-text', {
                         method: 'POST',
-                        body: JSON.stringify({ naturalLanguageQuery: query })
+                        body: JSON.stringify(requestBody)
                     });
                 }
 
-                async generatePolicyFromTextStream(query) {
+                async generatePolicyFromTextStream(query, availableItems = null) {
                     const headers = {
                         'Content-Type': 'application/json',
                         'Accept': 'text/event-stream',
@@ -251,10 +288,20 @@
                         headers[this.csrfHeader] = this.csrfToken;
                     }
 
+                    const requestBody = { 
+                        naturalLanguageQuery: query
+                    };
+                    
+                    // 사용 가능한 항목들이 있으면 포함
+                    if (availableItems) {
+                        requestBody.availableItems = availableItems;
+                        console.log('🎯 스트리밍 AI에게 사용 가능한 항목들 전송:', availableItems);
+                    }
+
                     return fetch('/api/ai/policies/generate-from-text/stream', {
                         method: 'POST',
                         headers: headers,
-                        body: JSON.stringify({ naturalLanguageQuery: query })
+                        body: JSON.stringify(requestBody)
                     });
                 }
             }
@@ -375,7 +422,6 @@
                     if (closeButton) {
                         // 테스트용 간단한 클릭 이벤트
                         closeButton.addEventListener('click', (e) => {
-                            alert('🚪 닫기 버튼이 클릭되었습니다!');
                             console.log('🚪🚪🚪 닫기 버튼 클릭 확인됨! 🚪🚪🚪');
                             console.log('이벤트 객체:', e);
                             console.log('타겟 요소:', e.target);
@@ -401,7 +447,6 @@
                             e.target.closest('.close-button') ||
                             e.target.classList.contains('fa-times')) {
                             
-                            alert('🚪 닫기 버튼 관련 클릭 감지됨!');
                             console.log('🚪🚪🚪 문서 레벨에서 닫기 버튼 클릭 감지! 🚪🚪🚪');
                             
                             e.preventDefault();
@@ -784,10 +829,6 @@
                     });
                 }
 
-                findSpelForCondition(conditionId) {
-                    const item = this.elements.conditionsPalette.querySelector(`.palette-item[data-info^="${conditionId}:"]`);
-                    return item ? item.dataset.spel : null;
-                }
 
                 async validateConditionRealtime(conditionId, spel) {
                     const resourceIdentifier = window.resourceContext.resourceIdentifier;
@@ -812,6 +853,46 @@
 
 
 
+                /**
+                 * 현재 사용 가능한 모든 항목들을 수집
+                 */
+                collectAvailableItems() {
+                    const availableItems = {
+                        roles: [],
+                        permissions: [],
+                        conditions: []
+                    };
+
+                    // 전역 변수에서 데이터 수집 (HTML 템플릿에서 설정됨)
+                    if (window.allRoles) {
+                        availableItems.roles = window.allRoles.map(role => ({
+                            id: role.id,
+                            name: role.roleName,
+                            description: role.description || ''
+                        }));
+                    }
+
+                    if (window.allPermissions) {
+                        availableItems.permissions = window.allPermissions.map(perm => ({
+                            id: perm.id,
+                            name: perm.friendlyName,
+                            description: perm.description || ''
+                        }));
+                    }
+
+                    if (window.allConditions) {
+                        availableItems.conditions = window.allConditions.map(cond => ({
+                            id: cond.id,
+                            name: cond.name,
+                            description: cond.description || '',
+                            isCompatible: cond.isCompatible !== false
+                        }));
+                    }
+
+                    console.log('📋 사용 가능한 항목들 수집 완료:', availableItems);
+                    return availableItems;
+                }
+
                 // 🔥 개선된 스트리밍 AI 처리
                 async handleGenerateByAI() {
                     console.log('🚀 AI 정책 생성 시작');
@@ -821,6 +902,9 @@
                         this.showMessage('요구사항을 입력해주세요.', 'error');
                         return;
                     }
+
+                    // 🎯 사용 가능한 항목들 수집
+                    const availableItems = this.collectAvailableItems();
 
                     this.ui.setLoading(this.elements.generateByAiBtn, true);
                     const thoughtContainer = this.elements.thoughtProcessContainer;
@@ -832,14 +916,14 @@
                     }
 
                     try {
-                        // 🔥 스트리밍 우선 시도 (간단한 버전)
+                        // 🔥 스트리밍 우선 시도 (사용 가능한 항목들 포함)
                         console.log('🔥 스트리밍 API 시도...');
-                        const success = await this.trySimpleStreaming(query, thoughtLog);
+                        const success = await this.trySimpleStreaming(query, thoughtLog, availableItems);
 
                         if (!success) {
                             // 스트리밍 실패시 일반 API로 fallback
                             console.log('🔥 스트리밍 실패, 일반 API로 fallback...');
-                            const response = await this.api.generatePolicyFromText(query);
+                            const response = await this.api.generatePolicyFromText(query, availableItems);
 
                             if (response && response.policyData) {
                                 this.populateBuilderWithAIData(response);
@@ -860,11 +944,11 @@
                 }
 
                 // 🔥 개선된 스트리밍 구현
-                async trySimpleStreaming(query, thoughtLog) {
+                async trySimpleStreaming(query, thoughtLog, availableItems) {
                     try {
                         console.log('🔥 스트리밍 API 호출 시작...');
 
-                        const response = await this.api.generatePolicyFromTextStream(query);
+                        const response = await this.api.generatePolicyFromTextStream(query, availableItems);
 
                         if (!response.ok) {
                             console.warn('스트리밍 API 응답 실패:', response.status, response.statusText);
@@ -1201,6 +1285,76 @@
                     return div.innerHTML;
                 }
 
+                /**
+                 * AI 응답을 검증하고 존재하지 않는 항목들을 필터링
+                 */
+                validateAndFilterAIResponse(policyData) {
+                    console.log('🔍 AI 응답 검증 시작:', policyData);
+                    
+                    const availableItems = this.collectAvailableItems();
+                    const validatedData = { ...policyData };
+                    
+                    // 사용 가능한 ID 세트 생성
+                    const availableRoleIds = new Set(availableItems.roles.map(r => r.id));
+                    const availablePermissionIds = new Set(availableItems.permissions.map(p => p.id));
+                    const availableConditionIds = new Set(availableItems.conditions.map(c => c.id));
+                    
+                    // 역할 ID 검증 및 필터링
+                    if (validatedData.roleIds && Array.isArray(validatedData.roleIds)) {
+                        const originalRoleIds = [...validatedData.roleIds];
+                        validatedData.roleIds = validatedData.roleIds.filter(id => {
+                            const exists = availableRoleIds.has(id);
+                            if (!exists) {
+                                console.warn(`⚠️ 존재하지 않는 역할 ID 제거: ${id}`);
+                            }
+                            return exists;
+                        });
+                        
+                        if (originalRoleIds.length !== validatedData.roleIds.length) {
+                            console.log(`🔧 역할 필터링: ${originalRoleIds.length} → ${validatedData.roleIds.length}`);
+                        }
+                    }
+                    
+                    // 권한 ID 검증 및 필터링
+                    if (validatedData.permissionIds && Array.isArray(validatedData.permissionIds)) {
+                        const originalPermissionIds = [...validatedData.permissionIds];
+                        validatedData.permissionIds = validatedData.permissionIds.filter(id => {
+                            const exists = availablePermissionIds.has(id);
+                            if (!exists) {
+                                console.warn(`⚠️ 존재하지 않는 권한 ID 제거: ${id}`);
+                            }
+                            return exists;
+                        });
+                        
+                        if (originalPermissionIds.length !== validatedData.permissionIds.length) {
+                            console.log(`🔧 권한 필터링: ${originalPermissionIds.length} → ${validatedData.permissionIds.length}`);
+                        }
+                    }
+                    
+                    // 조건 ID 검증 및 필터링
+                    if (validatedData.conditions && typeof validatedData.conditions === 'object') {
+                        const originalConditionIds = Object.keys(validatedData.conditions);
+                        const filteredConditions = {};
+                        
+                        originalConditionIds.forEach(id => {
+                            if (availableConditionIds.has(parseInt(id))) {
+                                filteredConditions[id] = validatedData.conditions[id];
+                            } else {
+                                console.warn(`⚠️ 존재하지 않는 조건 ID 제거: ${id}`);
+                            }
+                        });
+                        
+                        validatedData.conditions = filteredConditions;
+                        
+                        if (originalConditionIds.length !== Object.keys(filteredConditions).length) {
+                            console.log(`🔧 조건 필터링: ${originalConditionIds.length} → ${Object.keys(filteredConditions).length}`);
+                        }
+                    }
+                    
+                    console.log('✅ AI 응답 검증 완료:', validatedData);
+                    return validatedData;
+                }
+
                 populateBuilderWithAIData(draftDto) {
                     console.log('🔥 AI 데이터로 빌더 채우기:', draftDto);
 
@@ -1209,7 +1363,14 @@
                         return;
                     }
 
-                    const data = draftDto.policyData;
+                    // 🎯 AI 응답 검증 및 필터링
+                    const validatedData = this.validateAndFilterAIResponse(draftDto.policyData);
+                    if (!validatedData) {
+                        this.showMessage('AI 응답 검증에 실패했습니다.', 'error');
+                        return;
+                    }
+
+                    const data = validatedData; // 검증된 데이터 사용
                     const maps = {
                         roles: draftDto.roleIdToNameMap || {},
                         permissions: draftDto.permissionIdToNameMap || {},
@@ -1742,18 +1903,18 @@
                         console.log('🚪 정책 빌더 페이지를 닫습니다');
                         window.close();
                         
-                        // setTimeout(() => {
-                        //     console.log('🚪 페이지 닫기 시도');
-                        //     window.close();
-                        //     
-                        //     // 3. window.close()가 작동하지 않는 경우 뒤로가기
-                        //     setTimeout(() => {
-                        //         if (!window.closed) {
-                        //             console.log('🔙 뒤로가기 실행');
-                        //             window.history.back();
-                        //         }
-                        //     }, 100);
-                        // }, 100);
+                        setTimeout(() => {
+                            console.log('🚪 페이지 닫기 시도');
+                            window.close();
+
+                            // 3. window.close()가 작동하지 않는 경우 뒤로가기
+                            setTimeout(() => {
+                                if (!window.closed) {
+                                    console.log('🔙 뒤로가기 실행');
+                                    window.history.back();
+                                }
+                            }, 100);
+                        }, 100);
                         
                     } catch (error) {
                         console.error('❌ 모달 닫기 중 오류:', error);
@@ -1863,6 +2024,596 @@
                     this.ui.renderAll(this.state);
                     
                     console.log('✅ 모든 상태 초기화 완료');
+                }
+
+                /**
+                 * 🔄 3단계: 조건 추천 관련 메서드들
+                 */
+
+                /**
+                 * 🔄 개선: 권한 추가 시 스마트 매칭 조건 추천 핸들러
+                 */
+                async handlePermissionAdded(permissionInfo) {
+                    console.log('🎯 권한 추가됨, 스마트 매칭 조건 추천 시작:', permissionInfo);
+                    
+                    // 권한에서 리소스 식별자 추출
+                    const resourceIdentifier = this.extractResourceFromPermission(permissionInfo);
+                    const permissionName = permissionInfo.name || permissionInfo.description || `권한-${permissionInfo.id}`;
+                    
+                    if (!resourceIdentifier) {
+                        console.log('🔍 리소스 식별자를 추출할 수 없어 조건 추천을 생략합니다.');
+                        return;
+                    }
+
+                    try {
+                        // 🎯 스마트 매칭 시도 (권한명 기반)
+                        console.log('🎯 스마트 매칭 시도 - 권한명:', permissionName, '리소스:', resourceIdentifier);
+                        const smartResponse = await this.api.smartMatchConditions(permissionName, resourceIdentifier, "auto");
+                        
+                        if (smartResponse && smartResponse.smartMatchedConditions && smartResponse.smartMatchedConditions.length > 0) {
+                            console.log('✅ 스마트 매칭 성공:', smartResponse.smartMatchedConditions.length, '개 조건 매칭');
+                            this.showSmartMatchModal(smartResponse, permissionName);
+                            return;
+                        }
+                        
+                        console.log('📝 스마트 매칭 결과 없음, 기본 추천으로 폴백');
+                        
+                        // 폴백: 기본 조건 추천
+                        const recommendations = await this.api.recommendConditions(resourceIdentifier, "auto");
+                        if (recommendations && recommendations.totalRecommended > 0) {
+                            this.showConditionRecommendModal(recommendations, `${permissionName} (기본 추천)`);
+                        }
+                    } catch (error) {
+                        console.warn('🔥 조건 추천 실패:', error);
+                    }
+                }
+
+                /**
+                 * 수동 조건 추천 버튼 클릭 핸들러
+                 */
+                async handleManualRecommendConditions() {
+                    console.log('🎯 수동 조건 추천 요청');
+                    
+                    // 현재 선택된 권한들에서 리소스 식별자 추출
+                    const resourceIdentifiers = this.extractResourcesFromCurrentPermissions();
+                    if (resourceIdentifiers.length === 0) {
+                        this.showMessage('조건을 추천하려면 먼저 권한을 선택해주세요.', 'warning');
+                        return;
+                    }
+
+                    this.showLoadingModal('🎯 맞춤형 조건 추천 중...');
+
+                    try {
+                        // 첫 번째 리소스에 대한 추천 (향후 다중 리소스 지원 가능)
+                        const recommendations = await this.api.recommendConditions(resourceIdentifiers[0], "manual");
+                        this.hideLoadingModal();
+                        
+                        if (recommendations && recommendations.totalRecommended > 0) {
+                            this.showConditionRecommendModal(recommendations, '선택된 권한');
+                        } else {
+                            this.showMessage('현재 권한에 적용 가능한 조건이 없습니다.', 'info');
+                        }
+                    } catch (error) {
+                        this.hideLoadingModal();
+                        console.error('🔥 수동 조건 추천 실패:', error);
+                        this.showMessage('조건 추천 중 오류가 발생했습니다.', 'error');
+                    }
+                }
+
+                /**
+                 * 권한 정보에서 리소스 식별자 추출
+                 */
+                extractResourceFromPermission(permissionInfo) {
+                    // 권한명에서 리소스 정보 추출 로직
+                    // 예: "READ_USER_PROFILE" -> "UserController.getProfile"
+                    const permissionName = permissionInfo.name;
+                    
+                    // 간단한 매핑 로직 (실제로는 더 정교한 매핑 필요)
+                    const resourceMappings = {
+                        'READ_USER': 'UserController.getUser',
+                        'UPDATE_USER': 'UserController.updateUser',
+                        'DELETE_USER': 'UserController.deleteUser',
+                        'READ_DOCUMENT': 'DocumentController.getDocument',
+                        'UPDATE_DOCUMENT': 'DocumentController.updateDocument',
+                        'DELETE_DOCUMENT': 'DocumentController.deleteDocument'
+                    };
+                    
+                    return resourceMappings[permissionName] || null;
+                }
+
+                /**
+                 * 현재 선택된 권한들에서 리소스 식별자들 추출
+                 */
+                extractResourcesFromCurrentPermissions() {
+                    const resourceIdentifiers = [];
+                    this.state.permissions.forEach((permissionInfo) => {
+                        const resourceId = this.extractResourceFromPermission(permissionInfo);
+                        if (resourceId && !resourceIdentifiers.includes(resourceId)) {
+                            resourceIdentifiers.push(resourceId);
+                        }
+                    });
+                    return resourceIdentifiers;
+                }
+
+                /**
+                 * 🔄 개선: 스마트 매칭 모달 표시
+                 */
+                showSmartMatchModal(smartResponse, permissionName) {
+                    console.log('🎯 스마트 매칭 모달 표시:', smartResponse);
+                    
+                    // 스마트 매칭 모달 HTML 생성
+                    const modalHtml = this.generateSmartMatchModalHtml(smartResponse, permissionName);
+                    
+                    // 기존 모달 제거
+                    const existingModal = document.getElementById('smartMatchModal');
+                    if (existingModal) {
+                        existingModal.remove();
+                    }
+                    
+                    // 새 모달 추가
+                    document.body.insertAdjacentHTML('beforeend', modalHtml);
+                    
+                    // 모달 표시 및 이벤트 바인딩
+                    const modal = document.getElementById('smartMatchModal');
+                    modal.style.display = 'flex';
+                    
+                    // 조건 선택 이벤트 바인딩
+                    this.bindSmartMatchModalEvents(modal, smartResponse);
+                }
+
+                /**
+                 * 조건 추천 모달 표시
+                 */
+                showConditionRecommendModal(recommendations, contextName) {
+                    console.log('🎯 조건 추천 모달 표시:', recommendations);
+                    
+                    // 모달 HTML 동적 생성
+                    const modalHtml = this.generateRecommendModalHtml(recommendations, contextName);
+                    
+                    // 기존 모달 제거
+                    const existingModal = document.getElementById('conditionRecommendModal');
+                    if (existingModal) {
+                        existingModal.remove();
+                    }
+                    
+                    // 새 모달 추가
+                    document.body.insertAdjacentHTML('beforeend', modalHtml);
+                    
+                    // 모달 표시 및 이벤트 바인딩
+                    const modal = document.getElementById('conditionRecommendModal');
+                    modal.style.display = 'flex';
+                    
+                    // 조건 선택 이벤트 바인딩
+                    this.bindRecommendModalEvents(modal, recommendations);
+                }
+
+                /**
+                 * 🔄 개선: 스마트 매칭 모달 HTML 생성
+                 */
+                generateSmartMatchModalHtml(smartResponse, permissionName) {
+                    const smartMatchedConditions = smartResponse.smartMatchedConditions;
+                    
+                    // 매칭 점수별로 정렬 (이미 서버에서 정렬되어 있지만 확실히)
+                    const sortedConditions = [...smartMatchedConditions].sort((a, b) => b.smartMatchingScore - a.smartMatchingScore);
+                    
+                    // 고득점 조건 (3.0 이상)
+                    const highScoreConditions = sortedConditions.filter(c => c.smartMatchingScore >= 3.0);
+                    const mediumScoreConditions = sortedConditions.filter(c => c.smartMatchingScore >= 1.5 && c.smartMatchingScore < 3.0);
+                    const lowScoreConditions = sortedConditions.filter(c => c.smartMatchingScore < 1.5);
+                    
+                    let contentHtml = '';
+                    
+                    // 고득점 조건들
+                    if (highScoreConditions.length > 0) {
+                        contentHtml += `
+                            <div class="recommendation-group mb-4">
+                                <h4 class="font-semibold text-lg mb-2 text-green-400">
+                                    🎯 강력 추천 (${highScoreConditions.length}개)
+                                </h4>
+                                <div class="text-sm text-gray-300 mb-2">권한명과 높은 일치도를 보이는 조건들</div>
+                                <div class="grid gap-2">
+                        `;
+                        
+                        highScoreConditions.forEach(condition => {
+                            contentHtml += this.generateSmartMatchConditionHtml(condition, 'high');
+                        });
+                        
+                        contentHtml += '</div></div>';
+                    }
+                    
+                    // 중간 점수 조건들
+                    if (mediumScoreConditions.length > 0) {
+                        contentHtml += `
+                            <div class="recommendation-group mb-4">
+                                <h4 class="font-semibold text-lg mb-2 text-yellow-400">
+                                    🔍 일반 추천 (${mediumScoreConditions.length}개)
+                                </h4>
+                                <div class="grid gap-2">
+                        `;
+                        
+                        mediumScoreConditions.forEach(condition => {
+                            contentHtml += this.generateSmartMatchConditionHtml(condition, 'medium');
+                        });
+                        
+                        contentHtml += '</div></div>';
+                    }
+                    
+                    // 낮은 점수 조건들 (접기 가능)
+                    if (lowScoreConditions.length > 0) {
+                        contentHtml += `
+                            <div class="recommendation-group mb-4">
+                                <details class="cursor-pointer">
+                                    <summary class="font-semibold text-lg mb-2 text-gray-400 hover:text-gray-200">
+                                        📋 기타 호환 조건 (${lowScoreConditions.length}개)
+                                    </summary>
+                                    <div class="grid gap-2 mt-2">
+                        `;
+                        
+                        lowScoreConditions.forEach(condition => {
+                            contentHtml += this.generateSmartMatchConditionHtml(condition, 'low');
+                        });
+                        
+                        contentHtml += '</div></details></div>';
+                    }
+                    
+                    return `
+                        <div id="smartMatchModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-5xl max-h-[85vh] overflow-y-auto">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-xl font-bold text-white">🎯 "${permissionName}" 권한에 대한 스마트 조건 매칭</h3>
+                                    <button id="closeSmartMatchModal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                                </div>
+                                <div class="text-sm text-gray-300 mb-4">
+                                    🔍 권한명 기반 의미적 분석으로 총 ${smartMatchedConditions.length}개의 관련 조건을 발견했습니다.
+                                    <br>📊 리소스: ${smartResponse.resourceFriendlyName || smartResponse.resourceIdentifier}
+                                </div>
+                                ${contentHtml}
+                                <div class="flex justify-end mt-4 space-x-2">
+                                    <button id="addAllHighScoreBtn" class="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded">
+                                        강력 추천 모두 추가 (${highScoreConditions.length}개)
+                                    </button>
+                                    <button id="closeSmartMatchModal" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded">
+                                        닫기
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                /**
+                 * 스마트 매치 조건 HTML 생성
+                 */
+                generateSmartMatchConditionHtml(condition, scoreLevel) {
+                    const borderColors = {
+                        'high': 'border-green-500',
+                        'medium': 'border-yellow-500', 
+                        'low': 'border-gray-500'
+                    };
+                    
+                    const bgColors = {
+                        'high': 'bg-green-900 bg-opacity-20',
+                        'medium': 'bg-yellow-900 bg-opacity-20',
+                        'low': 'bg-gray-700'
+                    };
+                    
+                    const riskColor = {
+                        'LOW': 'text-green-400',
+                        'MEDIUM': 'text-yellow-400',
+                        'HIGH': 'text-red-400'
+                    }[condition.riskLevel] || 'text-gray-400';
+                    
+                    const classificationIcon = {
+                        'UNIVERSAL': '🟢',
+                        'CONTEXT_DEPENDENT': '🟡',
+                        'CUSTOM_COMPLEX': '🔴'
+                    }[condition.classification] || '⚪';
+                    
+                    return `
+                        <div class="smart-match-item p-3 border ${borderColors[scoreLevel]} ${bgColors[scoreLevel]} rounded-lg hover:bg-opacity-40 cursor-pointer"
+                             data-condition-id="${condition.id}"
+                             data-score-level="${scoreLevel}">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-medium text-white">${condition.name}</span>
+                                        <span class="text-xs">${classificationIcon}</span>
+                                        <span class="text-xs px-2 py-1 bg-blue-600 text-white rounded">
+                                            점수: ${condition.smartMatchingScore.toFixed(1)}
+                                        </span>
+                                    </div>
+                                    <div class="text-sm text-gray-300 mt-1">${condition.description}</div>
+                                    <div class="text-xs text-gray-400 mt-2">
+                                        🎯 매칭 이유: <span class="text-blue-300">${condition.matchingReason}</span>
+                                    </div>
+                                    <div class="text-xs text-gray-400 mt-1">
+                                        복잡도: ${condition.complexityScore} | 
+                                        위험도: <span class="${riskColor}">${condition.riskLevel}</span> |
+                                        호환성: ${condition.compatibilityReason}
+                                    </div>
+                                </div>
+                                <button class="add-smart-condition-btn bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded text-sm ml-4"
+                                        data-condition-id="${condition.id}">
+                                    추가
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                /**
+                 * 조건 추천 모달 HTML 생성
+                 */
+                generateRecommendModalHtml(recommendations, contextName) {
+                    const recommendedConditions = recommendations.recommendedConditions;
+                    
+                    let contentHtml = '';
+                    
+                    // 분류별로 조건들을 렌더링
+                    Object.entries(recommendedConditions).forEach(([classification, conditions]) => {
+                        if (conditions.length === 0) return;
+                        
+                        const classificationNames = {
+                            'UNIVERSAL': '🟢 범용 조건',
+                            'CONTEXT_DEPENDENT': '🟡 컨텍스트 의존 조건',
+                            'CUSTOM_COMPLEX': '🔴 복잡한 조건'
+                        };
+                        
+                        contentHtml += `
+                            <div class="recommendation-group mb-4">
+                                <h4 class="font-semibold text-lg mb-2 text-indigo-300">
+                                    ${classificationNames[classification] || classification}
+                                </h4>
+                                <div class="grid gap-2">
+                        `;
+                        
+                        conditions.forEach((condition, index) => {
+                            const riskColor = {
+                                'LOW': 'text-green-400',
+                                'MEDIUM': 'text-yellow-400',
+                                'HIGH': 'text-red-400'
+                            }[condition.riskLevel] || 'text-gray-400';
+                            
+                            contentHtml += `
+                                <div class="recommendation-item p-3 border border-gray-600 rounded-lg hover:bg-gray-700 cursor-pointer"
+                                     data-condition-id="${condition.id}"
+                                     data-classification="${classification}">
+                                    <div class="flex justify-between items-start">
+                                        <div class="flex-1">
+                                            <div class="font-medium text-white">${condition.name}</div>
+                                            <div class="text-sm text-gray-300 mt-1">${condition.description}</div>
+                                            <div class="text-xs text-gray-400 mt-1">
+                                                추천 점수: ${condition.recommendationScore.toFixed(2)} | 
+                                                복잡도: ${condition.complexityScore} | 
+                                                위험도: <span class="${riskColor}">${condition.riskLevel}</span>
+                                            </div>
+                                        </div>
+                                        <button class="add-condition-btn bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded text-sm"
+                                                data-condition-id="${condition.id}">
+                                            추가
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        
+                        contentHtml += `
+                                </div>
+                            </div>
+                        `;
+                    });
+                    
+                    return `
+                        <div id="conditionRecommendModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
+                            <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-4xl max-h-[80vh] overflow-y-auto">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-xl font-bold text-white">🎯 ${contextName}에 대한 조건 추천</h3>
+                                    <button id="closeRecommendModal" class="text-gray-400 hover:text-white text-2xl">&times;</button>
+                                </div>
+                                <div class="text-sm text-gray-300 mb-4">
+                                    총 ${recommendations.totalRecommended}개의 적용 가능한 조건이 발견되었습니다.
+                                </div>
+                                ${contentHtml}
+                                <div class="flex justify-end mt-4">
+                                    <button id="closeRecommendModal" class="bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded">
+                                        닫기
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                /**
+                 * 🔄 개선: 스마트 매칭 모달 이벤트 바인딩
+                 */
+                bindSmartMatchModalEvents(modal, smartResponse) {
+                    // 개별 조건 추가 버튼들
+                    const addButtons = modal.querySelectorAll('.add-smart-condition-btn');
+                    addButtons.forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const conditionId = btn.getAttribute('data-condition-id');
+                            this.addSmartMatchedCondition(conditionId, smartResponse);
+                        });
+                    });
+
+                    // 강력 추천 모두 추가 버튼
+                    const addAllBtn = modal.querySelector('#addAllHighScoreBtn');
+                    if (addAllBtn) {
+                        addAllBtn.addEventListener('click', () => {
+                            this.addAllHighScoreConditions(smartResponse);
+                        });
+                    }
+
+                    // 모달 닫기
+                    const closeButtons = modal.querySelectorAll('#closeSmartMatchModal');
+                    closeButtons.forEach(btn => {
+                        btn.addEventListener('click', () => this.hideSmartMatchModal());
+                    });
+
+                    // 모달 외부 클릭시 닫기
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) {
+                            this.hideSmartMatchModal();
+                        }
+                    });
+                }
+
+                /**
+                 * 스마트 매칭된 조건 추가
+                 */
+                addSmartMatchedCondition(conditionId, smartResponse) {
+                    // 스마트 매칭 목록에서 해당 조건 찾기
+                    const foundCondition = smartResponse.smartMatchedConditions.find(c => c.id == conditionId);
+                    
+                    if (!foundCondition) {
+                        console.error('🔥 스마트 매칭 조건을 찾을 수 없습니다:', conditionId);
+                        return;
+                    }
+                    
+                    // 상태에 조건 추가
+                    this.state.add('condition', `${foundCondition.id}:smartmatch`, {
+                        id: foundCondition.id,
+                        name: foundCondition.name,
+                        description: foundCondition.description,
+                        isValidated: true,
+                        isCompatible: true,
+                        reason: `스마트 매칭을 통해 추가됨 (점수: ${foundCondition.smartMatchingScore.toFixed(1)})`
+                    });
+                    
+                    // UI 업데이트
+                    this.ui.renderAll(this.state);
+                    
+                    // 팔레트에서 해당 조건 하이라이트
+                    this.highlightPaletteItem('condition', foundCondition.id);
+                    
+                    this.showMessage(`조건 "${foundCondition.name}"이 추가되었습니다. (매칭 점수: ${foundCondition.smartMatchingScore.toFixed(1)})`, 'success');
+                    
+                    console.log('✅ 스마트 매칭 조건 추가됨:', foundCondition.name, '점수:', foundCondition.smartMatchingScore);
+                }
+
+                /**
+                 * 강력 추천 조건들 모두 추가
+                 */
+                addAllHighScoreConditions(smartResponse) {
+                    const highScoreConditions = smartResponse.smartMatchedConditions.filter(c => c.smartMatchingScore >= 3.0);
+                    
+                    if (highScoreConditions.length === 0) {
+                        this.showMessage('강력 추천 조건이 없습니다.', 'info');
+                        return;
+                    }
+                    
+                    let addedCount = 0;
+                    highScoreConditions.forEach(condition => {
+                        // 중복 확인
+                        const existingKey = Array.from(this.state.conditions.keys()).find(key => 
+                            key.startsWith(`${condition.id}:`));
+                        
+                        if (!existingKey) {
+                            this.state.add('condition', `${condition.id}:smartmatch-bulk`, {
+                                id: condition.id,
+                                name: condition.name,
+                                description: condition.description,
+                                isValidated: true,
+                                isCompatible: true,
+                                reason: `스마트 매칭 일괄 추가 (점수: ${condition.smartMatchingScore.toFixed(1)})`
+                            });
+                            addedCount++;
+                        }
+                    });
+                    
+                    // UI 업데이트
+                    this.ui.renderAll(this.state);
+                    
+                    // 팔레트 하이라이트
+                    highScoreConditions.forEach(condition => {
+                        this.highlightPaletteItem('condition', condition.id);
+                    });
+                    
+                    this.showMessage(`${addedCount}개의 강력 추천 조건이 모두 추가되었습니다.`, 'success');
+                    this.hideSmartMatchModal();
+                    
+                    console.log('✅ 강력 추천 조건 일괄 추가 완료:', addedCount, '개');
+                }
+
+                /**
+                 * 스마트 매칭 모달 숨기기
+                 */
+                hideSmartMatchModal() {
+                    const modal = document.getElementById('smartMatchModal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                        modal.remove();
+                    }
+                }
+
+                /**
+                 * 조건 추천 모달 이벤트 바인딩
+                 */
+                bindRecommendModalEvents(modal, recommendations) {
+                    // 조건 추가 버튼 이벤트
+                    modal.querySelectorAll('.add-condition-btn').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            const conditionId = e.target.dataset.conditionId;
+                            this.addRecommendedCondition(conditionId, recommendations);
+                        });
+                    });
+                    
+                    // 닫기 버튼 이벤트
+                    modal.querySelectorAll('#closeRecommendModal').forEach(button => {
+                        button.addEventListener('click', () => {
+                            this.hideConditionRecommendModal();
+                        });
+                    });
+                }
+
+                /**
+                 * 추천된 조건 추가
+                 */
+                addRecommendedCondition(conditionId, recommendations) {
+                    // 추천 목록에서 해당 조건 찾기
+                    let foundCondition = null;
+                    Object.values(recommendations.recommendedConditions).forEach(conditions => {
+                        const condition = conditions.find(c => c.id == conditionId);
+                        if (condition) foundCondition = condition;
+                    });
+                    
+                    if (!foundCondition) {
+                        console.error('🔥 추천 조건을 찾을 수 없습니다:', conditionId);
+                        return;
+                    }
+                    
+                    // 상태에 조건 추가
+                    this.state.add('condition', `${foundCondition.id}:recommend`, {
+                        id: foundCondition.id,
+                        name: foundCondition.name,
+                        description: foundCondition.description,
+                        isValidated: true,
+                        isCompatible: true,
+                        reason: '추천 시스템을 통해 추가됨'
+                    });
+                    
+                    // UI 업데이트
+                    this.ui.renderAll(this.state);
+                    
+                    // 팔레트에서 해당 조건 하이라이트
+                    this.highlightPaletteItem('condition', foundCondition.id);
+                    
+                    this.showMessage(`조건 "${foundCondition.name}"이 추가되었습니다.`, 'success');
+                    
+                    console.log('✅ 추천 조건 추가됨:', foundCondition.name);
+                }
+
+                /**
+                 * 조건 추천 모달 숨기기
+                 */
+                hideConditionRecommendModal() {
+                    const modal = document.getElementById('conditionRecommendModal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                        modal.remove();
+                    }
                 }
             }
 

@@ -1,4 +1,4 @@
-package io.spring.identityadmin.resource;
+package io.spring.identityadmin.resource.service;
 
 import io.spring.identityadmin.domain.dto.ResourceManagementDto;
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;

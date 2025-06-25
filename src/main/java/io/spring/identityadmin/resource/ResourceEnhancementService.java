@@ -2,6 +2,7 @@ package io.spring.identityadmin.resource;
 
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
 import io.spring.identityadmin.domain.entity.ManagedResource;
+import io.spring.identityadmin.resource.service.ResourceRegistryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

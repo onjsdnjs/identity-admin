@@ -1,4 +1,4 @@
-package io.spring.identityadmin.resource;
+package io.spring.identityadmin.resource.scanner;
 
 import io.spring.identityadmin.domain.entity.ManagedResource;
 

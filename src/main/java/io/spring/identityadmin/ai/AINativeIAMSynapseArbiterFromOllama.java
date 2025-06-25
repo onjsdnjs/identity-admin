@@ -17,6 +17,7 @@ import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.repository.*;
 import io.spring.identityadmin.security.xacml.pap.service.BusinessPolicyService;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
+import io.spring.identityadmin.resource.service.ConditionCompatibilityService;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 //import org.springframework.ai.anthropic.AnthropicChatModel;
@@ -60,6 +61,7 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
     private final PermissionRepository permissionRepository;
     private final ConditionTemplateRepository conditionTemplateRepository;
     private final ManagedResourceRepository managedResourceRepository;
+    private final ConditionCompatibilityService conditionCompatibilityService;
 
     public AINativeIAMSynapseArbiterFromOllama(
             OllamaChatModel chatModel,
@@ -71,8 +73,9 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
             ModelMapper modelMapper,
             RoleRepository roleRepository,
             PermissionRepository permissionRepository,
-        ConditionTemplateRepository conditionTemplateRepository,
-            ManagedResourceRepository managedResourceRepository) {
+            ConditionTemplateRepository conditionTemplateRepository,
+            ManagedResourceRepository managedResourceRepository,
+            ConditionCompatibilityService conditionCompatibilityService) {
 
         this.chatModel = chatModel;
         this.vectorStore = vectorStore;
@@ -84,11 +87,22 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         this.permissionRepository = permissionRepository;
         this.conditionTemplateRepository = conditionTemplateRepository;
         this.managedResourceRepository = managedResourceRepository;
+        this.conditionCompatibilityService = conditionCompatibilityService;
         this.modelMapper = modelMapper;
     }
 
     public Flux<String> generatePolicyFromTextStream(String naturalLanguageQuery) {
+        return generatePolicyFromTextStream(naturalLanguageQuery, null);
+    }
+
+    public Flux<String> generatePolicyFromTextStream(String naturalLanguageQuery, io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
         log.info("🔥 AI 스트리밍 정책 초안 생성을 시작합니다: {}", naturalLanguageQuery);
+        if (availableItems != null) {
+            log.info("🎯 사용 가능한 항목들 포함: 역할 {}개, 권한 {}개, 조건 {}개", 
+                availableItems.roles() != null ? availableItems.roles().size() : 0,
+                availableItems.permissions() != null ? availableItems.permissions().size() : 0,
+                availableItems.conditions() != null ? availableItems.conditions().size() : 0);
+        }
 
         // 1. RAG - Vector DB 에서 관련 정보 검색
         SearchRequest searchRequest = SearchRequest.builder()
@@ -100,8 +114,8 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
                 .map(doc -> "- " + doc.getText())
                 .collect(Collectors.joining("\n"));
 
-        // 2. 시스템 메타데이터 구성 (실제 DB 데이터)
-        String systemMetadata = buildSystemMetadata();
+        // 2. 시스템 메타데이터 구성 (사용 가능한 항목들 포함)
+        String systemMetadata = buildSystemMetadata(availableItems);
 
         // 3. 시스템 메시지와 사용자 메시지 구성
         String systemPrompt = String.format("""
@@ -294,25 +308,70 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
      * 시스템의 실제 메타데이터를 구성합니다.
      */
     private String buildSystemMetadata() {
+        return buildSystemMetadata(null);
+    }
+
+    private String buildSystemMetadata(io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
         StringBuilder metadata = new StringBuilder();
 
-        // 역할 정보
-        List<Role> roles = roleRepository.findAll();
-        metadata.append("📋 사용 가능한 역할:\n");
-        roles.forEach(role ->
-                metadata.append(String.format("- ID: %d, 이름: %s\n", role.getId(), role.getRoleName())));
+        if (availableItems != null) {
+            // 프론트엔드에서 제공된 사용 가능한 항목들 사용
+            metadata.append("🎯 현재 사용 가능한 항목들 (반드시 이 ID들만 사용하세요):\n\n");
+            
+            // 역할 정보
+            if (availableItems.roles() != null && !availableItems.roles().isEmpty()) {
+                metadata.append("📋 사용 가능한 역할:\n");
+                availableItems.roles().forEach(role ->
+                        metadata.append(String.format("- ID: %d, 이름: %s, 설명: %s\n", 
+                            role.id(), role.name(), role.description() != null ? role.description() : "")));
+            } else {
+                metadata.append("📋 사용 가능한 역할: 없음\n");
+            }
 
-        // 권한 정보
-        List<Permission> permissions = permissionRepository.findAll();
-        metadata.append("\n🔑 사용 가능한 권한:\n");
-        permissions.forEach(perm ->
-                metadata.append(String.format("- ID: %d, 이름: %s\n", perm.getId(), perm.getFriendlyName())));
+            // 권한 정보
+            if (availableItems.permissions() != null && !availableItems.permissions().isEmpty()) {
+                metadata.append("\n🔑 사용 가능한 권한:\n");
+                availableItems.permissions().forEach(perm ->
+                        metadata.append(String.format("- ID: %d, 이름: %s, 설명: %s\n", 
+                            perm.id(), perm.name(), perm.description() != null ? perm.description() : "")));
+            } else {
+                metadata.append("\n🔑 사용 가능한 권한: 없음\n");
+            }
 
-        // 조건 템플릿 정보
-        List<ConditionTemplate> conditions = conditionTemplateRepository.findAll();
-        metadata.append("\n⏰ 사용 가능한 조건 템플릿:\n");
-        conditions.forEach(cond ->
-                metadata.append(String.format("- ID: %d, 이름: %s\n", cond.getId(), cond.getName())));
+            // 조건 템플릿 정보
+            if (availableItems.conditions() != null && !availableItems.conditions().isEmpty()) {
+                metadata.append("\n⏰ 사용 가능한 조건 템플릿:\n");
+                availableItems.conditions().forEach(cond ->
+                        metadata.append(String.format("- ID: %d, 이름: %s, 설명: %s, 호환가능: %s\n", 
+                            cond.id(), cond.name(), 
+                            cond.description() != null ? cond.description() : "",
+                            cond.isCompatible() != null ? cond.isCompatible() : true)));
+            } else {
+                metadata.append("\n⏰ 사용 가능한 조건 템플릿: 없음\n");
+            }
+            
+            metadata.append("\n⚠️ 경고: 위에 나열된 ID들 외의 다른 ID는 절대 사용하지 마세요. 존재하지 않는 ID를 사용하면 시스템 오류가 발생합니다.\n");
+            
+        } else {
+            // 기존 방식: DB에서 모든 항목 조회
+            // 역할 정보
+            List<Role> roles = roleRepository.findAll();
+            metadata.append("📋 사용 가능한 역할:\n");
+            roles.forEach(role ->
+                    metadata.append(String.format("- ID: %d, 이름: %s\n", role.getId(), role.getRoleName())));
+
+            // 권한 정보
+            List<Permission> permissions = permissionRepository.findAll();
+            metadata.append("\n🔑 사용 가능한 권한:\n");
+            permissions.forEach(perm ->
+                    metadata.append(String.format("- ID: %d, 이름: %s\n", perm.getId(), perm.getFriendlyName())));
+
+            // 조건 템플릿 정보
+            List<ConditionTemplate> conditions = conditionTemplateRepository.findAll();
+            metadata.append("\n⏰ 사용 가능한 조건 템플릿:\n");
+            conditions.forEach(cond ->
+                    metadata.append(String.format("- ID: %d, 이름: %s\n", cond.getId(), cond.getName())));
+        }
 
         return metadata.toString();
     }
@@ -322,6 +381,13 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
      */
     @Override
     public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery) {
+        return generatePolicyFromTextByAi(naturalLanguageQuery, null);
+    }
+
+    /**
+     * 사용 가능한 항목들을 포함한 정책 생성
+     */
+    public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery, io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
         // RAG 검색
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(naturalLanguageQuery)
@@ -330,10 +396,12 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         List<Document> contextDocs = vectorStore.similaritySearch(searchRequest);
         String contextInfo = contextDocs.stream().map(Document::getText).collect(Collectors.joining("\n---\n"));
 
-        String systemMetadata = buildSystemMetadata();
+        String systemMetadata = buildSystemMetadata(availableItems);
 
         String systemPrompt = String.format("""
             당신은 사용자의 자연어 요구사항을 분석하여, IAM 시스템이 이해할 수 있는 BusinessPolicyDto JSON 객체로 변환하는 AI 에이전트입니다.
+            
+            🎯 중요: 반드시 아래 제공된 사용 가능한 항목들 중에서만 선택해야 합니다. 존재하지 않는 ID는 절대 사용하지 마세요.
             
             시스템 정보:
             %s
@@ -1839,66 +1907,142 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
     }
 
     /**
-     * [최종 구현] Just-in-Time AI Validation
-     * 관리자가 빌더에서 조건을 선택하는 순간, AI에게 호환성을 실시간으로 물어봅니다.
+     * 🔄 [3단계 완성] 조건 호환성 서비스 + AI 고급 검증을 결합한 Just-in-Time Validation
+     * 관리자가 빌더에서 조건을 선택하는 순간, 3단계 검증을 수행합니다.
      */
     @Override
     public ConditionValidationResponse validateCondition(String resourceIdentifier, String conditionSpel) {
-        ManagedResource resource = managedResourceRepository.findByResourceIdentifier(resourceIdentifier)
-                .orElseThrow(() -> new IllegalArgumentException("Resource not found: " + resourceIdentifier));
-
-        // 1. 리소스의 컨텍스트 정보(파라미터, 반환 타입)를 가져옵니다.
-        String contextInfo = String.format("Method Parameters: %s, Return Type: %s",
-                resource.getParameterTypes(), resource.getReturnType());
-
-        // 2. AI 에게 전달할 프롬프트를 생성합니다.
-        String systemPrompt = """
-            당신은 Spring SpEL 표현식 유효성 검증 전문가입니다. 주어진 '메서드 컨텍스트' 내에서 'SpEL 표현식'이 오류 없이 실행될 수 있는지 평가해주십시오.
-            
-            SpEL의 변수(예: #userId, #returnObject)가 메서드 컨텍스트의 파라미터 이름이나 반환값으로 사용될 수 있는지 확인해야 합니다.
-            
-            [매우 중요] 응답은 반드시 순수한 JSON 형식이어야 합니다. 마크다운 코드 블록(```)을 사용하지 마세요.
-            
-            정확히 다음 형식으로만 응답하세요:
-            {"isCompatible": true, "reason": "한국어 설명"}
-            또는
-            {"isCompatible": false, "reason": "한국어 설명"}
-            """;
-
-        String userPrompt = String.format("""
-            다음 컨텍스트에서 SpEL 표현식의 호환성을 검증해주세요:
-            
-            **메서드 컨텍스트:**
-            %s
-            
-            **검증할 SpEL 표현식:**
-            %s
-            
-            이 표현식이 위 컨텍스트에서 오류 없이 실행될 수 있는지 평가하고, 순수 JSON으로만 응답해주세요.
-            """, contextInfo, conditionSpel);
-
-        // 3. AI 호출 및 결과 파싱
-        SystemMessage systemMessage = new SystemMessage(systemPrompt);
-        UserMessage userMessage = new UserMessage(userPrompt);
-        Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
-
+        log.info("🔍 3단계 조건 검증 시작: 리소스={}, SpEL={}", resourceIdentifier, conditionSpel);
+        
         try {
+            // 0단계: 리소스 정보 조회
+            ManagedResource resource = managedResourceRepository.findByResourceIdentifier(resourceIdentifier)
+                    .orElse(null);
+            
+            if (resource == null) {
+                log.warn("⚠️ 리소스를 찾을 수 없습니다: {}", resourceIdentifier);
+                return new ConditionValidationResponse(false, "리소스를 찾을 수 없습니다: " + resourceIdentifier);
+            }
+
+            // 🔄 1단계: 조건 호환성 서비스를 통한 기본 호환성 검증
+            ConditionTemplate tempCondition = new ConditionTemplate();
+            tempCondition.setSpelTemplate(conditionSpel);
+            tempCondition.setClassification(ConditionTemplate.ConditionClassification.CUSTOM_COMPLEX);
+            
+            ConditionCompatibilityService.CompatibilityResult compatibilityResult = 
+                conditionCompatibilityService.checkCompatibility(tempCondition, resource);
+                
+            log.debug("🔍 1단계 호환성 검사 결과: {}", compatibilityResult.isCompatible());
+            
+            // 호환성 검사 실패 시 즉시 반환 (AI 검증 생략)
+            if (!compatibilityResult.isCompatible()) {
+                log.info("❌ 1단계 실패: {}", compatibilityResult.getReason());
+                return new ConditionValidationResponse(false, 
+                    "🔍 기본 호환성 검사 실패: " + compatibilityResult.getReason());
+            }
+
+                         // 🔄 2단계: AI를 통한 고급 문법 및 보안 검증 (호환성 통과한 경우만)
+             String contextInfo = String.format("""
+                 리소스 정보:
+                 - 식별자: %s
+                 - 타입: %s
+                 - 친숙한 이름: %s
+                 - 반환 타입: %s
+                 - 파라미터: %s
+                 - 사용 가능한 변수: %s
+                 """, 
+                 resource.getResourceIdentifier(),
+                 resource.getResourceType(),
+                 resource.getFriendlyName(),
+                 resource.getReturnType(),
+                 resource.getParameterTypes(),
+                 String.join(", ", compatibilityResult.getAvailableVariables()));
+
+            String systemPrompt = """
+                당신은 Spring SpEL 표현식 보안 및 품질 검증 전문가입니다. 
+                기본 호환성 검사는 이미 통과했으므로, 다음 고급 검증을 수행해주세요:
+                
+                🔍 검증 항목:
+                1. SpEL 문법의 정확성과 실행 가능성
+                2. 보안상 위험한 패턴 감지 (예: 무제한 메서드 호출, 시스템 접근)
+                3. 성능상 문제가 될 수 있는 구조 (예: 복잡한 반복문, 외부 호출)
+                4. 논리적 모순이나 항상 true/false인 조건
+                5. 권장 개선사항
+                
+                [매우 중요] 응답은 반드시 순수한 JSON 형식이어야 합니다.
+                
+                정확히 다음 형식으로만 응답하세요:
+                {
+                  "isCompatible": true/false,
+                  "reason": "검증 결과에 대한 상세 설명",
+                  "securityRisk": "LOW/MEDIUM/HIGH",
+                  "performanceIssue": true/false,
+                  "suggestions": "개선 제안사항 (선택적)"
+                }
+                """;
+
+            String userPrompt = String.format("""
+                다음 SpEL 표현식에 대해 고급 검증을 수행해주세요:
+                
+                **리소스 컨텍스트:**
+                %s
+                
+                **검증할 SpEL 표현식:**
+                %s
+                
+                위 표현식의 문법, 보안성, 성능, 논리성을 종합적으로 평가하고 순수 JSON으로만 응답해주세요.
+                """, contextInfo, conditionSpel);
+
+            SystemMessage systemMessage = new SystemMessage(systemPrompt);
+            UserMessage userMessage = new UserMessage(userPrompt);
+            Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
             ChatResponse response = chatModel.call(prompt);
             String aiResponse = response.getResult().getOutput().getText();
 
-            // JSON 응답 로깅
-            log.debug("AI SpEL 검증 원본 응답: {}", aiResponse);
+            log.debug("🤖 AI 고급 검증 원본 응답: {}", aiResponse);
 
-            // JSON 정제 - 마크다운 코드 블록 제거
+            // JSON 정제 및 파싱
             String cleanedJson = cleanJsonForValidation(aiResponse);
-            log.debug("정제된 JSON: {}", cleanedJson);
+            log.debug("🤖 정제된 JSON: {}", cleanedJson);
 
-            return objectMapper.readValue(cleanedJson, ConditionValidationResponse.class);
-        } catch (JsonProcessingException e) {
-            log.error("AI 응답 파싱 실패. 원본 응답: {}", e.getMessage());
-            return new ConditionValidationResponse(false, "AI 응답 형식이 올바르지 않습니다.");
+            try {
+                JsonNode jsonNode = objectMapper.readTree(cleanedJson);
+                boolean aiCompatible = jsonNode.get("isCompatible").asBoolean();
+                String aiReason = jsonNode.get("reason").asText();
+                String securityRisk = jsonNode.has("securityRisk") ? jsonNode.get("securityRisk").asText() : "UNKNOWN";
+                boolean performanceIssue = jsonNode.has("performanceIssue") ? jsonNode.get("performanceIssue").asBoolean() : false;
+                String suggestions = jsonNode.has("suggestions") ? jsonNode.get("suggestions").asText() : "";
+
+                // 🔄 3단계: 종합 결과 구성 (호환성 + AI 검증)
+                String finalReason = String.format("""
+                    ✅ 1단계 호환성: %s
+                    🤖 2단계 AI 검증: %s
+                    🛡️ 보안 위험도: %s
+                    ⚡ 성능 이슈: %s%s
+                    """, 
+                    compatibilityResult.getReason(),
+                    aiReason,
+                    securityRisk,
+                    performanceIssue ? "있음" : "없음",
+                    suggestions.isEmpty() ? "" : "\n💡 개선 제안: " + suggestions);
+
+                boolean finalResult = aiCompatible; // AI 검증 결과를 최종 결과로 사용
+                
+                log.info("✅ 3단계 조건 검증 완료: 최종결과={}, 상세={}", finalResult, finalReason.replace("\n", " | "));
+                return new ConditionValidationResponse(finalResult, finalReason.trim());
+
+            } catch (Exception parseException) {
+                log.warn("⚠️ AI 응답 파싱 실패, 1단계 호환성 결과만 사용: {}", parseException.getMessage());
+                
+                // Fallback: 기본 호환성 검사 결과만 사용
+                return new ConditionValidationResponse(true, 
+                    "✅ 1단계 호환성 검사 통과: " + compatibilityResult.getReason() + 
+                    " | ⚠️ 2단계 AI 고급 검증 실패");
+            }
+
         } catch (Exception e) {
-            log.error("SpEL 검증 중 오류 발생: {}", e.getMessage());
+            log.error("🔥 조건 검증 중 오류 발생", e);
             return new ConditionValidationResponse(false, "검증 중 오류가 발생했습니다: " + e.getMessage());
         }
     }

@@ -1,8 +1,9 @@
-package io.spring.identityadmin.resource;
+package io.spring.identityadmin.resource.scanner;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.identityadmin.domain.entity.ManagedResource;
+import io.spring.identityadmin.resource.Protectable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.support.AopUtils;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -112,4 +112,6 @@ public class MethodResourceScanner implements ResourceScanner {
         log.info("스캔을 통해 {}개의 보호 가능한 메서드 리소스를 발견했습니다.", resources.size());
         return resources;
     }
+
+
 }

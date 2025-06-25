@@ -1,6 +1,8 @@
 package io.spring.identityadmin.resource;
 
 import io.spring.identityadmin.domain.entity.policy.Policy;
+import io.spring.identityadmin.resource.service.ResourceRegistryService;
+import io.spring.identityadmin.resource.service.AutoConditionTemplateService;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyEnrichmentService;
 import io.spring.identityadmin.repository.PolicyRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class WorkbenchInitializer implements ApplicationRunner {
     private final ResourceRegistryService resourceRegistryService;
     private final PolicyRepository policyRepository;
     private final PolicyEnrichmentService policyEnrichmentService;
+    private final AutoConditionTemplateService autoConditionTemplateService;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -30,6 +33,16 @@ public class WorkbenchInitializer implements ApplicationRunner {
         try {
             resourceRegistryService.refreshAndSynchronizeResources();
             log.info("IAM Command Center: Resource synchronization completed successfully.");
+            
+            // 🚀 개선: 애플리케이션 시작 시 ManagedResource 기반 조건 템플릿 자동 생성
+            log.info("🎯 Starting ManagedResource-based condition template generation...");
+            autoConditionTemplateService.generateManagedResourceBasedTemplates();
+            log.info("✅ ManagedResource-based condition template generation completed.");
+            
+            // 🚀 개선: 애플리케이션 시작 시 Permission 기반 조건 템플릿 자동 생성
+            log.info("🎯 Starting Permission-based condition template generation...");
+            autoConditionTemplateService.generatePermissionBasedTemplates();
+            log.info("✅ Permission-based condition template generation completed.");
             log.info("Checking for policies without friendly descriptions...");
 
             // 설명이 없는 정책들만 조회

@@ -1,4 +1,4 @@
-package io.spring.identityadmin.resource;
+package io.spring.identityadmin.resource.service;
 
 import com.google.common.collect.Lists;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
@@ -10,6 +10,7 @@ import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.repository.ManagedResourceRepository;
+import io.spring.identityadmin.resource.scanner.ResourceScanner;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
