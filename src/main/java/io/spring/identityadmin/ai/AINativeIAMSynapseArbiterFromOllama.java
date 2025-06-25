@@ -400,22 +400,19 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
             log.error("🔥 오류 위치: {}", jpe.getLocation() != null ? jpe.getLocation().toString() : "unknown");
             
             // JsonParseException의 경우 fallback 처리
-//            return createFallbackPolicyData(naturalLanguageQuery);
-            throw new RuntimeException(jpe);
+            return createFallbackPolicyData(naturalLanguageQuery);
             
         } catch (JsonProcessingException jpe) {
             log.error("🔥 JSON 처리 오류 (JsonProcessingException): {} - AI Response: {}", jpe.getMessage(), jsonResponse);
             
             // JSON 처리 오류의 경우도 fallback 처리
-//            return createFallbackPolicyData(naturalLanguageQuery);
-            throw new RuntimeException(jpe);
+            return createFallbackPolicyData(naturalLanguageQuery);
             
         } catch (Exception e) {
             log.error("🔥 AI 정책 생성 또는 파싱에 실패했습니다. AI Response: {}", jsonResponse, e);
 
             // 기타 오류의 경우 fallback 처리
-//            return createFallbackPolicyData(naturalLanguageQuery);
-            throw new RuntimeException(e);
+            return createFallbackPolicyData(naturalLanguageQuery);
         }
     }
 

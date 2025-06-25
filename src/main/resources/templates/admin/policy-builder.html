@@ -278,6 +278,84 @@
             box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
         }
 
+        /* AI 선택된 아이템 스타일 */
+        .palette-item.ai-selected {
+            border: 2px solid rgba(34, 197, 94, 0.7) !important;
+            background: linear-gradient(135deg,
+            rgba(34, 197, 94, 0.2) 0%,
+            rgba(16, 185, 129, 0.15) 50%,
+            rgba(5, 150, 105, 0.2) 100%) !important;
+            box-shadow: 
+                0 0 25px rgba(34, 197, 94, 0.4),
+                0 4px 15px rgba(34, 197, 94, 0.3) !important;
+            animation: aiSelectedPulse 2s ease-in-out infinite;
+            position: relative;
+        }
+
+        .palette-item.ai-selected::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(45deg, 
+                rgba(34, 197, 94, 0.6), 
+                rgba(16, 185, 129, 0.4), 
+                rgba(34, 197, 94, 0.6));
+            border-radius: 1rem;
+            z-index: -1;
+            opacity: 0.7;
+            animation: aiSelectedBorder 3s linear infinite;
+        }
+
+        @keyframes aiSelectedPulse {
+            0%, 100% {
+                box-shadow: 
+                    0 0 25px rgba(34, 197, 94, 0.4),
+                    0 4px 15px rgba(34, 197, 94, 0.3);
+            }
+            50% {
+                box-shadow: 
+                    0 0 35px rgba(34, 197, 94, 0.6),
+                    0 6px 20px rgba(34, 197, 94, 0.5);
+            }
+        }
+
+        @keyframes aiSelectedBorder {
+            0% {
+                background: linear-gradient(45deg, 
+                    rgba(34, 197, 94, 0.6), 
+                    rgba(16, 185, 129, 0.4), 
+                    rgba(34, 197, 94, 0.6));
+            }
+            33% {
+                background: linear-gradient(45deg, 
+                    rgba(16, 185, 129, 0.4), 
+                    rgba(34, 197, 94, 0.6), 
+                    rgba(16, 185, 129, 0.4));
+            }
+            66% {
+                background: linear-gradient(45deg, 
+                    rgba(34, 197, 94, 0.6), 
+                    rgba(5, 150, 105, 0.5), 
+                    rgba(34, 197, 94, 0.6));
+            }
+            100% {
+                background: linear-gradient(45deg, 
+                    rgba(34, 197, 94, 0.6), 
+                    rgba(16, 185, 129, 0.4), 
+                    rgba(34, 197, 94, 0.6));
+            }
+        }
+
+        .palette-item.ai-selected:hover {
+            transform: translateX(8px) translateY(-2px) scale(1.02) !important;
+            box-shadow: 
+                0 0 40px rgba(34, 197, 94, 0.6),
+                0 8px 25px rgba(34, 197, 94, 0.4) !important;
+        }
+
         /* 캔버스 영역 - 드롭존 개선 */
         .canvas-zone {
             min-height: 8rem;

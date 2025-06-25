@@ -471,6 +471,7 @@
 
                     // 검증 통과하거나 조건이 아닌 경우 정상적으로 추가
                     this.state.add(type, id, { id, name });
+                    this.highlightPaletteItem(type, id);
                     this.ui.renderAll(this.state);
                 }
 
@@ -621,6 +622,7 @@
 
                 handleChipRemove(type, key) {
                     this.state.remove(type, key);
+                    this.removeHighlightFromPaletteItem(type, key);
                     this.ui.renderAll(this.state);
                 }
 
@@ -1061,6 +1063,9 @@
 
                     console.log('🔥 이름 매핑 정보:', maps);
 
+                    // 기존 하이라이트 제거
+                    this.clearPaletteHighlights();
+
                     // 상태 초기화
                     ['role', 'permission', 'condition'].forEach(type => this.state.clear(type));
 
@@ -1075,30 +1080,33 @@
                         this.elements.policyEffectSelect.value = data.effect || 'ALLOW';
                     }
 
-                    // 역할 추가 (실제 이름과 함께)
+                    // 역할 추가 및 하이라이트
                     if (data.roleIds && Array.isArray(data.roleIds)) {
                         data.roleIds.forEach(id => {
                             const name = maps.roles[id] || `역할 (ID: ${id})`;
                             console.log(`🔥 역할 추가: ID=${id}, Name=${name}`);
                             this.state.add('role', String(id), { id, name });
+                            this.highlightPaletteItem('role', id);
                         });
                     }
 
-                    // 권한 추가 (실제 이름과 함께)
+                    // 권한 추가 및 하이라이트
                     if (data.permissionIds && Array.isArray(data.permissionIds)) {
                         data.permissionIds.forEach(id => {
                             const name = maps.permissions[id] || `권한 (ID: ${id})`;
                             console.log(`🔥 권한 추가: ID=${id}, Name=${name}`);
                             this.state.add('permission', String(id), { id, name });
+                            this.highlightPaletteItem('permission', id);
                         });
                     }
 
-                    // 조건 추가 (실제 이름과 함께)
+                    // 조건 추가 및 하이라이트
                     if (data.conditions && typeof data.conditions === 'object') {
                         Object.keys(data.conditions).forEach(id => {
                             const name = maps.conditions[id] || `조건 (ID: ${id})`;
                             console.log(`🔥 조건 추가: ID=${id}, Name=${name}`);
                             this.state.add('condition', String(id), { id, name });
+                            this.highlightPaletteItem('condition', id);
                         });
                     }
 
@@ -1124,6 +1132,147 @@
                         roles: Array.from(this.state.roles.entries()),
                         permissions: Array.from(this.state.permissions.entries()),
                         conditions: Array.from(this.state.conditions.entries())
+                    });
+                }
+
+                /**
+                 * 팔레트 아이템을 초록색으로 하이라이트
+                 */
+                highlightPaletteItem(type, id) {
+                    const paletteMap = {
+                        'role': '#roles-palette',
+                        'permission': '#permissionsPalette', 
+                        'condition': '#conditionsPalette'
+                    };
+
+                    const paletteSelector = paletteMap[type];
+                    if (!paletteSelector) return;
+
+                    const palette = document.querySelector(paletteSelector);
+                    if (!palette) return;
+
+                    // data-info 속성에서 ID가 일치하는 아이템 찾기
+                    const paletteItems = palette.querySelectorAll('.palette-item');
+                    paletteItems.forEach(item => {
+                        const dataInfo = item.getAttribute('data-info');
+                        if (dataInfo && dataInfo.startsWith(id + ':')) {
+                            // AI 선택 하이라이트 클래스 추가
+                            item.classList.add('ai-selected');
+                            
+                            // 아이콘을 체크 표시로 변경
+                            const icon = item.querySelector('i');
+                            if (icon) {
+                                icon.className = 'fas fa-check-circle text-green-400';
+                            }
+                            
+                            // 텍스트를 초록색으로 변경
+                            const span = item.querySelector('span');
+                            if (span) {
+                                span.classList.add('text-green-400', 'font-semibold');
+                            }
+                            
+                            // 배경 효과 추가
+                            item.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.1))';
+                            item.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+                            item.style.boxShadow = '0 0 20px rgba(34, 197, 94, 0.3)';
+                            
+                            console.log(`🟢 팔레트 하이라이트 적용: ${type} ID=${id}`);
+                        }
+                    });
+                }
+
+                /**
+                 * 모든 팔레트 하이라이트 제거
+                 */
+                clearPaletteHighlights() {
+                    const palettes = ['#roles-palette', '#permissionsPalette', '#conditionsPalette'];
+                    
+                    palettes.forEach(paletteSelector => {
+                        const palette = document.querySelector(paletteSelector);
+                        if (!palette) return;
+
+                        const highlightedItems = palette.querySelectorAll('.ai-selected');
+                        highlightedItems.forEach(item => {
+                            // 클래스 제거
+                            item.classList.remove('ai-selected');
+                            
+                            // 아이콘 복원
+                            const icon = item.querySelector('i');
+                            const type = item.getAttribute('data-type');
+                            if (icon && type) {
+                                const iconMap = {
+                                    'role': 'fas fa-user-shield text-purple-400',
+                                    'permission': 'fas fa-key text-yellow-400',
+                                    'condition': 'fas fa-clock text-orange-400'
+                                };
+                                icon.className = iconMap[type] || icon.className;
+                            }
+                            
+                            // 텍스트 스타일 복원
+                            const span = item.querySelector('span');
+                            if (span) {
+                                span.classList.remove('text-green-400', 'font-semibold');
+                            }
+                            
+                            // 스타일 복원
+                            item.style.background = '';
+                            item.style.borderColor = '';
+                            item.style.boxShadow = '';
+                        });
+                    });
+                    
+                    console.log('🧹 모든 팔레트 하이라이트 제거 완료');
+                }
+
+                /**
+                 * 특정 팔레트 아이템의 하이라이트 제거
+                 */
+                removeHighlightFromPaletteItem(type, id) {
+                    const paletteMap = {
+                        'role': '#roles-palette',
+                        'permission': '#permissionsPalette', 
+                        'condition': '#conditionsPalette'
+                    };
+
+                    const paletteSelector = paletteMap[type];
+                    if (!paletteSelector) return;
+
+                    const palette = document.querySelector(paletteSelector);
+                    if (!palette) return;
+
+                    // data-info 속성에서 ID가 일치하는 아이템 찾기
+                    const paletteItems = palette.querySelectorAll('.palette-item');
+                    paletteItems.forEach(item => {
+                        const dataInfo = item.getAttribute('data-info');
+                        if (dataInfo && dataInfo.startsWith(id + ':')) {
+                            // AI 선택 하이라이트 클래스 제거
+                            item.classList.remove('ai-selected');
+                            
+                            // 아이콘 복원
+                            const icon = item.querySelector('i');
+                            const itemType = item.getAttribute('data-type');
+                            if (icon && itemType) {
+                                const iconMap = {
+                                    'role': 'fas fa-user-shield text-purple-400',
+                                    'permission': 'fas fa-key text-yellow-400',
+                                    'condition': 'fas fa-clock text-orange-400'
+                                };
+                                icon.className = iconMap[itemType] || icon.className;
+                            }
+                            
+                            // 텍스트 스타일 복원
+                            const span = item.querySelector('span');
+                            if (span) {
+                                span.classList.remove('text-green-400', 'font-semibold');
+                            }
+                            
+                            // 스타일 복원
+                            item.style.background = '';
+                            item.style.borderColor = '';
+                            item.style.boxShadow = '';
+                            
+                            console.log(`🔴 팔레트 하이라이트 제거: ${type} ID=${id}`);
+                        }
                     });
                 }
 
