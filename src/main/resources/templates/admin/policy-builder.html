@@ -224,8 +224,42 @@
             align-items: center;
             gap: 0.875rem;
             position: relative;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             backdrop-filter: blur(10px);
+            min-width: 0; /* flex 아이템이 줄어들 수 있도록 */
+        }
+
+        /* 팔레트 아이템 내 텍스트 스타일 */
+        .palette-item span {
+            white-space: nowrap;
+            flex-shrink: 0; /* 텍스트가 줄어들지 않도록 */
+            min-width: 0;
+        }
+
+        /* 팔레트 아이템 아이콘 */
+        .palette-item i {
+            flex-shrink: 0; /* 아이콘이 줄어들지 않도록 */
+        }
+
+        /* 팔레트 아이템 가로 스크롤바 스타일 */
+        .palette-item::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .palette-item::-webkit-scrollbar-track {
+            background: rgba(71, 85, 105, 0.2);
+            border-radius: 2px;
+        }
+
+        .palette-item::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.5);
+            border-radius: 2px;
+            transition: background 0.3s ease;
+        }
+
+        .palette-item::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.7);
         }
 
         .palette-item::before {

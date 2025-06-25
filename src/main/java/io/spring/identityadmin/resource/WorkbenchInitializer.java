@@ -1,10 +1,12 @@
 package io.spring.identityadmin.resource;
 
 import io.spring.identityadmin.domain.entity.policy.Policy;
-import io.spring.identityadmin.resource.service.ResourceRegistryService;
-import io.spring.identityadmin.resource.service.AutoConditionTemplateService;
-import io.spring.identityadmin.security.xacml.pap.service.PolicyEnrichmentService;
+import io.spring.identityadmin.repository.ManagedResourceRepository;
+import io.spring.identityadmin.repository.PermissionRepository;
 import io.spring.identityadmin.repository.PolicyRepository;
+import io.spring.identityadmin.resource.service.AutoConditionTemplateService;
+import io.spring.identityadmin.resource.service.ResourceRegistryService;
+import io.spring.identityadmin.security.xacml.pap.service.PolicyEnrichmentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.ApplicationArguments;
@@ -25,27 +27,16 @@ public class WorkbenchInitializer implements ApplicationRunner {
     private final ResourceRegistryService resourceRegistryService;
     private final PolicyRepository policyRepository;
     private final PolicyEnrichmentService policyEnrichmentService;
-    private final AutoConditionTemplateService autoConditionTemplateService;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
         log.info("IAM Command Center: Starting resource synchronization on application startup...");
         try {
+            // 1. 리소스 동기화 시작 (비동기)
             resourceRegistryService.refreshAndSynchronizeResources();
-            log.info("IAM Command Center: Resource synchronization completed successfully.");
-            
-            // 🚀 개선: 애플리케이션 시작 시 ManagedResource 기반 조건 템플릿 자동 생성
-            log.info("🎯 Starting ManagedResource-based condition template generation...");
-            autoConditionTemplateService.generateManagedResourceBasedTemplates();
-            log.info("✅ ManagedResource-based condition template generation completed.");
-            
-            // 🚀 개선: 애플리케이션 시작 시 Permission 기반 조건 템플릿 자동 생성
-            log.info("🎯 Starting Permission-based condition template generation...");
-            autoConditionTemplateService.generatePermissionBasedTemplates();
-            log.info("✅ Permission-based condition template generation completed.");
-            log.info("Checking for policies without friendly descriptions...");
+            log.info("IAM Command Center: Resource synchronization started (async).");
 
-            // 설명이 없는 정책들만 조회
+            // 2. 정책 설명 강화
             List<Policy> policiesToUpdate = policyRepository.findByFriendlyDescriptionIsNull();
 
             if (policiesToUpdate.isEmpty()) {

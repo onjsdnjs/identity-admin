@@ -95,7 +95,7 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         return generatePolicyFromTextStream(naturalLanguageQuery, null);
     }
 
-    public Flux<String> generatePolicyFromTextStream(String naturalLanguageQuery, io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
+    public Flux<String> generatePolicyFromTextStream(String naturalLanguageQuery, PolicyGenerationRequest.AvailableItems availableItems) {
         log.info("🔥 AI 스트리밍 정책 초안 생성을 시작합니다: {}", naturalLanguageQuery);
         if (availableItems != null) {
             log.info("🎯 사용 가능한 항목들 포함: 역할 {}개, 권한 {}개, 조건 {}개", 
@@ -2079,4 +2079,265 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
 
         return cleaned;
     }
+
+    // AINativeIAMSynapseArbiterFromOllama.java의 수정된 메서드들
+
+    // AINativeIAMSynapseArbiterFromOllama.java에 추가/수정할 메서드들
+
+    @Override
+    public String generateUniversalConditionTemplates() {
+        log.info("🤖 AI 범용 조건 템플릿 생성 시작");
+
+        String systemPrompt = """
+        당신은 Spring Security의 hasPermission 표현식 전문가입니다.
+        RBAC 권한을 통과한 후 추가로 검증할 속성 기반 조건을 생성해주세요.
+        
+        **중요: 오직 다음 2가지 형식만 사용하세요:**
+        1. hasPermission(#객체, '권한명')
+        2. hasPermission(#객체, '타입', '권한명')
+        
+        **올바른 예시:**
+        - hasPermission(#userDto, 'UPDATE')
+        - hasPermission(#userId, 'USER', 'UPDATE')
+        - hasPermission(#document, 'DOCUMENT', 'CREATE')
+        - hasPermission(#groupId, 'GROUP', 'DELETE')
+        
+        **원칙:**
+        1. 모든 이름과 설명은 한국어
+        2. 실용적인 조건만 3-4개
+        3. hasPermission 형식만 사용
+        4. "~권한 검증"이 아닌 "~조건", "~확인" 용어 사용
+        
+        **응답 형식:**
+        [
+          {
+            "name": "문서 읽기 조건",
+            "description": "문서에 대한 읽기 권한을 확인하는 조건",
+            "spelTemplate": "hasPermission(#documentId, 'DOCUMENT', 'READ')",
+            "category": "권한 기반",
+            "classification": "UNIVERSAL"
+          }
+        ]
+        """;
+
+        String userPrompt = "시스템 전반에서 사용할 수 있는 범용 hasPermission 조건 3-4개를 생성하세요.";
+
+        try {
+            SystemMessage systemMessage = new SystemMessage(systemPrompt);
+            UserMessage userMessage = new UserMessage(userPrompt);
+            Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
+            ChatResponse response = chatModel.call(prompt);
+            String aiResponse = response.getResult().getOutput().getText();
+
+            log.debug("✅ AI 범용 템플릿 응답 수신: {} characters", aiResponse.length());
+            return aiResponse;
+
+        } catch (Exception e) {
+            log.error("🔥 AI 범용 템플릿 생성 실패", e);
+            // fallback JSON 응답 - hasPermission만 사용
+            return """
+            [
+              {
+                "name": "사용자 인증 상태 확인",
+                "description": "RBAC를 통과한 사용자의 인증 상태를 재검증하는 ABAC 조건",
+                "spelTemplate": "isAuthenticated()",
+                "category": "인증 상태",
+                "classification": "UNIVERSAL"
+              },
+              {
+                "name": "관리자 컨텍스트 검증",
+                "description": "민감한 작업에서 관리자 권한을 재확인하는 ABAC 조건",
+                "spelTemplate": "hasRole('ROLE_ADMIN')",
+                "category": "권한 재검증",
+                "classification": "UNIVERSAL"
+              },
+              {
+                "name": "업무시간 접근 제한",
+                "description": "오전 9시부터 오후 5시까지만 접근을 허용하는 시간 기반 ABAC 조건",
+                "spelTemplate": "T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour <= 17",
+                "category": "시간 기반",
+                "classification": "UNIVERSAL"
+              }
+            ]
+            """;
+        }
+    }
+
+    @Override
+    public String generateSpecificConditionTemplates(String resourceIdentifier, String methodInfo) {
+        log.debug("🤖 AI 특화 조건 생성: {}", resourceIdentifier);
+
+        String systemPrompt = """
+        당신은 Spring Security의 hasPermission 표현식 전문가입니다.
+        RBAC 권한을 통과한 후 추가로 검증할 메서드별 조건을 생성해주세요.
+        
+        **중요: 오직 다음 2가지 형식만 사용하세요:**
+        1. hasPermission(#객체, '권한명')
+        2. hasPermission(#객체, '타입', '권한명')
+        
+        **필수 규칙:**
+        - 파라미터가 없는 메서드(예: getAll, list 등)는 조건을 생성하지 마세요
+        - 파라미터가 있는 메서드만 조건을 생성하세요
+        - #파라미터명: 메서드 파라미터 참조
+        - #returnObject: 메서드 반환값 참조 (PostFilter용)
+        
+        **원칙:**
+        1. 메서드에 맞는 조건 1개만 생성
+        2. 실제 파라미터 이름만 사용
+        3. 모든 이름과 설명은 한국어
+        4. hasPermission 형식만 사용
+        
+        **올바른 예시:**
+        - createGroup(Group group) → "그룹 생성 조건", "hasPermission(#group, 'CREATE')"
+        - getGroup(Long id) → "그룹 조회 조건", "hasPermission(#id, 'GROUP', 'READ')"
+        - updateGroup(Group group) → "그룹 수정 조건", "hasPermission(#group, 'UPDATE')"
+        - deleteGroup(Long id) → "그룹 삭제 조건", "hasPermission(#id, 'GROUP', 'DELETE')"
+        - getAllGroups() → 빈 배열 [] (파라미터 없음)
+        - listUsers() → 빈 배열 [] (파라미터 없음)
+        
+        **응답 형식:**
+        [
+          {
+            "name": "그룹 수정 조건",
+            "description": "그룹을 수정할 수 있는 권한을 확인하는 조건",
+            "spelTemplate": "hasPermission(#group, 'UPDATE')",
+            "category": "권한 확인",
+            "classification": "CONTEXT_DEPENDENT"
+          }
+        ]
+        
+        **파라미터가 없으면 반드시 빈 배열 [] 반환하세요.**
+        """;
+
+        try {
+            SystemMessage systemMessage = new SystemMessage(systemPrompt);
+            UserMessage userMessage = new UserMessage(methodInfo);
+            Prompt prompt = new Prompt(List.of(systemMessage, userMessage));
+
+            ChatResponse response = chatModel.call(prompt);
+            String aiResponse = response.getResult().getOutput().getText();
+
+            log.debug("✅ AI 특화 템플릿 응답 수신: {} characters", aiResponse.length());
+            log.info("🔍 AI 응답 전체 내용: {}", aiResponse); // AI 응답 전체 로깅
+            return aiResponse;
+
+        } catch (Exception e) {
+            log.warn("🔥 AI 특화 템플릿 생성 실패: {}", resourceIdentifier, e);
+
+            // fallback 주석 처리 - AI 응답 분석을 위해
+            // return generateFallbackHasPermissionCondition(resourceIdentifier, methodInfo);
+            return "[]"; // 빈 배열 반환
+        }
+    }
+
+    /**
+     * hasPermission 형식의 fallback 조건 생성 - 주석 처리
+     */
+    private String generateFallbackHasPermissionCondition(String resourceIdentifier, String methodInfo) {
+        // fallback 주석 처리 - AI 응답 분석 필요
+    /*
+    // 메서드명에서 동작과 엔티티 추출
+    String methodName = extractMethodNameFromResourceId(resourceIdentifier);
+
+    // 엔티티 타입 추론
+    String entityType = "RESOURCE"; // 기본값
+    if (resourceIdentifier.contains("User")) entityType = "USER";
+    else if (resourceIdentifier.contains("Group")) entityType = "GROUP";
+    else if (resourceIdentifier.contains("Document")) entityType = "DOCUMENT";
+    else if (resourceIdentifier.contains("Role")) entityType = "ROLE";
+    else if (resourceIdentifier.contains("Permission")) entityType = "PERMISSION";
+    else if (resourceIdentifier.contains("Policy")) entityType = "POLICY";
+
+    // 파라미터 타입 확인
+    boolean hasIdParam = methodInfo.contains("Long id") || methodInfo.contains("Long") || methodInfo.contains("userId");
+    boolean hasObjectParam = methodInfo.contains(entityType.toLowerCase());
+
+    // CREATE 패턴
+    if (methodName.contains("create") || methodName.contains("add")) {
+        return String.format("""
+            [
+              {
+                "name": "%s 생성 조건",
+                "description": "%s를 생성할 수 있는 권한을 확인하는 조건",
+                "spelTemplate": "hasPermission(#%s, 'CREATE')",
+                "category": "권한 확인",
+                "classification": "CONTEXT_DEPENDENT"
+              }
+            ]
+            """, entityType.toLowerCase(), entityType.toLowerCase(),
+            hasObjectParam ? entityType.toLowerCase() : "object");
+    }
+
+    // READ/GET 패턴
+    else if (methodName.contains("get") || methodName.contains("find") || methodName.contains("read")) {
+        if (hasIdParam) {
+            return String.format("""
+                [
+                  {
+                    "name": "%s 조회 조건",
+                    "description": "%s를 조회할 수 있는 권한을 확인하는 조건",
+                    "spelTemplate": "hasPermission(#id, '%s', 'READ')",
+                    "category": "권한 확인",
+                    "classification": "CONTEXT_DEPENDENT"
+                  }
+                ]
+                """, entityType.toLowerCase(), entityType.toLowerCase(), entityType);
+        }
+    }
+
+    // UPDATE 패턴
+    else if (methodName.contains("update") || methodName.contains("modify") || methodName.contains("edit")) {
+        if (hasObjectParam) {
+            return String.format("""
+                [
+                  {
+                    "name": "%s 수정 조건",
+                    "description": "%s를 수정할 수 있는 권한을 확인하는 조건",
+                    "spelTemplate": "hasPermission(#%s, 'UPDATE')",
+                    "category": "권한 확인",
+                    "classification": "CONTEXT_DEPENDENT"
+                  }
+                ]
+                """, entityType.toLowerCase(), entityType.toLowerCase(), entityType.toLowerCase());
+        } else if (hasIdParam) {
+            return String.format("""
+                [
+                  {
+                    "name": "%s 수정 조건",
+                    "description": "%s를 수정할 수 있는 권한을 확인하는 조건",
+                    "spelTemplate": "hasPermission(#id, '%s', 'UPDATE')",
+                    "category": "권한 확인",
+                    "classification": "CONTEXT_DEPENDENT"
+                  }
+                ]
+                """, entityType.toLowerCase(), entityType.toLowerCase(), entityType);
+        }
+    }
+
+    // DELETE 패턴
+    else if (methodName.contains("delete") || methodName.contains("remove")) {
+        if (hasIdParam) {
+            return String.format("""
+                [
+                  {
+                    "name": "%s 삭제 조건",
+                    "description": "%s를 삭제할 수 있는 권한을 확인하는 조건",
+                    "spelTemplate": "hasPermission(#id, '%s', 'DELETE')",
+                    "category": "권한 확인",
+                    "classification": "CONTEXT_DEPENDENT"
+                  }
+                ]
+                """, entityType.toLowerCase(), entityType.toLowerCase(), entityType);
+        }
+    }
+
+    // 기본값: 빈 배열 (파라미터가 없거나 패턴이 맞지 않는 경우)
+    return "[]";
+    */
+
+        return "[]"; // 빈 배열 반환
+    }
+    
+    
 }

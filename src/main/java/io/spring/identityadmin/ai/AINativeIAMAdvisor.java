@@ -67,4 +67,18 @@ public interface AINativeIAMAdvisor {
 
     ConditionValidationResponse validateCondition(String resourceIdentifier, String conditionSpel);
 
+    /**
+     * 범용적으로 사용할 수 있는 조건 템플릿들을 AI가 생성합니다.
+     * @return AI가 생성한 조건 템플릿들의 JSON 문자열
+     */
+    String generateUniversalConditionTemplates();
+
+    /**
+     * 특정 메서드/리소스에 특화된 조건 템플릿들을 AI가 생성합니다.
+     * @param resourceIdentifier 대상 리소스의 식별자
+     * @param methodInfo 메서드 정보 (파라미터, 반환타입 등)
+     * @return AI가 생성한 특화 조건 템플릿들의 JSON 문자열
+     */
+    String generateSpecificConditionTemplates(String resourceIdentifier, String methodInfo);
+
 }

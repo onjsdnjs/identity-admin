@@ -35,6 +35,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     private final ManagedResourceRepository managedResourceRepository;
     private final PermissionCatalogService permissionCatalogService;
     private final AINativeIAMAdvisor aINativeIAMAdvisor;
+    private final AutoConditionTemplateService autoConditionTemplateService;
 
     /**
      * [구현 완료] 리소스 스캔, 신규/변경/삭제 리소스 구분 및 AI 추천까지 모든 로직을 완벽하게 구현합니다.
@@ -94,7 +95,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
             processSingleResource(newResources.getFirst());
         } else {
             // ----- 2개 이상일 경우: 배치 및 병렬 처리 -----
-            int batchSize = 20; // 한 번에 처리할 배치 크기
+            int batchSize = 10; // 한 번에 처리할 배치 크기
             List<List<ManagedResource>> resourceBatches = Lists.partition(newResources, batchSize);
             log.info("{}개의 새로운 리소스를 {}개의 배치로 나누어 병렬 처리합니다...", newResources.size(), resourceBatches.size());
 
@@ -105,7 +106,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             log.info("모든 AI 추천 배치 작업이 완료되었습니다.");
         }
-
+        autoConditionTemplateService.generateConditionTemplates();
         log.info("리소스 동기화 프로세스가 완료되었습니다.");
     }
 
