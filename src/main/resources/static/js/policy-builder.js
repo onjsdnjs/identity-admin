@@ -232,7 +232,7 @@
                 async recommendConditions(resourceIdentifier, context = "") {
                     return this.fetchApi('/api/ai/policies/recommend-conditions', {
                         method: 'POST',
-                        body: JSON.stringify({ 
+                        body: JSON.stringify({
                             resourceIdentifier: resourceIdentifier,
                             context: context
                         })
@@ -245,7 +245,7 @@
                 async smartMatchConditions(permissionName, resourceIdentifier, context = "") {
                     return this.fetchApi('/api/ai/policies/smart-match-conditions', {
                         method: 'POST',
-                        body: JSON.stringify({ 
+                        body: JSON.stringify({
                             permissionName: permissionName,
                             resourceIdentifier: resourceIdentifier,
                             context: context
@@ -261,16 +261,16 @@
                 }
 
                 async generatePolicyFromText(query, availableItems = null) {
-                    const requestBody = { 
+                    const requestBody = {
                         naturalLanguageQuery: query
                     };
-                    
+
                     // 사용 가능한 항목들이 있으면 포함
                     if (availableItems) {
                         requestBody.availableItems = availableItems;
                         console.log('🎯 AI에게 사용 가능한 항목들 전송:', availableItems);
                     }
-                    
+
                     return this.fetchApi('/api/ai/policies/generate-from-text', {
                         method: 'POST',
                         body: JSON.stringify(requestBody)
@@ -288,10 +288,10 @@
                         headers[this.csrfHeader] = this.csrfToken;
                     }
 
-                    const requestBody = { 
+                    const requestBody = {
                         naturalLanguageQuery: query
                     };
-                    
+
                     // 사용 가능한 항목들이 있으면 포함
                     if (availableItems) {
                         requestBody.availableItems = availableItems;
@@ -377,19 +377,19 @@
                  */
                 debugCloseButton() {
                     console.log('🔍 닫기 버튼 디버깅 시작');
-                    
+
                     // 1. 모든 버튼 찾기
                     const allButtons = document.querySelectorAll('button');
                     console.log('🔘 페이지의 모든 버튼 개수:', allButtons.length);
-                    
+
                     allButtons.forEach((btn, i) => {
                         console.log(`  ${i+1}. 버튼 클래스: "${btn.className}", 내용: "${btn.innerHTML.substring(0, 50)}"`);
                     });
-                    
+
                     // 2. 닫기 버튼 찾기
                     const closeButton = document.querySelector('.close-button');
                     console.log('🚪 닫기 버튼 검색 결과:', closeButton);
-                    
+
                     if (closeButton) {
                         console.log('🚪 닫기 버튼 상세 정보:');
                         console.log('  - 클래스:', closeButton.className);
@@ -398,63 +398,63 @@
                         console.log('  - 표시 여부:', getComputedStyle(closeButton).display);
                         console.log('  - z-index:', getComputedStyle(closeButton).zIndex);
                     }
-                    
+
                     // 3. close-button 클래스를 가진 모든 요소 찾기
                     const allCloseButtons = document.querySelectorAll('.close-button');
                     console.log('🚪 close-button 클래스 요소 개수:', allCloseButtons.length);
-                    
+
                     // 4. fa-times 아이콘 찾기
                     const timesIcons = document.querySelectorAll('.fa-times');
                     console.log('❌ fa-times 아이콘 개수:', timesIcons.length);
-                    
+
                     console.log('🔍 닫기 버튼 디버깅 완료');
                 }
 
                 bindEventListeners() {
                     // 🔥 닫기 버튼 테스트를 위한 강력한 이벤트 리스너
                     console.log('🔍 닫기 버튼 이벤트 리스너 설정 시작');
-                    
+
                     // 방법 1: 직접 선택자로 찾기
                     const closeButton = document.querySelector('.close-button');
                     console.log('🔍 닫기 버튼 검색 결과:', closeButton);
                     console.log('🔍 닫기 버튼 HTML:', closeButton ? closeButton.outerHTML : 'null');
-                    
+
                     if (closeButton) {
                         // 테스트용 간단한 클릭 이벤트
                         closeButton.addEventListener('click', (e) => {
                             console.log('🚪🚪🚪 닫기 버튼 클릭 확인됨! 🚪🚪🚪');
                             console.log('이벤트 객체:', e);
                             console.log('타겟 요소:', e.target);
-                            
+
                             e.preventDefault();
                             e.stopPropagation();
                             this.handleCloseModal();
                         });
-                        
+
                         console.log('✅ 닫기 버튼 이벤트 리스너 추가 완료');
                     } else {
                         console.warn('⚠️ 닫기 버튼을 찾을 수 없습니다');
                     }
-                    
+
                     // 방법 2: 전체 문서에서 모든 클릭 감지 (백업)
                     document.addEventListener('click', (e) => {
                         console.log('🖱️ 문서 클릭 감지:', e.target);
                         console.log('🖱️ 클릭된 요소 클래스:', e.target.className);
                         console.log('🖱️ 클릭된 요소 태그:', e.target.tagName);
-                        
+
                         // 닫기 버튼 관련 클릭인지 확인
-                        if (e.target.classList.contains('close-button') || 
+                        if (e.target.classList.contains('close-button') ||
                             e.target.closest('.close-button') ||
                             e.target.classList.contains('fa-times')) {
-                            
+
                             console.log('🚪🚪🚪 문서 레벨에서 닫기 버튼 클릭 감지! 🚪🚪🚪');
-                            
+
                             e.preventDefault();
                             e.stopPropagation();
                             this.handleCloseModal();
                         }
                     });
-                    
+
                     // 방법 3: 모든 버튼 클릭 감지
                     document.addEventListener('click', (e) => {
                         if (e.target.tagName === 'BUTTON') {
@@ -463,7 +463,7 @@
                             console.log('🔘 버튼 내용:', e.target.innerHTML);
                         }
                     });
-                    
+
                     console.log('✅ 모든 클릭 감지 시스템 활성화 완료');
 
                     // AI 기능 이벤트 리스너
@@ -594,7 +594,7 @@
                         if (spelTemplate) {
                             // 🔧 개선: 리소스 컨텍스트 확인
                             let resourceIdentifier = 'GENERAL_POLICY'; // 기본값
-                            
+
                             if (window.resourceContext && window.resourceContext.resourceIdentifier) {
                                 resourceIdentifier = window.resourceContext.resourceIdentifier;
                                 console.log('🔍 리소스 컨텍스트 사용:', resourceIdentifier);
@@ -663,8 +663,8 @@
                         z-index: 999998;
                     `;
 
-                                    const loadingContent = document.createElement('div');
-                                    loadingContent.style.cssText = `
+                    const loadingContent = document.createElement('div');
+                    loadingContent.style.cssText = `
                         background-color: #1f2937;
                         border-radius: 0.5rem;
                         padding: 1.5rem;
@@ -674,7 +674,7 @@
                         box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
                     `;
 
-                                    loadingContent.innerHTML = `
+                    loadingContent.innerHTML = `
                         <div style="
                             width: 2rem;
                             height: 2rem;
@@ -786,19 +786,19 @@
 
                 handleChipRemove(type, key) {
                     console.log(`🗑️ 칩 제거: ${type} ID=${key}`);
-                    
+
                     // 1. 상태에서 제거
                     this.state.remove(type, key);
-                    
+
                     // 2. 팔레트 하이라이트 제거
                     this.removeHighlightFromPaletteItem(type, key);
-                    
+
                     // 3. 브루트 포스로 해당 ID의 모든 하이라이트 제거
                     this.bruteForceRemoveSpecificHighlight(type, key);
-                    
+
                     // 4. UI 다시 렌더링
                     this.ui.renderAll(this.state);
-                    
+
                     console.log(`✅ 칩 제거 완료: ${type} ID=${key}`);
                 }
 
@@ -807,24 +807,24 @@
                  */
                 bruteForceRemoveSpecificHighlight(type, id) {
                     console.log(`🔥 특정 하이라이트 브루트 포스 제거: ${type} ID=${id}`);
-                    
+
                     // 해당 ID를 가진 모든 요소 찾기
                     const targetItems = document.querySelectorAll(`[data-info^="${id}:"]`);
-                    
+
                     targetItems.forEach(item => {
                         if (item.classList.contains('palette-item')) {
                             console.log(`  ↳ 하이라이트 제거 대상: ${item.getAttribute('data-info')}`);
-                            
+
                             // ai-selected 클래스 제거
                             item.classList.remove('ai-selected');
-                            
+
                             // 아이콘 복원
                             const icon = item.querySelector('i');
                             if (icon) {
                                 icon.className = '';
                                 icon.classList.remove('text-green-400', 'fa-check-circle');
                                 icon.removeAttribute('style');
-                                
+
                                 const iconMap = {
                                     'role': 'fas fa-user-shield text-purple-400',
                                     'permission': 'fas fa-key text-yellow-400',
@@ -832,17 +832,17 @@
                                 };
                                 icon.className = iconMap[type] || icon.className;
                             }
-                            
+
                             // 텍스트 복원
                             const span = item.querySelector('span');
                             if (span) {
                                 span.classList.remove('text-green-400', 'font-semibold');
                                 span.removeAttribute('style');
                             }
-                            
+
                             // 모든 인라인 스타일 제거
                             item.removeAttribute('style');
-                            
+
                             console.log(`  ↳ 하이라이트 제거 완료: ${item.getAttribute('data-info')}`);
                         }
                     });
@@ -1309,15 +1309,15 @@
                  */
                 validateAndFilterAIResponse(policyData) {
                     console.log('🔍 AI 응답 검증 시작:', policyData);
-                    
+
                     const availableItems = this.collectAvailableItems();
                     const validatedData = { ...policyData };
-                    
+
                     // 사용 가능한 ID 세트 생성
                     const availableRoleIds = new Set(availableItems.roles.map(r => r.id));
                     const availablePermissionIds = new Set(availableItems.permissions.map(p => p.id));
                     const availableConditionIds = new Set(availableItems.conditions.map(c => c.id));
-                    
+
                     // 역할 ID 검증 및 필터링
                     if (validatedData.roleIds && Array.isArray(validatedData.roleIds)) {
                         const originalRoleIds = [...validatedData.roleIds];
@@ -1328,12 +1328,12 @@
                             }
                             return exists;
                         });
-                        
+
                         if (originalRoleIds.length !== validatedData.roleIds.length) {
                             console.log(`🔧 역할 필터링: ${originalRoleIds.length} → ${validatedData.roleIds.length}`);
                         }
                     }
-                    
+
                     // 권한 ID 검증 및 필터링
                     if (validatedData.permissionIds && Array.isArray(validatedData.permissionIds)) {
                         const originalPermissionIds = [...validatedData.permissionIds];
@@ -1344,17 +1344,17 @@
                             }
                             return exists;
                         });
-                        
+
                         if (originalPermissionIds.length !== validatedData.permissionIds.length) {
                             console.log(`🔧 권한 필터링: ${originalPermissionIds.length} → ${validatedData.permissionIds.length}`);
                         }
                     }
-                    
+
                     // 조건 ID 검증 및 필터링
                     if (validatedData.conditions && typeof validatedData.conditions === 'object') {
                         const originalConditionIds = Object.keys(validatedData.conditions);
                         const filteredConditions = {};
-                        
+
                         originalConditionIds.forEach(id => {
                             if (availableConditionIds.has(parseInt(id))) {
                                 filteredConditions[id] = validatedData.conditions[id];
@@ -1362,14 +1362,14 @@
                                 console.warn(`⚠️ 존재하지 않는 조건 ID 제거: ${id}`);
                             }
                         });
-                        
+
                         validatedData.conditions = filteredConditions;
-                        
+
                         if (originalConditionIds.length !== Object.keys(filteredConditions).length) {
                             console.log(`🔧 조건 필터링: ${originalConditionIds.length} → ${Object.keys(filteredConditions).length}`);
                         }
                     }
-                    
+
                     console.log('✅ AI 응답 검증 완료:', validatedData);
                     return validatedData;
                 }
@@ -1468,24 +1468,24 @@
 
                     // UI 렌더링 완료 후 하이라이트 적용 (중요!)
                     console.log('🎨 UI 렌더링 완료, 하이라이트 적용 시작...');
-                    
+
                     // 짧은 지연 후 하이라이트 적용 (DOM 업데이트 완료 대기)
                     setTimeout(() => {
                         selectedRoleIds.forEach(id => {
                             console.log(`🟢 역할 하이라이트 적용: ID=${id}`);
                             this.highlightPaletteItem('role', id);
                         });
-                        
+
                         selectedPermissionIds.forEach(id => {
                             console.log(`🟢 권한 하이라이트 적용: ID=${id}`);
                             this.highlightPaletteItem('permission', id);
                         });
-                        
+
                         selectedConditionIds.forEach(id => {
                             console.log(`🟢 조건 하이라이트 적용: ID=${id}`);
                             this.highlightPaletteItem('condition', id);
                         });
-                        
+
                         console.log('✨ 모든 하이라이트 적용 완료!');
                     }, 100); // 100ms 지연
 
@@ -1502,7 +1502,7 @@
                 highlightPaletteItem(type, id) {
                     const paletteMap = {
                         'role': '#roles-palette',
-                        'permission': '#permissionsPalette', 
+                        'permission': '#permissionsPalette',
                         'condition': '#conditionsPalette'
                     };
 
@@ -1519,24 +1519,24 @@
                         if (dataInfo && dataInfo.startsWith(String(id) + ':')) {
                             // AI 선택 하이라이트 클래스 추가
                             item.classList.add('ai-selected');
-                            
+
                             // 아이콘을 체크 표시로 변경
                             const icon = item.querySelector('i');
                             if (icon) {
                                 icon.className = 'fas fa-check-circle text-green-400';
                             }
-                            
+
                             // 텍스트를 초록색으로 변경
                             const span = item.querySelector('span');
                             if (span) {
                                 span.classList.add('text-green-400', 'font-semibold');
                             }
-                            
+
                             // 배경 효과 추가
                             item.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.1))';
                             item.style.borderColor = 'rgba(34, 197, 94, 0.4)';
                             item.style.boxShadow = '0 0 20px rgba(34, 197, 94, 0.3)';
-                            
+
                             console.log(`🟢 팔레트 하이라이트 적용: ${type} ID=${id}`);
                         }
                     });
@@ -1549,19 +1549,19 @@
                     console.log('🧹 팔레트 하이라이트 제거 시작');
                     const palettes = ['#roles-palette', '#permissionsPalette', '#conditionsPalette'];
                     let totalCleared = 0;
-                    
+
                     // 1. 먼저 전체 페이지에서 ai-selected 클래스를 가진 모든 요소 찾기
                     const allHighlighted = document.querySelectorAll('.ai-selected');
                     console.log(`🔍 전체 페이지에서 ${allHighlighted.length}개 하이라이트 아이템 발견`);
-                    
+
                     allHighlighted.forEach(item => {
                         const dataInfo = item.getAttribute('data-info');
                         const type = item.getAttribute('data-type');
                         console.log(`🧹 전역 하이라이트 제거 중: ${dataInfo} (타입: ${type})`);
-                        
+
                         // 클래스 제거
                         item.classList.remove('ai-selected');
-                        
+
                         // 아이콘 복원 (강화된 버전)
                         const icon = item.querySelector('i');
                         if (icon && type) {
@@ -1569,7 +1569,7 @@
                             icon.className = '';
                             // 모든 초록색 관련 클래스 강제 제거
                             icon.classList.remove('text-green-400', 'fa-check-circle', 'fas', 'fa-user-shield', 'fa-key', 'fa-clock');
-                            
+
                             const iconMap = {
                                 'role': 'fas fa-user-shield text-purple-400',
                                 'permission': 'fas fa-key text-yellow-400',
@@ -1577,12 +1577,12 @@
                             };
                             const originalIconClass = iconMap[type];
                             icon.className = originalIconClass;
-                            
+
                             // 인라인 스타일도 강제 제거
                             icon.removeAttribute('style');
                             console.log(`🎨 아이콘 완전 복원: ${originalIconClass}`);
                         }
-                        
+
                         // 텍스트 스타일 복원 (강화된 버전)
                         const span = item.querySelector('span');
                         if (span) {
@@ -1591,7 +1591,7 @@
                             span.removeAttribute('style');
                             console.log('📝 텍스트 스타일 완전 복원');
                         }
-                        
+
                         // 스타일 완전 복원
                         item.style.background = '';
                         item.style.borderColor = '';
@@ -1602,10 +1602,10 @@
                         // 모든 인라인 스타일 완전 제거
                         item.removeAttribute('style');
                         console.log('🎨 모든 인라인 스타일 완전 제거');
-                        
+
                         totalCleared++;
                     });
-                    
+
                     // 2. 추가로 각 팔레트에서 개별 검색 (이중 체크)
                     palettes.forEach(paletteSelector => {
                         const palette = document.querySelector(paletteSelector);
@@ -1617,22 +1617,22 @@
                         // 모든 palette-item을 검사하여 초록색 스타일이 남아있는지 확인
                         const allItems = palette.querySelectorAll('.palette-item');
                         console.log(`🔍 ${paletteSelector}에서 총 ${allItems.length}개 아이템 검사`);
-                        
+
                         allItems.forEach(item => {
                             const hasGreenIcon = item.querySelector('i.text-green-400');
                             const hasGreenText = item.querySelector('span.text-green-400');
                             const hasGreenBg = item.style.background && item.style.background.includes('rgba(34, 197, 94');
                             const isPreselected = item.classList.contains('preselected');
-                            
+
                             // 더 포괄적인 초록 텍스트 검사 (모든 하위 요소 포함)
                             const allGreenTexts = item.querySelectorAll('.text-green-400');
                             const hasAnyGreenText = allGreenTexts.length > 0;
-                            
+
                             if (hasGreenIcon || hasGreenText || hasGreenBg || hasAnyGreenText || isPreselected) {
                                 const dataInfo = item.getAttribute('data-info');
                                 const type = item.getAttribute('data-type');
                                 console.log(`🧹 잔여 초록 스타일 제거: ${dataInfo} (초록텍스트: ${allGreenTexts.length}개, preselected: ${isPreselected})`);
-                                
+
                                 // 강제로 모든 초록 스타일 제거 (강화된 버전)
                                 const icon = item.querySelector('i');
                                 if (icon) {
@@ -1642,7 +1642,7 @@
                                     icon.classList.remove('text-green-400', 'fa-check-circle', 'fas', 'fa-user-shield', 'fa-key', 'fa-clock');
                                     // 인라인 스타일도 강제 제거
                                     icon.removeAttribute('style');
-                                    
+
                                     if (type) {
                                         const iconMap = {
                                             'role': 'fas fa-user-shield text-purple-400',
@@ -1653,13 +1653,13 @@
                                         console.log(`  ↳ 아이콘 완전 복원: ${iconMap[type]}`);
                                     }
                                 }
-                                
+
                                 // 모든 하위 요소에서 초록 텍스트 제거
                                 allGreenTexts.forEach(greenElement => {
                                     greenElement.classList.remove('text-green-400', 'font-semibold');
                                     console.log(`  ↳ 초록 텍스트 제거: ${greenElement.tagName}`);
                                 });
-                                
+
                                 const span = item.querySelector('span');
                                 if (span) {
                                     span.classList.remove('text-green-400', 'font-semibold');
@@ -1667,7 +1667,7 @@
                                     span.removeAttribute('style');
                                     console.log(`  ↳ 텍스트 스타일 완전 제거`);
                                 }
-                                
+
                                 // 모든 스타일 완전 제거
                                 item.style.background = '';
                                 item.style.borderColor = '';
@@ -1679,20 +1679,20 @@
                                 item.removeAttribute('style');
                                 item.classList.remove('ai-selected');
                                 console.log(`  ↳ 모든 인라인 스타일 완전 제거`);
-                                
+
                                 // preselected 클래스도 제거 (필요시)
                                 if (isPreselected) {
                                     console.log(`  ↳ preselected 클래스 제거`);
                                     // item.classList.remove('preselected'); // 주석: 서버에서 설정한 preselected는 유지할 수도 있음
                                 }
-                                
+
                                 totalCleared++;
                             }
                         });
                     });
-                    
+
                     console.log(`✅ 총 ${totalCleared}개 팔레트 하이라이트 제거 완료`);
-                    
+
                     // 🔥 브루트 포스: 모든 하이라이트를 강제로 제거
                     this.bruteForceRemoveAllHighlights();
                 }
@@ -1702,21 +1702,21 @@
                  */
                 bruteForceRemoveAllHighlights() {
                     console.log('🔥 브루트 포스 하이라이트 제거 시작');
-                    
+
                     // 1. 모든 ai-selected 클래스 제거
                     document.querySelectorAll('.ai-selected').forEach(element => {
                         element.classList.remove('ai-selected');
                         element.removeAttribute('style');
                         console.log('  ↳ ai-selected 제거:', element.getAttribute('data-info'));
                     });
-                    
+
                     // 2. 모든 text-green-400 클래스 제거
                     document.querySelectorAll('.text-green-400').forEach(element => {
                         element.classList.remove('text-green-400', 'font-semibold');
                         element.removeAttribute('style');
                         console.log('  ↳ text-green-400 제거:', element.tagName);
                     });
-                    
+
                     // 3. 모든 fa-check-circle 아이콘 복원
                     document.querySelectorAll('.fa-check-circle').forEach(icon => {
                         const paletteItem = icon.closest('.palette-item');
@@ -1724,7 +1724,7 @@
                             const type = paletteItem.getAttribute('data-type');
                             icon.className = '';
                             icon.removeAttribute('style');
-                            
+
                             if (type) {
                                 const iconMap = {
                                     'role': 'fas fa-user-shield text-purple-400',
@@ -1736,7 +1736,7 @@
                             }
                         }
                     });
-                    
+
                     // 4. 모든 palette-item의 인라인 스타일 제거
                     document.querySelectorAll('.palette-item').forEach(item => {
                         if (item.style.background || item.style.borderColor || item.style.boxShadow) {
@@ -1744,7 +1744,7 @@
                             console.log('  ↳ palette-item 스타일 제거:', item.getAttribute('data-info'));
                         }
                     });
-                    
+
                     console.log('🔥 브루트 포스 하이라이트 제거 완료');
                 }
 
@@ -1754,7 +1754,7 @@
                 removeHighlightFromPaletteItem(type, id) {
                     const paletteMap = {
                         'role': '#roles-palette',
-                        'permission': '#permissionsPalette', 
+                        'permission': '#permissionsPalette',
                         'condition': '#conditionsPalette'
                     };
 
@@ -1771,7 +1771,7 @@
                         if (dataInfo && dataInfo.startsWith(id + ':')) {
                             // AI 선택 하이라이트 클래스 제거
                             item.classList.remove('ai-selected');
-                            
+
                             // 아이콘 완전 복원
                             const icon = item.querySelector('i');
                             const itemType = item.getAttribute('data-type');
@@ -1782,7 +1782,7 @@
                                 icon.classList.remove('text-green-400', 'fa-check-circle', 'fas', 'fa-user-shield', 'fa-key', 'fa-clock');
                                 // 인라인 스타일도 강제 제거
                                 icon.removeAttribute('style');
-                                
+
                                 const iconMap = {
                                     'role': 'fas fa-user-shield text-purple-400',
                                     'permission': 'fas fa-key text-yellow-400',
@@ -1790,7 +1790,7 @@
                                 };
                                 icon.className = iconMap[itemType] || icon.className;
                             }
-                            
+
                             // 텍스트 스타일 완전 복원
                             const span = item.querySelector('span');
                             if (span) {
@@ -1798,7 +1798,7 @@
                                 // 인라인 스타일도 강제 제거
                                 span.removeAttribute('style');
                             }
-                            
+
                             // 스타일 완전 복원
                             item.style.background = '';
                             item.style.borderColor = '';
@@ -1808,7 +1808,7 @@
                             item.style.filter = '';
                             // 모든 인라인 스타일 완전 제거
                             item.removeAttribute('style');
-                            
+
                             console.log(`🔴 팔레트 하이라이트 제거: ${type} ID=${id}`);
                         }
                     });
@@ -1904,24 +1904,24 @@
                     alert('🚪 handleCloseModal 함수가 호출되었습니다!');
                     console.log('🚪🚪🚪 모달 닫기 메서드 호출됨 🚪🚪🚪');
                     console.log('🚪 현재 시간:', new Date().toLocaleTimeString());
-                    
+
                     try {
                         // 0. 닫기 전 현재 하이라이트 상태 확인
                         console.log('📊 닫기 전 하이라이트 상태:');
                         this.checkHighlightStatus();
-                        
+
                         // 1. 먼저 상태 초기화 실행
                         this.resetAllStates();
                         console.log('✅ 상태 초기화 완료');
-                        
+
                         // 초기화 후 상태 재확인
                         console.log('📊 초기화 후 하이라이트 상태:');
                         this.checkHighlightStatus();
-                        
+
                         // 페이지 닫기
                         console.log('🚪 정책 빌더 페이지를 닫습니다');
                         window.close();
-                        
+
                         setTimeout(() => {
                             console.log('🚪 페이지 닫기 시도');
                             window.close();
@@ -1934,7 +1934,7 @@
                                 }
                             }, 100);
                         }, 100);
-                        
+
                     } catch (error) {
                         console.error('❌ 모달 닫기 중 오류:', error);
                         // 오류가 발생해도 페이지는 닫아야 함
@@ -1953,17 +1953,17 @@
                     const greenTexts = document.querySelectorAll('span.text-green-400');
                     const preselectedItems = document.querySelectorAll('.preselected');
                     const allGreenElements = document.querySelectorAll('.text-green-400');
-                    
+
                     console.log(`ai-selected 클래스: ${aiSelected.length}개`);
                     console.log(`초록 아이콘: ${greenIcons.length}개`);
                     console.log(`초록 텍스트: ${greenTexts.length}개`);
                     console.log(`preselected 아이템: ${preselectedItems.length}개`);
                     console.log(`모든 초록 요소: ${allGreenElements.length}개`);
-                    
+
                     aiSelected.forEach((item, i) => {
                         console.log(`${i+1}. ${item.getAttribute('data-info')} (${item.getAttribute('data-type')})`);
                     });
-                    
+
                     // 모든 초록 요소 상세 정보
                     if (allGreenElements.length > 0) {
                         console.log('🟢 모든 초록 요소 상세:');
@@ -1974,7 +1974,7 @@
                             console.log(`  ${i+1}. ${element.tagName} - ${dataInfo} (preselected: ${isPreselected})`);
                         });
                     }
-                    
+
                     return {
                         aiSelected: aiSelected.length,
                         greenIcons: greenIcons.length,
@@ -1989,14 +1989,14 @@
                  */
                 resetAllStates() {
                     console.log('🧹 모달 닫기 - 모든 상태 초기화 시작');
-                    
+
                     // 1. 팔레트 하이라이트 모두 제거
                     console.log('1️⃣ 팔레트 하이라이트 제거 중...');
                     this.clearPaletteHighlights();
-                    
+
                     // 2. 상태 초기화
                     ['role', 'permission', 'condition'].forEach(type => this.state.clear(type));
-                    
+
                     // 3. 입력 필드 초기화
                     if (this.elements.policyNameInput) {
                         this.elements.policyNameInput.value = '';
@@ -2013,11 +2013,11 @@
                     if (this.elements.customSpelInput) {
                         this.elements.customSpelInput.value = '';
                     }
-                    
+
                     // 4. AI 설정 초기화
                     this.state.aiRiskAssessmentEnabled = false;
                     this.state.requiredTrustScore = 0.7;
-                    
+
                     if (this.elements.aiEnabledCheckbox) {
                         this.elements.aiEnabledCheckbox.checked = false;
                     }
@@ -2027,7 +2027,7 @@
                     if (this.elements.trustScoreValueSpan) {
                         this.elements.trustScoreValueSpan.textContent = '70';
                     }
-                    
+
                     // 5. AI 사고 과정 컨테이너 숨기기
                     const thoughtContainer = document.getElementById('ai-thought-process-container');
                     if (thoughtContainer) {
@@ -2037,11 +2037,11 @@
                             thoughtLog.innerHTML = '';
                         }
                     }
-                    
+
                     // 6. UI 업데이트
                     this.handleAiToggle();
                     this.ui.renderAll(this.state);
-                    
+
                     console.log('✅ 모든 상태 초기화 완료');
                 }
 
@@ -2054,11 +2054,11 @@
                  */
                 async handlePermissionAdded(permissionInfo) {
                     console.log('🎯 권한 추가됨, 스마트 매칭 조건 추천 시작:', permissionInfo);
-                    
+
                     // 권한에서 리소스 식별자 추출
                     const resourceIdentifier = this.extractResourceFromPermission(permissionInfo);
                     const permissionName = permissionInfo.name || permissionInfo.description || `권한-${permissionInfo.id}`;
-                    
+
                     if (!resourceIdentifier) {
                         console.log('🔍 리소스 식별자를 추출할 수 없어 조건 추천을 생략합니다.');
                         return;
@@ -2068,15 +2068,15 @@
                         // 🎯 스마트 매칭 시도 (권한명 기반)
                         console.log('🎯 스마트 매칭 시도 - 권한명:', permissionName, '리소스:', resourceIdentifier);
                         const smartResponse = await this.api.smartMatchConditions(permissionName, resourceIdentifier, "auto");
-                        
+
                         if (smartResponse && smartResponse.smartMatchedConditions && smartResponse.smartMatchedConditions.length > 0) {
                             console.log('✅ 스마트 매칭 성공:', smartResponse.smartMatchedConditions.length, '개 조건 매칭');
                             this.showSmartMatchModal(smartResponse, permissionName);
                             return;
                         }
-                        
+
                         console.log('📝 스마트 매칭 결과 없음, 기본 추천으로 폴백');
-                        
+
                         // 폴백: 기본 조건 추천
                         const recommendations = await this.api.recommendConditions(resourceIdentifier, "auto");
                         if (recommendations && recommendations.totalRecommended > 0) {
@@ -2092,7 +2092,7 @@
                  */
                 async handleManualRecommendConditions() {
                     console.log('🎯 수동 조건 추천 요청');
-                    
+
                     // 현재 선택된 권한들에서 리소스 식별자 추출
                     const resourceIdentifiers = this.extractResourcesFromCurrentPermissions();
                     if (resourceIdentifiers.length === 0) {
@@ -2106,7 +2106,7 @@
                         // 첫 번째 리소스에 대한 추천 (향후 다중 리소스 지원 가능)
                         const recommendations = await this.api.recommendConditions(resourceIdentifiers[0], "manual");
                         this.hideLoadingModal();
-                        
+
                         if (recommendations && recommendations.totalRecommended > 0) {
                             this.showConditionRecommendModal(recommendations, '선택된 권한');
                         } else {
@@ -2126,7 +2126,7 @@
                     // 권한명에서 리소스 정보 추출 로직
                     // 예: "READ_USER_PROFILE" -> "UserController.getProfile"
                     const permissionName = permissionInfo.name;
-                    
+
                     // 간단한 매핑 로직 (실제로는 더 정교한 매핑 필요)
                     const resourceMappings = {
                         'READ_USER': 'UserController.getUser',
@@ -2136,7 +2136,7 @@
                         'UPDATE_DOCUMENT': 'DocumentController.updateDocument',
                         'DELETE_DOCUMENT': 'DocumentController.deleteDocument'
                     };
-                    
+
                     return resourceMappings[permissionName] || null;
                 }
 
@@ -2159,23 +2159,23 @@
                  */
                 showSmartMatchModal(smartResponse, permissionName) {
                     console.log('🎯 스마트 매칭 모달 표시:', smartResponse);
-                    
+
                     // 스마트 매칭 모달 HTML 생성
                     const modalHtml = this.generateSmartMatchModalHtml(smartResponse, permissionName);
-                    
+
                     // 기존 모달 제거
                     const existingModal = document.getElementById('smartMatchModal');
                     if (existingModal) {
                         existingModal.remove();
                     }
-                    
+
                     // 새 모달 추가
                     document.body.insertAdjacentHTML('beforeend', modalHtml);
-                    
+
                     // 모달 표시 및 이벤트 바인딩
                     const modal = document.getElementById('smartMatchModal');
                     modal.style.display = 'flex';
-                    
+
                     // 조건 선택 이벤트 바인딩
                     this.bindSmartMatchModalEvents(modal, smartResponse);
                 }
@@ -2185,23 +2185,23 @@
                  */
                 showConditionRecommendModal(recommendations, contextName) {
                     console.log('🎯 조건 추천 모달 표시:', recommendations);
-                    
+
                     // 모달 HTML 동적 생성
                     const modalHtml = this.generateRecommendModalHtml(recommendations, contextName);
-                    
+
                     // 기존 모달 제거
                     const existingModal = document.getElementById('conditionRecommendModal');
                     if (existingModal) {
                         existingModal.remove();
                     }
-                    
+
                     // 새 모달 추가
                     document.body.insertAdjacentHTML('beforeend', modalHtml);
-                    
+
                     // 모달 표시 및 이벤트 바인딩
                     const modal = document.getElementById('conditionRecommendModal');
                     modal.style.display = 'flex';
-                    
+
                     // 조건 선택 이벤트 바인딩
                     this.bindRecommendModalEvents(modal, recommendations);
                 }
@@ -2211,17 +2211,17 @@
                  */
                 generateSmartMatchModalHtml(smartResponse, permissionName) {
                     const smartMatchedConditions = smartResponse.smartMatchedConditions;
-                    
+
                     // 매칭 점수별로 정렬 (이미 서버에서 정렬되어 있지만 확실히)
                     const sortedConditions = [...smartMatchedConditions].sort((a, b) => b.smartMatchingScore - a.smartMatchingScore);
-                    
+
                     // 고득점 조건 (3.0 이상)
                     const highScoreConditions = sortedConditions.filter(c => c.smartMatchingScore >= 3.0);
                     const mediumScoreConditions = sortedConditions.filter(c => c.smartMatchingScore >= 1.5 && c.smartMatchingScore < 3.0);
                     const lowScoreConditions = sortedConditions.filter(c => c.smartMatchingScore < 1.5);
-                    
+
                     let contentHtml = '';
-                    
+
                     // 고득점 조건들
                     if (highScoreConditions.length > 0) {
                         contentHtml += `
@@ -2232,14 +2232,14 @@
                                 <div class="text-sm text-gray-300 mb-2">권한명과 높은 일치도를 보이는 조건들</div>
                                 <div class="grid gap-2">
                         `;
-                        
+
                         highScoreConditions.forEach(condition => {
                             contentHtml += this.generateSmartMatchConditionHtml(condition, 'high');
                         });
-                        
+
                         contentHtml += '</div></div>';
                     }
-                    
+
                     // 중간 점수 조건들
                     if (mediumScoreConditions.length > 0) {
                         contentHtml += `
@@ -2249,14 +2249,14 @@
                                 </h4>
                                 <div class="grid gap-2">
                         `;
-                        
+
                         mediumScoreConditions.forEach(condition => {
                             contentHtml += this.generateSmartMatchConditionHtml(condition, 'medium');
                         });
-                        
+
                         contentHtml += '</div></div>';
                     }
-                    
+
                     // 낮은 점수 조건들 (접기 가능)
                     if (lowScoreConditions.length > 0) {
                         contentHtml += `
@@ -2267,14 +2267,14 @@
                                     </summary>
                                     <div class="grid gap-2 mt-2">
                         `;
-                        
+
                         lowScoreConditions.forEach(condition => {
                             contentHtml += this.generateSmartMatchConditionHtml(condition, 'low');
                         });
-                        
+
                         contentHtml += '</div></details></div>';
                     }
-                    
+
                     return `
                         <div id="smartMatchModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
                             <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-5xl max-h-[85vh] overflow-y-auto">
@@ -2306,28 +2306,28 @@
                 generateSmartMatchConditionHtml(condition, scoreLevel) {
                     const borderColors = {
                         'high': 'border-green-500',
-                        'medium': 'border-yellow-500', 
+                        'medium': 'border-yellow-500',
                         'low': 'border-gray-500'
                     };
-                    
+
                     const bgColors = {
                         'high': 'bg-green-900 bg-opacity-20',
                         'medium': 'bg-yellow-900 bg-opacity-20',
                         'low': 'bg-gray-700'
                     };
-                    
+
                     const riskColor = {
                         'LOW': 'text-green-400',
                         'MEDIUM': 'text-yellow-400',
                         'HIGH': 'text-red-400'
                     }[condition.riskLevel] || 'text-gray-400';
-                    
+
                     const classificationIcon = {
                         'UNIVERSAL': '🟢',
                         'CONTEXT_DEPENDENT': '🟡',
                         'CUSTOM_COMPLEX': '🔴'
                     }[condition.classification] || '⚪';
-                    
+
                     return `
                         <div class="smart-match-item p-3 border ${borderColors[scoreLevel]} ${bgColors[scoreLevel]} rounded-lg hover:bg-opacity-40 cursor-pointer"
                              data-condition-id="${condition.id}"
@@ -2365,19 +2365,19 @@
                  */
                 generateRecommendModalHtml(recommendations, contextName) {
                     const recommendedConditions = recommendations.recommendedConditions;
-                    
+
                     let contentHtml = '';
-                    
+
                     // 분류별로 조건들을 렌더링
                     Object.entries(recommendedConditions).forEach(([classification, conditions]) => {
                         if (conditions.length === 0) return;
-                        
+
                         const classificationNames = {
                             'UNIVERSAL': '🟢 범용 조건',
                             'CONTEXT_DEPENDENT': '🟡 컨텍스트 의존 조건',
                             'CUSTOM_COMPLEX': '🔴 복잡한 조건'
                         };
-                        
+
                         contentHtml += `
                             <div class="recommendation-group mb-4">
                                 <h4 class="font-semibold text-lg mb-2 text-indigo-300">
@@ -2385,14 +2385,14 @@
                                 </h4>
                                 <div class="grid gap-2">
                         `;
-                        
+
                         conditions.forEach((condition, index) => {
                             const riskColor = {
                                 'LOW': 'text-green-400',
                                 'MEDIUM': 'text-yellow-400',
                                 'HIGH': 'text-red-400'
                             }[condition.riskLevel] || 'text-gray-400';
-                            
+
                             contentHtml += `
                                 <div class="recommendation-item p-3 border border-gray-600 rounded-lg hover:bg-gray-700 cursor-pointer"
                                      data-condition-id="${condition.id}"
@@ -2415,13 +2415,13 @@
                                 </div>
                             `;
                         });
-                        
+
                         contentHtml += `
                                 </div>
                             </div>
                         `;
                     });
-                    
+
                     return `
                         <div id="conditionRecommendModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" style="display: none;">
                             <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -2485,12 +2485,12 @@
                 addSmartMatchedCondition(conditionId, smartResponse) {
                     // 스마트 매칭 목록에서 해당 조건 찾기
                     const foundCondition = smartResponse.smartMatchedConditions.find(c => c.id == conditionId);
-                    
+
                     if (!foundCondition) {
                         console.error('🔥 스마트 매칭 조건을 찾을 수 없습니다:', conditionId);
                         return;
                     }
-                    
+
                     // 상태에 조건 추가
                     this.state.add('condition', `${foundCondition.id}:smartmatch`, {
                         id: foundCondition.id,
@@ -2500,15 +2500,15 @@
                         isCompatible: true,
                         reason: `스마트 매칭을 통해 추가됨 (점수: ${foundCondition.smartMatchingScore.toFixed(1)})`
                     });
-                    
+
                     // UI 업데이트
                     this.ui.renderAll(this.state);
-                    
+
                     // 팔레트에서 해당 조건 하이라이트
                     this.highlightPaletteItem('condition', foundCondition.id);
-                    
+
                     this.showMessage(`조건 "${foundCondition.name}"이 추가되었습니다. (매칭 점수: ${foundCondition.smartMatchingScore.toFixed(1)})`, 'success');
-                    
+
                     console.log('✅ 스마트 매칭 조건 추가됨:', foundCondition.name, '점수:', foundCondition.smartMatchingScore);
                 }
 
@@ -2517,18 +2517,18 @@
                  */
                 addAllHighScoreConditions(smartResponse) {
                     const highScoreConditions = smartResponse.smartMatchedConditions.filter(c => c.smartMatchingScore >= 3.0);
-                    
+
                     if (highScoreConditions.length === 0) {
                         this.showMessage('강력 추천 조건이 없습니다.', 'info');
                         return;
                     }
-                    
+
                     let addedCount = 0;
                     highScoreConditions.forEach(condition => {
                         // 중복 확인
-                        const existingKey = Array.from(this.state.conditions.keys()).find(key => 
+                        const existingKey = Array.from(this.state.conditions.keys()).find(key =>
                             key.startsWith(`${condition.id}:`));
-                        
+
                         if (!existingKey) {
                             this.state.add('condition', `${condition.id}:smartmatch-bulk`, {
                                 id: condition.id,
@@ -2541,18 +2541,18 @@
                             addedCount++;
                         }
                     });
-                    
+
                     // UI 업데이트
                     this.ui.renderAll(this.state);
-                    
+
                     // 팔레트 하이라이트
                     highScoreConditions.forEach(condition => {
                         this.highlightPaletteItem('condition', condition.id);
                     });
-                    
+
                     this.showMessage(`${addedCount}개의 강력 추천 조건이 모두 추가되었습니다.`, 'success');
                     this.hideSmartMatchModal();
-                    
+
                     console.log('✅ 강력 추천 조건 일괄 추가 완료:', addedCount, '개');
                 }
 
@@ -2578,7 +2578,7 @@
                             this.addRecommendedCondition(conditionId, recommendations);
                         });
                     });
-                    
+
                     // 닫기 버튼 이벤트
                     modal.querySelectorAll('#closeRecommendModal').forEach(button => {
                         button.addEventListener('click', () => {
@@ -2597,12 +2597,12 @@
                         const condition = conditions.find(c => c.id == conditionId);
                         if (condition) foundCondition = condition;
                     });
-                    
+
                     if (!foundCondition) {
                         console.error('🔥 추천 조건을 찾을 수 없습니다:', conditionId);
                         return;
                     }
-                    
+
                     // 상태에 조건 추가
                     this.state.add('condition', `${foundCondition.id}:recommend`, {
                         id: foundCondition.id,
@@ -2612,15 +2612,15 @@
                         isCompatible: true,
                         reason: '추천 시스템을 통해 추가됨'
                     });
-                    
+
                     // UI 업데이트
                     this.ui.renderAll(this.state);
-                    
+
                     // 팔레트에서 해당 조건 하이라이트
                     this.highlightPaletteItem('condition', foundCondition.id);
-                    
+
                     this.showMessage(`조건 "${foundCondition.name}"이 추가되었습니다.`, 'success');
-                    
+
                     console.log('✅ 추천 조건 추가됨:', foundCondition.name);
                 }
 
@@ -2637,30 +2637,30 @@
             }
 
             const policyBuilderApp = new PolicyBuilderApp();
-            
+
             // 전역 함수로 등록하여 HTML에서 호출 가능하도록 함
             window.resetPolicyBuilderStates = () => {
                 policyBuilderApp.resetAllStates();
             };
-            
+
             // 하이라이트 테스트 함수 (디버깅용)
             window.testHighlightClear = () => {
                 console.log('🧪 하이라이트 제거 테스트 시작');
                 policyBuilderApp.clearPaletteHighlights();
                 console.log('🧪 하이라이트 제거 테스트 완료');
             };
-            
+
             // 브루트 포스 하이라이트 제거 함수 (긴급용)
             window.bruteForceRemoveHighlights = () => {
                 console.log('🔥 전역 브루트 포스 하이라이트 제거 시작');
-                
+
                 // 1. 모든 ai-selected 클래스 제거
                 document.querySelectorAll('.ai-selected').forEach(element => {
                     element.classList.remove('ai-selected');
                     element.removeAttribute('style');
                     console.log('  ↳ ai-selected 제거:', element.getAttribute('data-info'));
                 });
-                
+
                 // 2. 모든 text-green-400 클래스 제거 (preselected 제외)
                 document.querySelectorAll('.text-green-400').forEach(element => {
                     const paletteItem = element.closest('.palette-item');
@@ -2670,7 +2670,7 @@
                         console.log('  ↳ text-green-400 제거:', element.tagName);
                     }
                 });
-                
+
                 // 3. 모든 fa-check-circle 아이콘 복원 (preselected 제외)
                 document.querySelectorAll('.fa-check-circle').forEach(icon => {
                     const paletteItem = icon.closest('.palette-item');
@@ -2678,7 +2678,7 @@
                         const type = paletteItem.getAttribute('data-type');
                         icon.className = '';
                         icon.removeAttribute('style');
-                        
+
                         if (type) {
                             const iconMap = {
                                 'role': 'fas fa-user-shield text-purple-400',
@@ -2690,7 +2690,7 @@
                         }
                     }
                 });
-                
+
                 // 4. 모든 palette-item의 인라인 스타일 제거
                 document.querySelectorAll('.palette-item').forEach(item => {
                     if (item.style.background || item.style.borderColor || item.style.boxShadow) {
@@ -2698,10 +2698,10 @@
                         console.log('  ↳ palette-item 스타일 제거:', item.getAttribute('data-info'));
                     }
                 });
-                
+
                 console.log('🔥 전역 브루트 포스 하이라이트 제거 완료');
             };
-            
+
             // 현재 하이라이트 상태 확인 함수
             window.checkHighlightStatus = () => {
                 console.log('🔍 현재 하이라이트 상태 확인');
@@ -2710,17 +2710,17 @@
                 const greenTexts = document.querySelectorAll('span.text-green-400');
                 const preselectedItems = document.querySelectorAll('.preselected');
                 const allGreenElements = document.querySelectorAll('.text-green-400');
-                
+
                 console.log(`ai-selected 클래스: ${aiSelected.length}개`);
                 console.log(`초록 아이콘: ${greenIcons.length}개`);
                 console.log(`초록 텍스트: ${greenTexts.length}개`);
                 console.log(`preselected 아이템: ${preselectedItems.length}개`);
                 console.log(`모든 초록 요소: ${allGreenElements.length}개`);
-                
+
                 aiSelected.forEach((item, i) => {
                     console.log(`${i+1}. ${item.getAttribute('data-info')} (${item.getAttribute('data-type')})`);
                 });
-                
+
                 // 모든 초록 요소 상세 정보
                 if (allGreenElements.length > 0) {
                     console.log('🟢 모든 초록 요소 상세:');
@@ -2731,7 +2731,7 @@
                         console.log(`  ${i+1}. ${element.tagName} - ${dataInfo} (preselected: ${isPreselected})`);
                     });
                 }
-                
+
                 return {
                     aiSelected: aiSelected.length,
                     greenIcons: greenIcons.length,
@@ -2740,31 +2740,31 @@
                     allGreen: allGreenElements.length
                 };
             };
-            
+
             // 모달 닫기 핸들러 함수
             window.handleCloseModal = () => {
                 console.log('🚪 모달 닫기 버튼 클릭됨');
-                
+
                 try {
                     // 0. 닫기 전 현재 하이라이트 상태 확인
                     console.log('📊 닫기 전 하이라이트 상태:');
                     window.checkHighlightStatus();
-                    
+
                     // 1. 먼저 상태 초기화 실행
                     if (typeof window.resetPolicyBuilderStates === 'function') {
                         window.resetPolicyBuilderStates();
                         console.log('✅ 상태 초기화 완료');
-                        
+
                         // 초기화 후 상태 재확인
                         console.log('📊 초기화 후 하이라이트 상태:');
                         window.checkHighlightStatus();
                     }
-                    
+
                     // 페이지 닫기
                     setTimeout(() => {
                         console.log('🚪 페이지 닫기 시도');
                         window.close();
-                        
+
                         // window.close()가 작동하지 않는 경우 뒤로가기
                         setTimeout(() => {
                             if (!window.closed) {
@@ -2773,7 +2773,7 @@
                             }
                         }, 100);
                     }, 100);
-                    
+
                 } catch (error) {
                     console.error('❌ 모달 닫기 중 오류:', error);
                     // 오류가 발생해도 페이지는 닫아야 함
@@ -2781,12 +2781,12 @@
                     if (!window.closed) window.history.back();
                 }
             };
-            
+
             // 페이지 언로드 시에도 상태 초기화 (브라우저 뒤로가기, 새로고침 등)
             window.addEventListener('beforeunload', () => {
                 policyBuilderApp.resetAllStates();
             });
-            
+
             // ESC 키 눌렀을 때 모달 닫기 및 초기화
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
@@ -2794,7 +2794,7 @@
                     policyBuilderApp.handleCloseModal();
                 }
             });
-            
+
             console.log('🌟 PolicyBuilderApp 초기화 성공!');
         } catch (error) {
             console.error('❌ PolicyBuilderApp 초기화 실패:', error);
