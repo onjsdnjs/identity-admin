@@ -13,10 +13,13 @@ import io.spring.identityadmin.domain.dto.PermissionDto;
 import io.spring.identityadmin.domain.dto.RoleDto;
 import io.spring.identityadmin.domain.entity.ConditionTemplate;
 import io.spring.identityadmin.domain.entity.ManagedResource;
+import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.repository.ConditionTemplateRepository;
 import io.spring.identityadmin.repository.ManagedResourceRepository;
+import io.spring.identityadmin.repository.PermissionRepository;
+import io.spring.identityadmin.resource.service.ConditionCompatibilityService;
 import io.spring.identityadmin.security.xacml.pap.dto.VisualPolicyDto;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyBuilderService;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +50,8 @@ public class PolicyBuilderController {
     private final PermissionCatalogService permissionCatalogService;
     private final ConditionTemplateRepository conditionTemplateRepository;
     private final ManagedResourceRepository managedResourceRepository;
+    private final PermissionRepository permissionRepository;
+    private final ConditionCompatibilityService conditionCompatibilityService;
     private final ObjectMapper objectMapper;
     private final PermissionService permissionService;
     private final ModelMapper modelMapper;
@@ -55,47 +60,139 @@ public class PolicyBuilderController {
 
 
     /**
-     * 시각적 정책 빌더 UI 페이지를 렌더링합니다.
-     * 빌더의 팔레트를 채우기 위해 필요한 모든 구성요소(주체, 권한, 조건)를 모델에 담아 전달합니다.
+     * 🚀 [완전 리팩토링] 정책 빌더 메인 페이지
+     * 
+     * 기존: 모든 조건을 표시하고 드래그 시 검증
+     * 신규: 리소스에 호환되는 조건만 사전 필터링하여 표시
      */
     @GetMapping
-    public String policyBuilder(Model model) {
+    public String showPolicyBuilder(@RequestParam(value = "resourceId", required = false) Long resourceId,
+                                   @RequestParam(value = "permissionId", required = false) Long permissionId,
+                                   Model model) {
+        log.info("🚀 정책 빌더 접근: resourceId={}, permissionId={}", resourceId, permissionId);
 
-        // Entity 대신 DTO 사용으로 순환 참조 방지
-        List<RoleDto> roleDtos = roleService.getRolesWithoutExpression().stream()
-                .map(role -> RoleDto.builder()
-                        .id(role.getId())
-                        .roleName(role.getRoleName())
-                        .roleDesc(role.getRoleDesc())
-                        .build())
-                .collect(Collectors.toList());
+        try {
+            // 1. 기본 데이터 로드
+            loadBasicData(model);
 
-        List<PermissionDto> permissionDtos = permissionCatalogService.getAvailablePermissions().stream()
-                .map(permission -> PermissionDto.builder()
-                        .id(permission.getId())
-                        .name(permission.getName())
-                        .friendlyName(permission.getFriendlyName())
-                        .description(permission.getDescription())
-                        .targetType(permission.getTargetType())
-                        .actionType(permission.getActionType())
-                        .build())
-                .collect(Collectors.toList());
+            // 2. 리소스 컨텍스트 설정
+            ManagedResource targetResource = determineTargetResource(resourceId, permissionId);
+            if (targetResource != null) {
+                model.addAttribute("resourceContext", targetResource);
+                log.info("🔍 리소스 컨텍스트 설정: {}", targetResource.getResourceIdentifier());
+            }
 
-        model.addAttribute("allRoles", roleDtos);
-        model.addAttribute("allPermissions", permissionDtos);
-        
-        // 🔧 개선: 리소스 컨텍스트가 없을 때 기본 컨텍스트 설정
-        if (!model.containsAttribute("resourceContext")) {
-            Map<String, Object> defaultContext = createDefaultResourceContext();
-            model.addAttribute("resourceContext", defaultContext);
-            log.info("🔧 정책 빌더 직접 접근: 기본 리소스 컨텍스트 설정됨");
+            // 3. 🎯 핵심 개선: 호환되는 조건만 필터링하여 제공
+            List<ConditionTemplate> allConditions = conditionTemplateRepository.findAll();
+            List<ConditionTemplate> compatibleConditions = getCompatibleConditionsForResource(targetResource, allConditions);
+            
+            // 4. 조건들을 DTO로 변환 (UI용)
+            List<ConditionTemplateDto> conditionDtos = convertToConditionDtos(compatibleConditions, targetResource);
+            
+            model.addAttribute("allConditions", conditionDtos);
+            model.addAttribute("conditionStatistics", calculateConditionStatistics(compatibleConditions));
+
+            log.info("🎯 필터링 결과: 전체 {} 개 조건 중 {} 개 호환 조건 제공", 
+                allConditions.size(), compatibleConditions.size());
+
+            return "admin/policy-builder";
+
+        } catch (Exception e) {
+            log.error("정책 빌더 로드 실패", e);
+            model.addAttribute("errorMessage", "정책 빌더를 로드하는 중 오류가 발생했습니다: " + e.getMessage());
+            return "admin/policy-builder";
+        }
+    }
+
+    /**
+     * 🎯 리소스에 호환되는 조건들만 반환
+     */
+    private List<ConditionTemplate> getCompatibleConditionsForResource(ManagedResource resource, List<ConditionTemplate> allConditions) {
+        if (resource == null) {
+            // 리소스가 없으면 범용 조건만 반환
+            log.info("🌟 리소스 컨텍스트 없음 - 범용 조건만 제공");
+            return conditionCompatibilityService.getUniversalConditions(allConditions);
+        }
+
+        // 리소스와 호환되는 조건들 필터링
+        return conditionCompatibilityService.getCompatibleConditions(resource, allConditions);
+    }
+
+    /**
+     * 🔄 조건들을 UI용 DTO로 변환
+     */
+    private List<ConditionTemplateDto> convertToConditionDtos(List<ConditionTemplate> conditions, ManagedResource resource) {
+        return conditions.stream().map(condition -> {
+            // SpEL 템플릿에서 필요한 변수 목록을 추출
+            Set<String> requiredVars = extractVariablesFromSpel(condition.getSpelTemplate());
+            
+            // 조건 설명 강화
+            String enhancedDescription = enhanceConditionDescriptionV2(condition);
+
+            // 모든 필터링된 조건은 활성화 상태
+            boolean isActive = true;
+
+            return new ConditionTemplateDto(
+                    condition.getId(),
+                    condition.getName(),
+                    enhancedDescription,
+                    requiredVars,
+                    isActive,
+                    condition.getSpelTemplate()
+            );
+        })
+        .sorted((a, b) -> {
+            // 범용 조건을 먼저 표시
+            ConditionTemplate condA = findConditionById(conditions, a.id());
+            ConditionTemplate condB = findConditionById(conditions, b.id());
+            
+            int classOrder = getClassificationOrder(condA.getClassification()) - 
+                           getClassificationOrder(condB.getClassification());
+            if (classOrder != 0) return classOrder;
+            
+            return a.name().compareTo(b.name());
+        })
+        .toList();
+    }
+
+    /**
+     * 🔍 대상 리소스 결정 (resourceId 또는 permissionId로부터)
+     */
+    private ManagedResource determineTargetResource(Long resourceId, Long permissionId) {
+        if (resourceId != null) {
+            return managedResourceRepository.findById(resourceId).orElse(null);
         }
         
-        addContextAwareConditionsToModel(model);
-
-        model.addAttribute("activePage", "policy-builder");
-        return "admin/policy-builder";
+        if (permissionId != null) {
+            // 권한으로부터 연결된 리소스 찾기
+            return permissionRepository.findById(permissionId)
+                .map(permission -> permission.getManagedResource())
+                .orElse(null);
+        }
+        
+        return null;
     }
+
+    /**
+     * 🔧 기본 데이터 로드 (역할, 권한 등)
+     */
+    private void loadBasicData(Model model) {
+        // 역할 목록
+        List<Role> allRoles = roleService.getRoles();
+        model.addAttribute("allRoles", allRoles);
+
+        // 권한 목록
+        List<Permission> allPermissions = permissionRepository.findAll();
+        model.addAttribute("allPermissions", allPermissions);
+
+        // 사전 선택된 권한이 있는지 확인
+        Permission preselectedPermission = (Permission) model.asMap().get("preselectedPermission");
+        if (preselectedPermission != null) {
+            model.addAttribute("preselectedPermission", preselectedPermission);
+        }
+    }
+
+
     
     /**
      * 🔧 신규: 기본 리소스 컨텍스트를 생성합니다.
@@ -409,7 +506,7 @@ public class PolicyBuilderController {
                 });
 
         // 기존 policyBuilder 메서드를 호출하여 공통 데이터 추가 및 뷰 렌더링
-        return policyBuilder(model);
+        return showPolicyBuilder(resourceId, permissionId, model);
     }
 
     /**
