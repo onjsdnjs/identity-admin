@@ -1,4 +1,4 @@
-package io.spring.identityadmin.ai.dto;
+package io.spring.identityadmin.aiam.dto;
 
 /**
  * AI가 특정 사용자에게 추천하는 역할 정보를 담는 DTO.

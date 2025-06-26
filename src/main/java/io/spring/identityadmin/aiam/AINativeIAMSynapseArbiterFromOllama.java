@@ -1,4 +1,4 @@
-package io.spring.identityadmin.ai;
+package io.spring.identityadmin.aiam;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.spring.identityadmin.ai.dto.*;
+import io.spring.identityadmin.aiam.dto.*;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
@@ -44,6 +44,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.spring.identityadmin.domain.entity.policy.Policy.Effect.ALLOW;
+
 
 @Slf4j
 @Service
@@ -310,7 +311,7 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         return buildSystemMetadata(null);
     }
 
-    private String buildSystemMetadata(io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
+    private String buildSystemMetadata(io.spring.identityadmin.aiam.dto.PolicyGenerationRequest.AvailableItems availableItems) {
         StringBuilder metadata = new StringBuilder();
 
         if (availableItems != null) {
@@ -386,7 +387,7 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
     /**
      * 사용 가능한 항목들을 포함한 정책 생성
      */
-    public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery, io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
+    public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery, io.spring.identityadmin.aiam.dto.PolicyGenerationRequest.AvailableItems availableItems) {
         // RAG 검색
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(naturalLanguageQuery)

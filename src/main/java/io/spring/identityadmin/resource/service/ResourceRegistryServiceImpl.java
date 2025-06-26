@@ -2,8 +2,8 @@ package io.spring.identityadmin.resource.service;
 
 import com.google.common.collect.Lists;
 import io.spring.identityadmin.admin.metadata.service.PermissionCatalogService;
-import io.spring.identityadmin.ai.AINativeIAMAdvisor;
-import io.spring.identityadmin.ai.dto.ResourceNameSuggestion;
+import io.spring.identityadmin.aiam.AINativeIAMAdvisor;
+import io.spring.identityadmin.aiam.dto.ResourceNameSuggestion;
 import io.spring.identityadmin.domain.dto.ResourceManagementDto;
 import io.spring.identityadmin.domain.dto.ResourceMetadataDto;
 import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
