@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -91,6 +92,9 @@ public class PolicyBuilderController {
             
             model.addAttribute("allConditions", conditionDtos);
             model.addAttribute("conditionStatistics", calculateConditionStatistics(compatibleConditions));
+            
+            log.info("🎯 조건 필터링 완료: 전체 {} 개 → 호환 {} 개 → DTO {} 개", 
+                allConditions.size(), compatibleConditions.size(), conditionDtos.size());
 
             log.info("🎯 필터링 결과: 전체 {} 개 조건 중 {} 개 호환 조건 제공", 
                 allConditions.size(), compatibleConditions.size());
@@ -108,14 +112,21 @@ public class PolicyBuilderController {
      * 🎯 리소스에 호환되는 조건들만 반환
      */
     private List<ConditionTemplate> getCompatibleConditionsForResource(ManagedResource resource, List<ConditionTemplate> allConditions) {
+        log.info("🔍 조건 호환성 필터링 시작: resource={}, 전체조건수={}", 
+            resource != null ? resource.getResourceIdentifier() : "null", allConditions.size());
+            
         if (resource == null) {
             // 리소스가 없으면 범용 조건만 반환
             log.info("🌟 리소스 컨텍스트 없음 - 범용 조건만 제공");
-            return conditionCompatibilityService.getUniversalConditions(allConditions);
+            List<ConditionTemplate> universalConditions = conditionCompatibilityService.getUniversalConditions(allConditions);
+            log.info("🌟 범용 조건 개수: {}", universalConditions.size());
+            return universalConditions;
         }
 
         // 리소스와 호환되는 조건들 필터링
-        return conditionCompatibilityService.getCompatibleConditions(resource, allConditions);
+        List<ConditionTemplate> compatibleConditions = conditionCompatibilityService.getCompatibleConditions(resource, allConditions);
+        log.info("🎯 호환 조건 필터링 결과: {} 개", compatibleConditions.size());
+        return compatibleConditions;
     }
 
     /**
@@ -478,35 +489,88 @@ public class PolicyBuilderController {
             @RequestParam Long permissionId,
             Model model) {
 
-        ManagedResource resource = managedResourceRepository.findById(resourceId)
-                .orElseThrow(() -> new IllegalArgumentException("Resource not found"));
+        log.info("🚀 리소스 워크벤치에서 정책빌더 접근: resourceId={}, permissionId={}", resourceId, permissionId);
 
-        // 리소스에 사용 가능한 컨텍스트 변수 정보
-        Map<String, Object> resourceContext = new HashMap<>();
-        resourceContext.put("resourceIdentifier", resource.getResourceIdentifier());
         try {
-            resourceContext.put("parameterTypes", objectMapper.readValue(resource.getParameterTypes(), new TypeReference<>() {}));
+            ManagedResource resource = managedResourceRepository.findById(resourceId)
+                    .orElseThrow(() -> new IllegalArgumentException("Resource not found: " + resourceId));
+
+            // 🔧 안전한 리소스 컨텍스트 생성 (순환 참조 방지)
+            Map<String, Object> resourceContext = createSafeResourceContext(resource);
+            model.addAttribute("resourceContext", resourceContext);
+
+            // 🔧 권한 정보를 안전하게 추가
+            addSafePermissionToModel(permissionId, model);
+
+            log.info("🔍 리소스 컨텍스트 설정 완료: {}", resource.getResourceIdentifier());
+
+            // 메인 정책빌더 로직 호출
+            return showPolicyBuilder(resourceId, permissionId, model);
+
         } catch (Exception e) {
-            resourceContext.put("parameterTypes", Collections.emptyList());
+            log.error("🚨 리소스 워크벤치에서 정책빌더 접근 실패", e);
+            model.addAttribute("errorMessage", "정책 빌더 로드 실패: " + e.getMessage());
+            return "admin/policy-builder";
         }
-        resourceContext.put("returnObjectType", resource.getReturnType());
+    }
 
-        model.addAttribute("resourceContext", resourceContext);
+    /**
+     * 🔧 순환 참조 없는 안전한 리소스 컨텍스트 생성
+     */
+    private Map<String, Object> createSafeResourceContext(ManagedResource resource) {
+        Map<String, Object> context = new HashMap<>();
+        
+        // 기본 정보만 안전하게 추가
+        context.put("resourceIdentifier", resource.getResourceIdentifier());
+        context.put("friendlyName", resource.getFriendlyName());
+        context.put("description", resource.getDescription());
+        context.put("resourceType", resource.getResourceType());
+        context.put("returnType", resource.getReturnType());
+        
+        // 파라미터 타입을 안전하게 파싱
+        String paramTypes = resource.getParameterTypes();
+        if (paramTypes != null && !paramTypes.trim().isEmpty()) {
+            try {
+                // JSON 배열이면 파싱, 아니면 문자열 그대로
+                if (paramTypes.startsWith("[") && paramTypes.endsWith("]")) {
+                    List<String> parsedTypes = objectMapper.readValue(paramTypes, new TypeReference<List<String>>() {});
+                    context.put("parameterTypes", parsedTypes);
+                } else {
+                    context.put("parameterTypes", Arrays.asList(paramTypes.split(",")));
+                }
+            } catch (Exception e) {
+                log.warn("파라미터 타입 파싱 실패, 원본 사용: {}", paramTypes);
+                context.put("parameterTypes", paramTypes);
+            }
+        } else {
+            context.put("parameterTypes", Collections.emptyList());
+        }
+        
+        return context;
+    }
 
-        // Permission을 DTO로 변환하여 전달
-        permissionService.getPermission(permissionId)
-                .ifPresent(permission -> {
-                    PermissionDto permissionDto = PermissionDto.builder()
-                            .id(permission.getId())
-                            .name(permission.getName())
-                            .friendlyName(permission.getFriendlyName())
-                            .description(permission.getDescription())
-                            .build();
-                    model.addAttribute("preselectedPermission", permissionDto);
-                });
-
-        // 기존 policyBuilder 메서드를 호출하여 공통 데이터 추가 및 뷰 렌더링
-        return showPolicyBuilder(resourceId, permissionId, model);
+    /**
+     * 🔧 권한 정보를 안전하게 모델에 추가
+     */
+    private void addSafePermissionToModel(Long permissionId, Model model) {
+        try {
+            permissionService.getPermission(permissionId)
+                    .ifPresent(permission -> {
+                        // 순환 참조 없는 DTO 생성
+                        Map<String, Object> permissionData = new HashMap<>();
+                        permissionData.put("id", permission.getId());
+                        permissionData.put("name", permission.getName());
+                        permissionData.put("friendlyName", permission.getFriendlyName());
+                        permissionData.put("description", permission.getDescription());
+                        permissionData.put("actionType", permission.getActionType());
+                        permissionData.put("targetType", permission.getTargetType());
+                        
+                        model.addAttribute("preselectedPermission", permissionData);
+                        log.debug("🔍 사전 선택 권한 설정: {}", permission.getName());
+                    });
+        } catch (Exception e) {
+            log.warn("권한 정보 로드 실패: permissionId={}", permissionId, e);
+        }
     }
 
     /**
