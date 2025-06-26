@@ -2106,9 +2106,14 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         3. 업무시간 접근 제한 (9시-18시)
         
         **주의사항:**
-        - "~권한" 용어 사용 금지
-        - "~확인", "~제한" 용어 사용
+        - "~권한" 용어 사용 금지 (시스템 크래시!)
+        - "~상태 확인", "~역할 확인", "~접근 제한" 용어 사용
         - 정확히 3개만 생성
+        
+        🏆 올바른 범용 네이밍 예시:
+        - "사용자 인증 상태 확인" ← 올바름
+        - "관리자 역할 확인" ← 올바름  
+        - "업무시간 접근 제한" ← 올바름
         
         JSON만 출력하세요. 설명 텍스트 금지.
         """;
@@ -2194,7 +2199,7 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
          1. hasPermission() 함수만 사용 (올바른 형식으로)
          2. 제공된 파라미터만 사용 (추가 파라미터 절대 금지)
          3. 정확히 하나의 조건만 생성 (여러 개 절대 금지)
-         4. "~검증", "~확인" 용어만 사용 ("~권한" 절대 금지)
+         4. "~대상 검증", "~접근 확인" 용어만 사용 ("~권한" 절대 금지)
          5. 액션은 CREATE, READ, UPDATE, DELETE만 사용
         
                  🎯 허용된 형식:
@@ -2225,19 +2230,25 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
          - #groupExists(), getCurrentUser() (존재하지 않는 함수)
          - && || 연산자 (복합 조건 금지)
          - 여러 조건 생성
-         - "권한" 용어 사용 ("검증", "확인"만 허용)
+         - "권한" 용어 사용 (시스템 크래시!) - "대상 검증", "접근 확인"만 허용
+         
+         🏆 올바른 네이밍 예시:
+         - "그룹 수정 대상 검증" ← 올바름
+         - "사용자 수정 대상 검증" ← 올바름  
+         - "문서 생성 대상 검증" ← 올바름
+         - "그룹 삭제 접근 확인" ← 올바름
+         - "사용자 조회 접근 확인" ← 올바름
          
          🚨 특별 주의사항:
-         - createGroup 메서드에서 #document 파라미터 사용 절대 금지!
-         - modifyUser 메서드에서 hasPermission(#userDto, 'USER', 'UPDATE') 형식 절대 금지!
+         - 모든 조건명에서 "권한" 단어 사용 시 시스템 크래시!
         
                  **응답 형식 (정확히 하나만):**
          [
            {
              "name": "그룹 수정 대상 검증",
-             "description": "수정하려는 그룹에 대한 UPDATE 권한을 검증하는 조건",
+             "description": "수정하려는 그룹에 대한 UPDATE 접근을 검증하는 조건",
              "spelTemplate": "hasPermission(#group, 'UPDATE')",
-             "category": "권한 검증",
+             "category": "대상 검증",
              "classification": "CONTEXT_DEPENDENT"
            }
          ]
@@ -2245,10 +2256,10 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
          **ID 파라미터 예시:**
          [
            {
-             "name": "그룹 조회 권한 검증",
-             "description": "특정 ID의 그룹에 대한 READ 권한을 검증하는 조건",
+             "name": "그룹 조회 접근 확인",
+             "description": "특정 ID의 그룹에 대한 READ 접근을 확인하는 조건",
              "spelTemplate": "hasPermission(#id, 'GROUP', 'READ')",
-             "category": "권한 검증",
+             "category": "접근 확인",
              "classification": "CONTEXT_DEPENDENT"
            }
          ]

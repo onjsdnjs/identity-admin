@@ -732,9 +732,15 @@ public class AutoConditionTemplateService {
                 - hasPermission(#document, 'DOCUMENT', 'CREATE') 형식 (크래시!)
                 - hasPermission(#group, 'GROUP', 'UPDATE') 형식 (크래시!)
                 - 여러 조건 생성
-                - "권한" 용어 사용
+                - "권한" 용어 사용 (시스템 크래시!)
                 
-                ✅ 올바른 예시:
+                ✅ 올바른 네이밍 예시:
+                - "그룹 수정 대상 검증" (권한 X, 대상 검증 O)
+                - "사용자 수정 대상 검증" (권한 X, 대상 검증 O)  
+                - "문서 생성 대상 검증" (권한 X, 대상 검증 O)
+                - "그룹 생성 접근 확인" (권한 X, 접근 확인 O)
+                
+                ✅ 올바른 SpEL 예시:
                 - hasPermission(#document, 'CREATE') ← 2개 파라미터만!
                 - hasPermission(#userDto, 'UPDATE') ← 2개 파라미터만!
                 - hasPermission(#group, 'UPDATE') ← 2개 파라미터만!
@@ -767,7 +773,7 @@ public class AutoConditionTemplateService {
                 2. 위에 명시된 파라미터만 사용 (다른 파라미터 시 크래시)
                 3. 위에 명시된 리소스 타입만 사용 (다른 타입 시 크래시)
                 4. hasPermission()은 반드시 3개 파라미터 사용 (2개 파라미터 시 크래시)
-                5. "~검증", "~확인" 용어만 사용 ("~권한" 시 크래시)
+                5. "~대상 검증", "~접근 확인" 용어만 사용 ("~권한" 시 크래시)
                 6. hasPermission() 함수만 사용 (다른 함수 시 크래시)
                 
                 ❌ 시스템 크래시 유발 항목:
@@ -775,7 +781,13 @@ public class AutoConditionTemplateService {
                 - DOCUMENT, ROLE, SYSTEM (절대 존재하지 않음)
                 - hasPermission(#id, 'READ') 형식 (2개 파라미터 크래시!)
                 - 여러 조건 생성
-                - "권한" 용어 사용
+                - "권한" 용어 사용 (시스템 크래시!)
+                
+                ✅ 올바른 네이밍 예시:
+                - "그룹 삭제 대상 검증" (권한 X, 대상 검증 O)
+                - "사용자 조회 접근 확인" (권한 X, 접근 확인 O)  
+                - "그룹 조회 접근 확인" (권한 X, 접근 확인 O)
+                - "사용자 삭제 대상 검증" (권한 X, 대상 검증 O)
                 """, 
                 getServiceName(signature.resourceType),
                 signature.methodName,
