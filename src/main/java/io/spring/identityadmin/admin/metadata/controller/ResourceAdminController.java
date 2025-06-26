@@ -6,7 +6,7 @@ import io.spring.identityadmin.domain.dto.ResourceSearchCriteria;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.resource.service.ResourceRegistryService;
-import io.spring.identityadmin.workflow.wizard.service.PermissionWizardService;
+import io.spring.identityadmin.admin.workflow.wizard.service.PermissionWizardService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;

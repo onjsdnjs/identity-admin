@@ -6,7 +6,7 @@ import io.spring.identityadmin.admin.support.context.dto.RecentActivityDto;
 import io.spring.identityadmin.domain.entity.WizardSession;
 import io.spring.identityadmin.repository.AuditLogRepository;
 import io.spring.identityadmin.repository.WizardSessionRepository;
-import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
+import io.spring.identityadmin.admin.workflow.wizard.dto.WizardContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

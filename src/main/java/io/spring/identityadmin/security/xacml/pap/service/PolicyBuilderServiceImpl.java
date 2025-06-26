@@ -2,7 +2,6 @@ package io.spring.identityadmin.security.xacml.pap.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.identityadmin.domain.dto.PolicyDto;
-import io.spring.identityadmin.domain.entity.FunctionCatalog;
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.PolicyTemplate;
 import io.spring.identityadmin.domain.entity.Users;
@@ -16,7 +15,7 @@ import io.spring.identityadmin.repository.PolicyTemplateRepository;
 import io.spring.identityadmin.repository.UserRepository;
 import io.spring.identityadmin.security.core.CustomUserDetails;
 import io.spring.identityadmin.security.xacml.pap.dto.*;
-import io.spring.identityadmin.studio.dto.SimulationResultDto;
+import io.spring.identityadmin.admin.studio.dto.SimulationResultDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -34,7 +33,6 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * [최종 구현] 모든 Mock 및 Placeholder를 제거하고, 실제 DB 연동 및 비즈니스 로직을 포함한 완전한 구현체입니다.

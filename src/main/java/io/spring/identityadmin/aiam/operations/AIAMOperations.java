@@ -110,35 +110,5 @@ public interface AIAMOperations<T extends IAMContext> extends AICoreOperations<T
      */
     CompletableFuture<AuditAnalysisResponse> analyzeAuditLogs(AuditAnalysisRequest<T> request);
     
-    // ==================== Callback Interfaces ====================
-    
-    /**
-     * 위험 이벤트 콜백 인터페이스
-     * 적절한 내부 인터페이스 사용 예시
-     */
-    interface RiskEventCallback {
-        void onRiskDetected(RiskEvent event);
-        void onError(Exception error);
-    }
-    
-    /**
-     * 위험 이벤트 데이터 클래스
-     * 간단한 데이터 홀더로 내부 클래스 적절한 사용
-     */
-    class RiskEvent {
-        private final String riskType;
-        private final String severity;
-        private final long timestamp;
-        
-        public RiskEvent(String riskType, String severity) {
-            this.riskType = riskType;
-            this.severity = severity;
-            this.timestamp = System.currentTimeMillis();
-        }
-        
-        // Getters
-        public String getRiskType() { return riskType; }
-        public String getSeverity() { return severity; }
-        public long getTimestamp() { return timestamp; }
-    }
+
 }

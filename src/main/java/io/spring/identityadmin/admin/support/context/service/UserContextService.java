@@ -1,7 +1,7 @@
 package io.spring.identityadmin.admin.support.context.service;
 
 import io.spring.identityadmin.admin.support.context.dto.RecentActivityDto;
-import io.spring.identityadmin.workflow.wizard.dto.WizardContext;
+import io.spring.identityadmin.admin.workflow.wizard.dto.WizardContext;
 import java.util.List;
 
 public interface UserContextService {

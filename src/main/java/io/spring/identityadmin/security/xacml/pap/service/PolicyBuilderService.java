@@ -2,7 +2,7 @@ package io.spring.identityadmin.security.xacml.pap.service;
 
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.security.xacml.pap.dto.*;
-import io.spring.identityadmin.studio.dto.SimulationResultDto;
+import io.spring.identityadmin.admin.studio.dto.SimulationResultDto;
 
 import java.util.List;
 
