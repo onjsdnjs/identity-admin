@@ -27,37 +27,5 @@ public class PolicyDto {
     @Builder.Default
     private List<RuleDto> rules = new ArrayList<>();
 
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class TargetDto {
-        private String targetType;
-        private String targetIdentifier;
-        private String httpMethod;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class RuleDto {
-        private String description;
-
-        // [최종 수정] conditions 필드의 타입을 List<ConditionDto>로 변경
-        @Builder.Default
-        private List<ConditionDto> conditions = new ArrayList<>();
-    }
-
-    /**
-     * [최종 수정] 개별 조건의 상세 정보(표현식, 인가 시점)를 모두 담는 DTO
-     */
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    @Builder
-    public static class ConditionDto {
-        private String expression;
-        private PolicyCondition.AuthorizationPhase authorizationPhase;
-    }
+    // ✅ 내부 클래스 분리 완료 - 별도 파일로 이동됨
 }
