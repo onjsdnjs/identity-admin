@@ -1,4 +1,4 @@
-package io.spring.identityadmin.ai.dto;
+package io.spring.identityadmin.aiam.dto;
 
 import java.util.List;
 

@@ -1,6 +1,6 @@
 package io.spring.identityadmin.security.xacml.pdp.evaluation.url;
 
-import io.spring.identityadmin.ai.AINativeIAMAdvisor;
+import io.spring.identityadmin.aiam.AINativeIAMAdvisor;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;
 import io.spring.identityadmin.security.xacml.pip.context.ContextHandler;
 import io.spring.identityadmin.security.xacml.pip.attribute.AttributeInformationPoint;

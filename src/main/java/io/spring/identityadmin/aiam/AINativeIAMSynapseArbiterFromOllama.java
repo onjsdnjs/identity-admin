@@ -1,4 +1,4 @@
-package io.spring.identityadmin.ai;
+package io.spring.identityadmin.aiam;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.spring.identityadmin.ai.dto.*;
+import io.spring.identityadmin.aiam.dto.*;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
@@ -36,7 +36,6 @@ import org.springframework.util.CollectionUtils;
 import reactor.core.publisher.Flux;
 
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -311,7 +310,7 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         return buildSystemMetadata(null);
     }
 
-    private String buildSystemMetadata(io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
+    private String buildSystemMetadata(io.spring.identityadmin.aiam.dto.PolicyGenerationRequest.AvailableItems availableItems) {
         StringBuilder metadata = new StringBuilder();
 
         if (availableItems != null) {
@@ -387,7 +386,7 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
     /**
      * 사용 가능한 항목들을 포함한 정책 생성
      */
-    public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery, io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
+    public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery, io.spring.identityadmin.aiam.dto.PolicyGenerationRequest.AvailableItems availableItems) {
         // RAG 검색
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(naturalLanguageQuery)
@@ -2080,8 +2079,6 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         return cleaned;
     }
 
-    // AINativeIAMSynapseArbiterFromOllama.java의 수정된 메서드들
-
     // AINativeIAMSynapseArbiterFromOllama.java에 추가/수정할 메서드들
 
     @Override
@@ -2089,38 +2086,29 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         log.info("🤖 AI 범용 조건 템플릿 생성 시작");
 
         String systemPrompt = """
-        당신은 Spring Security의 hasPermission 표현식 전문가입니다.
-        RBAC 권한을 통과한 후 추가로 검증할 속성 기반 조건을 생성해주세요.
+        당신은 Spring Security hasPermission 전문가입니다.
+        반드시 JSON 배열 형식으로만 응답하세요. 다른 텍스트는 절대 포함하지 마세요.
         
-        **중요: 오직 다음 2가지 형식만 사용하세요:**
-        1. hasPermission(#객체, '권한명')
-        2. hasPermission(#객체, '타입', '권한명')
-        
-        **올바른 예시:**
-        - hasPermission(#userDto, 'UPDATE')
-        - hasPermission(#userId, 'USER', 'UPDATE')
-        - hasPermission(#document, 'DOCUMENT', 'CREATE')
-        - hasPermission(#groupId, 'GROUP', 'DELETE')
-        
-        **원칙:**
-        1. 모든 이름과 설명은 한국어
-        2. 실용적인 조건만 3-4개
-        3. hasPermission 형식만 사용
-        4. "~권한 검증"이 아닌 "~조건", "~확인" 용어 사용
-        
-        **응답 형식:**
+        **필수 JSON 응답 형식:**
         [
           {
-            "name": "문서 읽기 조건",
-            "description": "문서에 대한 읽기 권한을 확인하는 조건",
-            "spelTemplate": "hasPermission(#documentId, 'DOCUMENT', 'READ')",
-            "category": "권한 기반",
+            "name": "인증 상태 확인",
+            "description": "사용자 인증 상태를 확인하는 조건",
+            "spelTemplate": "isAuthenticated()",
+            "category": "인증",
             "classification": "UNIVERSAL"
           }
         ]
+        
+        **생성할 조건:**
+        1. isAuthenticated() - 인증 확인
+        2. hasRole('ROLE_ADMIN') - 관리자 역할
+        3. 시간 기반 제한 조건
+        
+        JSON만 출력하세요. 설명 텍스트 금지.
         """;
 
-        String userPrompt = "시스템 전반에서 사용할 수 있는 범용 hasPermission 조건 3-4개를 생성하세요.";
+        String userPrompt = "범용 보안 조건 3개를 JSON 형식으로 생성하세요.";
 
         try {
             SystemMessage systemMessage = new SystemMessage(systemPrompt);
@@ -2131,37 +2119,48 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
             String aiResponse = response.getResult().getOutput().getText();
 
             log.debug("✅ AI 범용 템플릿 응답 수신: {} characters", aiResponse.length());
+
+            // JSON 검증
+            String trimmed = aiResponse.trim();
+            if (!trimmed.startsWith("[")) {
+                log.error("🔥 AI가 JSON 배열이 아닌 형식으로 응답: {}", trimmed.substring(0, Math.min(50, trimmed.length())));
+                return getFallbackUniversalTemplates();
+            }
+
             return aiResponse;
 
         } catch (Exception e) {
             log.error("🔥 AI 범용 템플릿 생성 실패", e);
-            // fallback JSON 응답 - hasPermission만 사용
-            return """
-            [
-              {
-                "name": "사용자 인증 상태 확인",
-                "description": "RBAC를 통과한 사용자의 인증 상태를 재검증하는 ABAC 조건",
-                "spelTemplate": "isAuthenticated()",
-                "category": "인증 상태",
-                "classification": "UNIVERSAL"
-              },
-              {
-                "name": "관리자 컨텍스트 검증",
-                "description": "민감한 작업에서 관리자 권한을 재확인하는 ABAC 조건",
-                "spelTemplate": "hasRole('ROLE_ADMIN')",
-                "category": "권한 재검증",
-                "classification": "UNIVERSAL"
-              },
-              {
-                "name": "업무시간 접근 제한",
-                "description": "오전 9시부터 오후 5시까지만 접근을 허용하는 시간 기반 ABAC 조건",
-                "spelTemplate": "T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour <= 17",
-                "category": "시간 기반",
-                "classification": "UNIVERSAL"
-              }
-            ]
-            """;
+            return getFallbackUniversalTemplates();
         }
+    }
+
+    private String getFallbackUniversalTemplates() {
+        return """
+        [
+          {
+            "name": "사용자 인증 상태 확인",
+            "description": "사용자가 인증되었는지 확인하는 조건",
+            "spelTemplate": "isAuthenticated()",
+            "category": "인증 상태",
+            "classification": "UNIVERSAL"
+          },
+          {
+            "name": "관리자 권한 확인",
+            "description": "관리자 역할을 가진 사용자인지 확인하는 조건",
+            "spelTemplate": "hasRole('ROLE_ADMIN')",
+            "category": "권한 확인",
+            "classification": "UNIVERSAL"
+          },
+          {
+            "name": "업무시간 접근 제한",
+            "description": "오전 9시부터 오후 6시까지만 접근을 허용하는 조건",
+            "spelTemplate": "T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour <= 18",
+            "category": "시간 기반",
+            "classification": "UNIVERSAL"
+          }
+        ]
+        """;
     }
 
     @Override
@@ -2169,45 +2168,24 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         log.debug("🤖 AI 특화 조건 생성: {}", resourceIdentifier);
 
         String systemPrompt = """
-        당신은 Spring Security의 hasPermission 표현식 전문가입니다.
-        RBAC 권한을 통과한 후 추가로 검증할 메서드별 조건을 생성해주세요.
+        JSON 형식으로만 응답하세요. 마크다운이나 설명 텍스트는 절대 포함하지 마세요.
         
-        **중요: 오직 다음 2가지 형식만 사용하세요:**
-        1. hasPermission(#객체, '권한명')
-        2. hasPermission(#객체, '타입', '권한명')
+        hasPermission 규칙:
+        - ID 파라미터: hasPermission(#id, '타입', '권한')
+        - 객체 파라미터: hasPermission(#객체, '권한')
+        - 파라미터 없음: 빈 배열 []
         
-        **필수 규칙:**
-        - 파라미터가 없는 메서드(예: getAll, list 등)는 조건을 생성하지 마세요
-        - 파라미터가 있는 메서드만 조건을 생성하세요
-        - #파라미터명: 메서드 파라미터 참조
-        - #returnObject: 메서드 반환값 참조 (PostFilter용)
+        타입: USER, GROUP, ROLE, PERMISSION
+        권한: CREATE, READ, UPDATE, DELETE
         
-        **원칙:**
-        1. 메서드에 맞는 조건 1개만 생성
-        2. 실제 파라미터 이름만 사용
-        3. 모든 이름과 설명은 한국어
-        4. hasPermission 형식만 사용
-        
-        **올바른 예시:**
-        - createGroup(Group group) → "그룹 생성 조건", "hasPermission(#group, 'CREATE')"
-        - getGroup(Long id) → "그룹 조회 조건", "hasPermission(#id, 'GROUP', 'READ')"
-        - updateGroup(Group group) → "그룹 수정 조건", "hasPermission(#group, 'UPDATE')"
-        - deleteGroup(Long id) → "그룹 삭제 조건", "hasPermission(#id, 'GROUP', 'DELETE')"
-        - getAllGroups() → 빈 배열 [] (파라미터 없음)
-        - listUsers() → 빈 배열 [] (파라미터 없음)
-        
-        **응답 형식:**
-        [
-          {
-            "name": "그룹 수정 조건",
-            "description": "그룹을 수정할 수 있는 권한을 확인하는 조건",
-            "spelTemplate": "hasPermission(#group, 'UPDATE')",
-            "category": "권한 확인",
-            "classification": "CONTEXT_DEPENDENT"
-          }
-        ]
-        
-        **파라미터가 없으면 반드시 빈 배열 [] 반환하세요.**
+        JSON 형식:
+        [{
+          "name": "조건명",
+          "description": "설명",
+          "spelTemplate": "hasPermission(...)",
+          "category": "권한 확인",
+          "classification": "CONTEXT_DEPENDENT"
+        }]
         """;
 
         try {
@@ -2219,15 +2197,13 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
             String aiResponse = response.getResult().getOutput().getText();
 
             log.debug("✅ AI 특화 템플릿 응답 수신: {} characters", aiResponse.length());
-            log.info("🔍 AI 응답 전체 내용: {}", aiResponse); // AI 응답 전체 로깅
+            log.info("🔍 AI 응답 전체 내용: {}", aiResponse);
+
             return aiResponse;
 
         } catch (Exception e) {
             log.warn("🔥 AI 특화 템플릿 생성 실패: {}", resourceIdentifier, e);
-
-            // fallback 주석 처리 - AI 응답 분석을 위해
-            // return generateFallbackHasPermissionCondition(resourceIdentifier, methodInfo);
-            return "[]"; // 빈 배열 반환
+            return "[]";
         }
     }
 
@@ -2338,6 +2314,4 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
 
         return "[]"; // 빈 배열 반환
     }
-    
-    
 }

@@ -3,7 +3,7 @@ package io.spring.identityadmin.security.xacml.pep;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.identityadmin.admin.monitoring.service.AuditLogService;
-import io.spring.identityadmin.ai.dto.TrustAssessment;
+import io.spring.identityadmin.aiam.dto.TrustAssessment;
 import io.spring.identityadmin.domain.dto.UserDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
