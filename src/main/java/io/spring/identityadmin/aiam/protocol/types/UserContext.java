@@ -71,8 +71,8 @@ public class UserContext extends IAMContext {
      * @return 실시간 분석 권장 여부
      */
     public boolean isRealTimeAnalysisRecommended() {
-        return getSecurityLevel() == SecurityLevel.HIGH || getSecurityLevel() == SecurityLevel.CRITICAL ||
-               analysisType == UserAnalysisType.RISK_ASSESSMENT ||
+        return getSecurityLevel() == SecurityLevel.ENHANCED || getSecurityLevel() == SecurityLevel.MAXIMUM ||
+               analysisType == UserAnalysisType.RISK_ANALYSIS ||
                (userProfile != null && userProfile.isHighRiskUser());
     }
     

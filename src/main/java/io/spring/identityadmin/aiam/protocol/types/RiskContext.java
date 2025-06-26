@@ -71,7 +71,7 @@ public class RiskContext extends IAMContext {
      * @return 실시간 분석 권장 여부
      */
     public boolean isRealTimeAnalysisRecommended() {
-        return getSecurityLevel() == SecurityLevel.HIGH || getSecurityLevel() == SecurityLevel.CRITICAL ||
+        return getSecurityLevel() == SecurityLevel.ENHANCED || getSecurityLevel() == SecurityLevel.MAXIMUM ||
                analysisScope == RiskAnalysisScope.SYSTEM_LEVEL ||
                (threatIntelligence != null && threatIntelligence.hasActiveThreat());
     }

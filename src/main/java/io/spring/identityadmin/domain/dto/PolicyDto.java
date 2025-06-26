@@ -27,5 +27,4 @@ public class PolicyDto {
     @Builder.Default
     private List<RuleDto> rules = new ArrayList<>();
 
-    // ✅ 내부 클래스 분리 완료 - 별도 파일로 이동됨
 }

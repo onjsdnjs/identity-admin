@@ -1,6 +1,9 @@
 package io.spring.identityadmin.security.xacml.pap.service;
 
+import io.spring.identityadmin.domain.dto.ConditionDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.dto.RuleDto;
+import io.spring.identityadmin.domain.dto.TargetDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.repository.PolicyRepository;
@@ -106,13 +109,13 @@ public class PolicyOptimizationServiceImpl implements PolicyOptimizationService 
 
         // [수정] ConditionDto를 사용하여 RuleDto를 생성하도록 변경
         // 1. 병합된 조건을 담을 ConditionDto 생성 (기본값 PRE_AUTHORIZE)
-        PolicyDto.ConditionDto mergedConditionDto = PolicyDto.ConditionDto.builder()
+        ConditionDto mergedConditionDto = ConditionDto.builder()
                 .expression(mergedCondition)
                 .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE)
                 .build();
 
         // 2. ConditionDto 리스트를 사용하여 RuleDto 생성
-        PolicyDto.RuleDto mergedRule = PolicyDto.RuleDto.builder()
+        RuleDto mergedRule = RuleDto.builder()
                 .description("ID " + policyIds + " 정책들로부터 병합됨")
                 .conditions(List.of(mergedConditionDto))
                 .build();
@@ -123,7 +126,7 @@ public class PolicyOptimizationServiceImpl implements PolicyOptimizationService 
                 .description("여러 정책이 하나로 병합되었습니다.")
                 .effect(commonEffect)
                 .priority(firstPolicy.getPriority())
-                .targets(firstPolicy.getTargets().stream().map(t -> modelMapper.map(t, PolicyDto.TargetDto.class)).toList())
+                .targets(firstPolicy.getTargets().stream().map(t -> modelMapper.map(t, TargetDto.class)).toList())
                 .rules(List.of(mergedRule))
                 .build();
     }

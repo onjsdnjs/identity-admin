@@ -1,5 +1,8 @@
 package io.spring.identityadmin.security.xacml.pap.controller;
 
+import io.spring.identityadmin.domain.dto.ConditionDto;
+import io.spring.identityadmin.domain.dto.RuleDto;
+import io.spring.identityadmin.domain.dto.TargetDto;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyService;
@@ -36,8 +39,8 @@ public class PolicyController {
 
     @GetMapping("/register")
     public String registerForm(Model model, PolicyDto policyDto) {
-        policyDto.getTargets().add(new PolicyDto.TargetDto());
-        policyDto.getRules().add(new PolicyDto.RuleDto());
+        policyDto.getTargets().add(new TargetDto());
+        policyDto.getRules().add(new RuleDto());
         model.addAttribute("policy", policyDto);
         return "admin/policydetails";
     }
@@ -54,7 +57,7 @@ public class PolicyController {
         Policy policy = policyService.findById(id);
         PolicyDto dto = toDto(policy);
         if (dto.getRules().isEmpty()) {
-            dto.getRules().add(new PolicyDto.RuleDto());
+            dto.getRules().add(new RuleDto());
         }
         model.addAttribute("policy", dto);
         return "admin/policydetails";
@@ -77,16 +80,16 @@ public class PolicyController {
         dto.setPriority(policy.getPriority());
 
         dto.setTargets(policy.getTargets().stream().map(t ->
-                new PolicyDto.TargetDto(t.getTargetType(), t.getTargetIdentifier(), t.getHttpMethod() == null ? "ALL" : t.getHttpMethod())
+                new TargetDto(t.getTargetType(), t.getTargetIdentifier(), t.getHttpMethod() == null ? "ALL" : t.getHttpMethod())
         ).collect(Collectors.toList()));
 
         dto.setRules(policy.getRules().stream().map(rule -> {
-            PolicyDto.RuleDto ruleDto = new PolicyDto.RuleDto();
+            RuleDto ruleDto = new RuleDto();
             ruleDto.setDescription(rule.getDescription());
 
             // PolicyCondition 엔티티를 ConditionDto로 변환
-            List<PolicyDto.ConditionDto> conditionDtos = rule.getConditions().stream()
-                    .map(condition -> new PolicyDto.ConditionDto(condition.getExpression(), condition.getAuthorizationPhase()))
+            List<ConditionDto> conditionDtos = rule.getConditions().stream()
+                    .map(condition -> new ConditionDto(condition.getExpression(), condition.getAuthorizationPhase()))
                     .collect(Collectors.toList());
             ruleDto.setConditions(conditionDtos);
 

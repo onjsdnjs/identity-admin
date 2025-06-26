@@ -16,11 +16,11 @@ public class PolicyResponse extends IAMResponse {
     private String policyFormat;
     private boolean optimized;
     
-    public PolicyResponse(String requestId, ResponseStatus status) {
+    public PolicyResponse(String requestId, ExecutionStatus status) {
         super(requestId, status);
     }
     
-    public PolicyResponse(String requestId, ResponseStatus status, String generatedPolicy) {
+    public PolicyResponse(String requestId, ExecutionStatus status, String generatedPolicy) {
         super(requestId, status);
         this.generatedPolicy = generatedPolicy;
     }

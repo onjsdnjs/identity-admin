@@ -27,13 +27,13 @@ public class PolicyContext extends IAMContext {
     
     public PolicyContext(SecurityLevel securityLevel, AuditRequirement auditRequirement) {
         super(securityLevel, auditRequirement);
-        this.generationMode = PolicyGenerationMode.SIMPLE;
+        this.generationMode = PolicyGenerationMode.QUICK;
         this.allowExperimentalFeatures = false;
     }
     
     public PolicyContext(String userId, String sessionId, SecurityLevel securityLevel, AuditRequirement auditRequirement) {
         super(userId, sessionId, securityLevel, auditRequirement);
-        this.generationMode = PolicyGenerationMode.SIMPLE;
+        this.generationMode = PolicyGenerationMode.QUICK;
         this.allowExperimentalFeatures = false;
     }
     

@@ -1,6 +1,8 @@
 package io.spring.identityadmin.aiam.protocol;
 
 import io.spring.aicore.protocol.AIRequest;
+import io.spring.identityadmin.aiam.protocol.enums.AuditRequirement;
+import io.spring.identityadmin.aiam.protocol.enums.SecurityLevel;
 
 /**
  * IAM AI 요청 클래스
@@ -13,7 +15,7 @@ public class IAMRequest<T extends IAMContext> extends AIRequest<T> {
     private String organizationId;
     private String tenantId;
     private boolean requiresApproval;
-    private IAMContext.AuditRequirement auditLevel;
+    private AuditRequirement auditLevel;
     
     public IAMRequest(T context, String operation) {
         super(context, operation);
@@ -62,7 +64,7 @@ public class IAMRequest<T extends IAMContext> extends AIRequest<T> {
      * @param auditLevel 감사 레벨
      * @return 체이닝을 위한 현재 객체
      */
-    public IAMRequest<T> withAuditLevel(IAMContext.AuditRequirement auditLevel) {
+    public IAMRequest<T> withAuditLevel(AuditRequirement auditLevel) {
         this.auditLevel = auditLevel;
         return this;
     }
@@ -72,7 +74,8 @@ public class IAMRequest<T extends IAMContext> extends AIRequest<T> {
      * @return 높은 권한 요구 여부
      */
     public boolean isHighPrivilegeRequest() {
-        return getContext().getSecurityLevel().getLevel() >= IAMContext.SecurityLevel.HIGH.getLevel();
+        return getContext().getSecurityLevel() == SecurityLevel.ENHANCED || 
+               getContext().getSecurityLevel() == SecurityLevel.MAXIMUM;
     }
     
     /**
@@ -80,15 +83,15 @@ public class IAMRequest<T extends IAMContext> extends AIRequest<T> {
      * @return 실시간 감사 요구 여부
      */
     public boolean requiresRealTimeAudit() {
-        return auditLevel == IAMContext.AuditRequirement.REAL_TIME || 
-               auditLevel == IAMContext.AuditRequirement.COMPLIANCE;
+        return auditLevel == AuditRequirement.DETAILED || 
+               auditLevel == AuditRequirement.COMPREHENSIVE;
     }
     
     // Getters
     public String getOrganizationId() { return organizationId; }
     public String getTenantId() { return tenantId; }
     public boolean isRequiresApproval() { return requiresApproval; }
-    public IAMContext.AuditRequirement getAuditLevel() { return auditLevel; }
+    public AuditRequirement getAuditLevel() { return auditLevel; }
     
     @Override
     public String toString() {

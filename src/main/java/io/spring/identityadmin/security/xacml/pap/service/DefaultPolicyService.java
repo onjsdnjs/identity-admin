@@ -2,6 +2,9 @@ package io.spring.identityadmin.security.xacml.pap.service;
 
 import io.spring.identityadmin.common.event.dto.PolicyChangedEvent;
 import io.spring.identityadmin.common.event.service.IntegrationEventBus;
+import io.spring.identityadmin.domain.dto.ConditionDto;
+import io.spring.identityadmin.domain.dto.RuleDto;
+import io.spring.identityadmin.domain.dto.TargetDto;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.domain.entity.Permission;
 import io.spring.identityadmin.domain.entity.policy.Policy;
@@ -122,14 +125,14 @@ public class DefaultPolicyService implements PolicyService {
                 .description(String.format("'%s' 권한에 대한 자동 생성 정책", permission.getFriendlyName()))
                 .effect(Policy.Effect.ALLOW)
                 .priority(500) // 자동 생성 정책은 중간 우선순위
-                .targets(List.of(new PolicyDto.TargetDto(
+                .targets(List.of(new TargetDto(
                         resource.getResourceType().name(),
                         resource.getResourceIdentifier(),
                         resource.getHttpMethod() != null ? resource.getHttpMethod().name() : "ANY"
                 )))
-                .rules(List.of(new PolicyDto.RuleDto(
+                .rules(List.of(new RuleDto(
                         "Auto-generated rule for " + permission.getName(),
-                        List.of(new PolicyDto.ConditionDto(expression, PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE))
+                        List.of(new ConditionDto(expression, PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE))
                 )))
                 .build();
 

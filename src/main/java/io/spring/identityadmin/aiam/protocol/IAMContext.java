@@ -67,7 +67,7 @@ public abstract class IAMContext extends DomainContext {
      * @return 보안 승인 필요 여부
      */
     public boolean requiresSecurityApproval() {
-        return securityLevel == SecurityLevel.HIGH || securityLevel == SecurityLevel.CRITICAL;
+        return securityLevel == SecurityLevel.ENHANCED || securityLevel == SecurityLevel.MAXIMUM;
     }
     
     /**

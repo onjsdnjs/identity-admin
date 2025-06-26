@@ -4,14 +4,16 @@ import io.spring.aicore.operations.AICoreOperations;
 import io.spring.identityadmin.aiam.protocol.IAMContext;
 import io.spring.identityadmin.aiam.protocol.IAMRequest;
 import io.spring.identityadmin.aiam.protocol.IAMResponse;
+import io.spring.identityadmin.aiam.protocol.response.ConflictDetectionResponse;
+import io.spring.identityadmin.aiam.protocol.response.PolicyDraftResponse;
 import io.spring.identityadmin.aiam.protocol.types.PolicyContext;
 import io.spring.identityadmin.aiam.protocol.types.RiskContext;
 import io.spring.identityadmin.aiam.protocol.types.UserContext;
 
 // 별도 패키지의 요청/응답 클래스들 import
-import io.spring.identityadmin.aiam.protocol.request.PolicyRequest;
-import io.spring.identityadmin.aiam.protocol.request.RiskRequest;
-import io.spring.identityadmin.aiam.protocol.response.PolicyResponse;
+import io.spring.identityadmin.aiam.protocol.request.*;
+import io.spring.identityadmin.aiam.protocol.response.*;
+import org.springframework.security.core.context.SecurityContext;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -41,7 +43,7 @@ public interface AIAMOperations<T extends IAMContext> extends AICoreOperations<T
      * 동기식: 보안 검증은 즉시 완료되어야 함
      */
     <R extends IAMResponse> R executeWithSecurity(IAMRequest<T> request, 
-                                                 IAMContext.SecurityContext securityContext,
+                                                 SecurityContext securityContext,
                                                  Class<R> responseType);
     
     // ==================== Domain-Specific Operations ====================

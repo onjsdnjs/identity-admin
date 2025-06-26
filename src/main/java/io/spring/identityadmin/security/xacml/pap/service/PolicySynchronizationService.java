@@ -1,7 +1,10 @@
 package io.spring.identityadmin.security.xacml.pap.service;
 
 import io.spring.identityadmin.common.event.dto.RolePermissionsChangedEvent;
+import io.spring.identityadmin.domain.dto.ConditionDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
+import io.spring.identityadmin.domain.dto.RuleDto;
+import io.spring.identityadmin.domain.dto.TargetDto;
 import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.domain.entity.policy.PolicyCondition;
@@ -54,10 +57,10 @@ public class PolicySynchronizationService {
         String policyName = "AUTO_POLICY_FOR_" + role.getRoleName();
 
         // 2. 대상(Target) DTO 목록 생성: 역할이 가진 모든 권한에 연결된 리소스 정보를 추출합니다.
-        List<PolicyDto.TargetDto> targetDtos = role.getRolePermissions().stream()
+        List<TargetDto> targetDtos = role.getRolePermissions().stream()
                 .map(rp -> rp.getPermission().getManagedResource())
                 .filter(Objects::nonNull)
-                .map(mr -> new PolicyDto.TargetDto(
+                .map(mr -> new TargetDto(
                         mr.getResourceType().name(),
                         mr.getResourceIdentifier(),
                         mr.getHttpMethod() != null ? mr.getHttpMethod().name() : "ANY"
@@ -77,10 +80,10 @@ public class PolicySynchronizationService {
                 StringUtils.hasText(permissionsExpression) ? permissionsExpression : "false" // 권한이 없으면 항상 false
         );
 
-        PolicyDto.ConditionDto conditionDto = PolicyDto.ConditionDto.builder()
+        ConditionDto conditionDto = ConditionDto.builder()
                 .expression(finalCondition)
                 .authorizationPhase(PolicyCondition.AuthorizationPhase.PRE_AUTHORIZE).build();
-        PolicyDto.RuleDto ruleDto = PolicyDto.RuleDto.builder()
+        RuleDto ruleDto = RuleDto.builder()
                 .description("Auto-sync rule for " + role.getRoleName()).conditions(List.of(conditionDto)).build();
 
         // 4. 최종 PolicyDto를 구성합니다.
