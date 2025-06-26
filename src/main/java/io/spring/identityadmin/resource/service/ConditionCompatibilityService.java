@@ -71,11 +71,21 @@ public class ConditionCompatibilityService {
         log.debug("🔍 호환성 검사 시작: 조건={}, 리소스={}, 분류={}", 
             condition.getName(), resource.getResourceIdentifier(), condition.getClassification());
 
+        // 🔧 0단계: 메서드의 ABAC 적용 가능성 사전 검사
+        if (!isAbacApplicableMethod(resource)) {
+            log.debug("❌ ABAC 적용 불가 메서드: {}", resource.getResourceIdentifier());
+            return new CompatibilityResult(false, 
+                "이 메서드는 ABAC 조건을 적용할 수 없습니다. (파라미터 없음 또는 단순 조회)", 
+                null, null, condition.getClassification(), false);
+        }
+
         // 1. 범용 조건은 항상 호환 가능하며 AI 검증 불필요
         if (ConditionTemplate.ConditionClassification.UNIVERSAL.equals(condition.getClassification())) {
             log.debug("✅ 범용 조건으로 즉시 승인: {}", condition.getName());
-            return new CompatibilityResult(true, "범용 조건으로 모든 리소스와 호환됩니다.", 
-                new HashSet<>(), getAllUniversalVariables(), condition.getClassification(), false);
+            return new CompatibilityResult(true, 
+                "범용 조건으로 모든 메서드에서 즉시 사용 가능합니다.", 
+                new HashSet<>(), getAllUniversalVariables(), 
+                ConditionTemplate.ConditionClassification.UNIVERSAL, false);
         }
 
         // 2. 일반 정책 컨텍스트인 경우 특별 처리
@@ -456,5 +466,209 @@ public class ConditionCompatibilityService {
             .collect(Collectors.groupingBy(
                 condition -> condition.getRiskLevel() != null ? 
                     condition.getRiskLevel() : ConditionTemplate.RiskLevel.LOW));
+    }
+
+    /**
+     * 🔧 신규: 메서드가 ABAC 조건을 적용할 수 있는지 판단합니다.
+     * 
+     * ABAC 적용 가능한 조건:
+     * 1. 객체를 파라미터로 받는 메서드 (CREATE, UPDATE, DELETE)
+     * 2. ID를 파라미터로 받는 메서드 (특정 객체 조회, 수정, 삭제)
+     * 3. 반환 객체가 있는 메서드 (조회 결과에 대한 필터링)
+     * 
+     * ABAC 적용 불가능한 조건:
+     * 1. 파라미터가 없는 메서드 (전체 목록 조회)
+     * 2. 단순 primitive 파라미터만 있는 메서드 (String, boolean 등)
+     */
+    private boolean isAbacApplicableMethod(ManagedResource resource) {
+        // URL 타입은 일단 ABAC 적용 가능으로 간주
+        if (ManagedResource.ResourceType.URL.equals(resource.getResourceType())) {
+            return true;
+        }
+        
+        // METHOD 타입인 경우 상세 분석
+        if (!ManagedResource.ResourceType.METHOD.equals(resource.getResourceType())) {
+            return false;
+        }
+        
+        String resourceIdentifier = resource.getResourceIdentifier();
+        String parameterTypes = resource.getParameterTypes();
+        
+        log.debug("🔍 ABAC 적용성 검사: 메서드={}, 파라미터={}", resourceIdentifier, parameterTypes);
+        
+        // 1. 파라미터가 없는 메서드는 ABAC 적용 불가 (전체 목록 조회 등)
+        if (parameterTypes == null || parameterTypes.trim().isEmpty() || 
+            parameterTypes.equals("()") || parameterTypes.equals("[]")) {
+            
+            // 예외: 반환 객체가 있고 단일 객체를 반환하는 경우는 적용 가능
+            if (hasReturnObject(resource) && !isListReturnType(resource)) {
+                log.debug("✅ 파라미터 없지만 단일 객체 반환으로 ABAC 적용 가능");
+                return true;
+            }
+            
+            log.debug("❌ 파라미터 없는 메서드로 ABAC 적용 불가");
+            return false;
+        }
+        
+        // 2. 메서드명 패턴 분석
+        String methodName = extractMethodName(resourceIdentifier);
+        if (methodName != null) {
+            // 전체 목록 조회 메서드는 ABAC 적용 불가
+            if (methodName.matches(".*(getAll|findAll|listAll|getAllBy|findAllBy).*")) {
+                log.debug("❌ 전체 목록 조회 메서드로 ABAC 적용 불가: {}", methodName);
+                return false;
+            }
+            
+            // 페이징 조회 메서드도 일반적으로 ABAC 적용 불가
+            if (methodName.contains("Page") && parameterTypes.contains("Pageable")) {
+                log.debug("❌ 페이징 조회 메서드로 ABAC 적용 불가: {}", methodName);
+                return false;
+            }
+        }
+        
+        // 3. 파라미터 타입 분석
+        Set<String> paramTypes = parseParameterTypes(parameterTypes);
+        
+        // 도메인 객체를 파라미터로 받는 경우 ABAC 적용 가능
+        for (String paramType : paramTypes) {
+            if (isDomainObjectType(paramType)) {
+                log.debug("✅ 도메인 객체 파라미터로 ABAC 적용 가능: {}", paramType);
+                return true;
+            }
+        }
+        
+        // ID 타입 파라미터가 있는 경우 ABAC 적용 가능
+        for (String paramType : paramTypes) {
+            if (isIdType(paramType)) {
+                log.debug("✅ ID 파라미터로 ABAC 적용 가능: {}", paramType);
+                return true;
+            }
+        }
+        
+        // 4. 반환 객체가 있는 경우 ABAC 적용 가능 (후처리 필터링)
+        if (hasReturnObject(resource) && !isListReturnType(resource)) {
+            log.debug("✅ 반환 객체로 ABAC 적용 가능");
+            return true;
+        }
+        
+        // 기본적으로 ABAC 적용 불가
+        log.debug("❌ ABAC 적용 조건을 만족하지 않음");
+        return false;
+    }
+    
+    /**
+     * 메서드 식별자에서 메서드명을 추출합니다.
+     */
+    private String extractMethodName(String resourceIdentifier) {
+        if (resourceIdentifier == null || !resourceIdentifier.contains(".")) {
+            return null;
+        }
+        
+        // 예: io.spring.identityadmin.admin.iam.service.impl.GroupServiceImpl.createGroup(Group,List)
+        String[] parts = resourceIdentifier.split("\\.");
+        if (parts.length > 0) {
+            String lastPart = parts[parts.length - 1];
+            if (lastPart.contains("(")) {
+                lastPart = lastPart.substring(0, lastPart.indexOf("("));
+            }
+            return lastPart;
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 파라미터 타입 문자열을 파싱하여 개별 타입들을 추출합니다.
+     */
+    private Set<String> parseParameterTypes(String parameterTypes) {
+        Set<String> types = new HashSet<>();
+        
+        if (parameterTypes == null || parameterTypes.trim().isEmpty()) {
+            return types;
+        }
+        
+        // JSON 배열 형태 처리
+        if (parameterTypes.startsWith("[") && parameterTypes.endsWith("]")) {
+            // [{"name":"group","type":"Group"}, {"name":"roleIds","type":"List"}]
+            try {
+                // 간단한 정규식으로 type 값들 추출
+                Pattern typePattern = Pattern.compile("\"type\"\\s*:\\s*\"([^\"]+)\"");
+                Matcher matcher = typePattern.matcher(parameterTypes);
+                while (matcher.find()) {
+                    types.add(matcher.group(1));
+                }
+            } catch (Exception e) {
+                log.warn("JSON 파라미터 파싱 실패: {}", parameterTypes);
+            }
+        }
+        // 쉼표 구분 형태 처리
+        else if (parameterTypes.contains(",")) {
+            // Group,List<Long>
+            String[] parts = parameterTypes.split(",");
+            for (String part : parts) {
+                String cleanType = part.trim();
+                if (cleanType.contains("<")) {
+                    cleanType = cleanType.substring(0, cleanType.indexOf("<"));
+                }
+                types.add(cleanType);
+            }
+        }
+        // 단일 파라미터 처리
+        else {
+            String cleanType = parameterTypes.trim();
+            if (cleanType.contains("<")) {
+                cleanType = cleanType.substring(0, cleanType.indexOf("<"));
+            }
+            types.add(cleanType);
+        }
+        
+        return types;
+    }
+    
+    /**
+     * 도메인 객체 타입인지 판단합니다.
+     */
+    private boolean isDomainObjectType(String type) {
+        if (type == null || type.trim().isEmpty()) {
+            return false;
+        }
+        
+        // 패키지명 제거
+        String simpleType = type.substring(type.lastIndexOf('.') + 1);
+        
+        // 도메인 객체로 간주되는 타입들
+        Set<String> domainTypes = Set.of(
+            "Group", "User", "Users", "Document", "Permission", "Role", 
+            "Policy", "BusinessResource", "BusinessAction", "ConditionTemplate",
+            "ManagedResource", "AuditLog"
+        );
+        
+        return domainTypes.contains(simpleType);
+    }
+    
+    /**
+     * ID 타입인지 판단합니다.
+     */
+    private boolean isIdType(String type) {
+        if (type == null || type.trim().isEmpty()) {
+            return false;
+        }
+        
+        String simpleType = type.substring(type.lastIndexOf('.') + 1);
+        return simpleType.equals("Long") || simpleType.equals("Integer") || 
+               simpleType.equals("String") || simpleType.equals("UUID");
+    }
+    
+    /**
+     * 리스트 반환 타입인지 판단합니다.
+     */
+    private boolean isListReturnType(ManagedResource resource) {
+        String returnType = resource.getReturnType();
+        if (returnType == null) {
+            return false;
+        }
+        
+        return returnType.contains("List") || returnType.contains("Set") || 
+               returnType.contains("Collection") || returnType.contains("Page");
     }
 } 

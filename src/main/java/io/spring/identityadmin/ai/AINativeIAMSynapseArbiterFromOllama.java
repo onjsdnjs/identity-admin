@@ -1941,38 +1941,24 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
                 compatibilityResult.getMissingVariables(),
                 compatibilityResult.requiresAiValidation());
             
-            // 호환성 검사 실패 시 즉시 반환 (AI 검증 생략)
+            // 🚫 호환성 검사 실패 시 즉시 반환
             if (!compatibilityResult.isCompatible()) {
-                log.info("❌ 1단계 실패: {}", compatibilityResult.getReason());
-                return new ConditionValidationResponse(false, 
-                    "🔍 기본 호환성 검사 실패: " + compatibilityResult.getReason());
+                log.warn("❌ 1단계 호환성 검사 실패: {}", compatibilityResult.getReason());
+                return new ConditionValidationResponse(false, compatibilityResult.getReason());
             }
-
-            // 🔧 개선: AI 검증이 불필요한 경우 즉시 반환
+            
+            // 🚀 AI 검증이 불필요한 경우 즉시 성공 반환
             if (!compatibilityResult.requiresAiValidation()) {
-                log.info("✅ AI 검증 생략 - 즉시 승인: {}", compatibilityResult.getReason());
-                return new ConditionValidationResponse(true, 
-                    "✅ 1단계 호환성 검사 통과 (AI 검증 불필요): " + compatibilityResult.getReason());
+                log.info("✅ AI 검증 불필요 - 즉시 승인: {}", compatibilityResult.getReason());
+                return new ConditionValidationResponse(true, compatibilityResult.getReason());
             }
-
-            log.info("🤖 2단계 AI 고급 검증 시작 - 복잡한 조건으로 판단됨");
-
-            // 🔄 2단계: AI를 통한 고급 문법 및 보안 검증 (호환성 통과한 경우만)
-            String contextInfo = String.format("""
-                 리소스 정보:
-                 - 식별자: %s
-                 - 타입: %s
-                 - 친숙한 이름: %s
-                 - 반환 타입: %s
-                 - 파라미터: %s
-                 - 사용 가능한 변수: %s
-                 """, 
-                 resource.getResourceIdentifier(),
-                 resource.getResourceType(),
-                 resource.getFriendlyName(),
-                 resource.getReturnType(),
-                 resource.getParameterTypes(),
-                 String.join(", ", compatibilityResult.getAvailableVariables()));
+            
+            // 🤖 2단계: AI 고급 검증 필요한 경우에만 실행
+            log.info("🤖 2단계 AI 고급 검증 시작...");
+            
+            // 2단계: 리소스 컨텍스트 구성
+            String contextInfo = buildResourceContext(resource);
+            log.debug("🔍 컨텍스트 정보: {}", contextInfo);
 
             log.debug("🤖 AI에게 전송할 컨텍스트 정보: {}", contextInfo);
 
@@ -2421,5 +2407,24 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
     */
 
         return "[]"; // 빈 배열 반환
+    }
+
+    /**
+     * 🔧 신규: 리소스 컨텍스트 정보를 구성합니다.
+     */
+    private String buildResourceContext(ManagedResource resource) {
+        return String.format("""
+            리소스 정보:
+            - 식별자: %s
+            - 타입: %s
+            - 친숙한 이름: %s
+            - 반환 타입: %s
+            - 파라미터: %s
+            """, 
+            resource.getResourceIdentifier(),
+            resource.getResourceType(),
+            resource.getFriendlyName(),
+            resource.getReturnType(),
+            resource.getParameterTypes());
     }
 }
