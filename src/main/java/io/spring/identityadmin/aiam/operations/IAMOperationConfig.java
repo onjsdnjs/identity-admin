@@ -204,12 +204,26 @@ public class IAMOperationConfig {
             
             PolicyContext context = request.getContext();
             if (context != null) {
-                // 정책 컨텍스트 기반 복잡도 계산
-                complexity += context.getTargetEntities().size() * 10;
-                complexity += context.getConditions().size() * 5;
+                // 정책 컨텍스트의 실제 메서드들을 사용한 복잡도 계산
+                if (context.getAvailableRoles() != null) {
+                    complexity += context.getAvailableRoles().size() * 2;
+                }
                 
-                if (context.isRequireAdvancedAnalysis()) {
-                    complexity += 50;
+                if (context.getAvailablePermissions() != null) {
+                    complexity += context.getAvailablePermissions().size() * 1;
+                }
+                
+                if (context.getAvailableConditionTypes() != null) {
+                    complexity += context.getAvailableConditionTypes().size() * 3;
+                }
+                
+                if (context.isAllowExperimentalFeatures()) {
+                    complexity += 20;
+                }
+                
+                // 자연어 쿼리 길이도 복잡도에 반영
+                if (context.getNaturalLanguageQuery() != null) {
+                    complexity += Math.min(context.getNaturalLanguageQuery().length() / 50, 10);
                 }
             }
             

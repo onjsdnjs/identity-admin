@@ -15,6 +15,7 @@ public class ConflictDetectionRequest<T extends IAMContext> extends IAMRequest<T
     private List<String> existingPolicyIds;
     private String conflictScope;
     private boolean includeWarnings;
+    private double sensitivity;
     
     public ConflictDetectionRequest(T context) {
         super(context, "CONFLICT_DETECTION");
@@ -34,6 +35,9 @@ public class ConflictDetectionRequest<T extends IAMContext> extends IAMRequest<T
     
     public boolean isIncludeWarnings() { return includeWarnings; }
     public void setIncludeWarnings(boolean includeWarnings) { this.includeWarnings = includeWarnings; }
+    
+    public double getSensitivity() { return sensitivity; }
+    public void setSensitivity(double sensitivity) { this.sensitivity = sensitivity; }
     
     @Override
     public String toString() {

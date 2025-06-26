@@ -12,6 +12,7 @@ public class RiskRequest<T extends RiskContext> extends IAMRequest<T> {
     private String analysisType;
     private boolean realTimeMonitoring;
     private int analysisDepth;
+    private double riskThreshold;
     
     public RiskRequest(T context, String operation) {
         super(context, operation);
@@ -31,6 +32,19 @@ public class RiskRequest<T extends RiskContext> extends IAMRequest<T> {
     
     public int getAnalysisDepth() { return analysisDepth; }
     public void setAnalysisDepth(int analysisDepth) { this.analysisDepth = analysisDepth; }
+    
+    public void setAnalysisDepth(String analysisDepthStr) {
+        // String을 int로 변환 (BASIC=1, DETAILED=2, COMPREHENSIVE=3)
+        switch (analysisDepthStr.toUpperCase()) {
+            case "BASIC": this.analysisDepth = 1; break;
+            case "DETAILED": this.analysisDepth = 2; break;
+            case "COMPREHENSIVE": this.analysisDepth = 3; break;
+            default: this.analysisDepth = 2; // 기본값
+        }
+    }
+    
+    public double getRiskThreshold() { return riskThreshold; }
+    public void setRiskThreshold(double riskThreshold) { this.riskThreshold = riskThreshold; }
     
     @Override
     public String toString() {

@@ -3,6 +3,7 @@ package io.spring.identityadmin.aiam.protocol;
 import io.spring.aicore.protocol.AIRequest;
 import io.spring.identityadmin.aiam.protocol.enums.AuditRequirement;
 import io.spring.identityadmin.aiam.protocol.enums.SecurityLevel;
+import org.springframework.security.core.context.SecurityContext;
 
 /**
  * IAM AI 요청 클래스
@@ -85,6 +86,19 @@ public class IAMRequest<T extends IAMContext> extends AIRequest<T> {
     public boolean requiresRealTimeAudit() {
         return auditLevel == AuditRequirement.DETAILED || 
                auditLevel == AuditRequirement.COMPREHENSIVE;
+    }
+    
+    /**
+     * 보안 컨텍스트를 요청에 추가합니다
+     * @param securityContext Spring Security 컨텍스트
+     * @return 체이닝을 위한 현재 객체
+     */
+    public IAMRequest<T> addSecurityContext(SecurityContext securityContext) {
+        // 보안 컨텍스트를 메타데이터로 저장
+        withParameter("securityContext", securityContext);
+        withParameter("principal", securityContext.getAuthentication().getName());
+        withParameter("authorities", securityContext.getAuthentication().getAuthorities());
+        return this;
     }
     
     // Getters

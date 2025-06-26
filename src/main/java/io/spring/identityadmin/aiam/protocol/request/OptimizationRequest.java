@@ -7,21 +7,21 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 최적화 요청 클래스
- * 정책 최적화를 위한 요청
+ * 정책 최적화 요청 클래스
+ * 정책의 성능, 보안, 복잡도를 최적화하기 위한 요청
  */
 public class OptimizationRequest<T extends PolicyContext> extends IAMRequest<T> {
     
     private String targetPolicyId;
     private List<String> optimizationGoals;
     private Map<String, Object> constraints;
-    private String optimizationType;
+    private String optimizationLevel;
     private boolean preserveSemantics;
     
     public OptimizationRequest(T context) {
-        super(context, "OPTIMIZATION");
-        this.optimizationType = "PERFORMANCE";
+        super(context, "POLICY_OPTIMIZATION");
         this.preserveSemantics = true;
+        this.optimizationLevel = "BALANCED";
     }
     
     // Getters and Setters
@@ -34,15 +34,15 @@ public class OptimizationRequest<T extends PolicyContext> extends IAMRequest<T> 
     public Map<String, Object> getConstraints() { return constraints; }
     public void setConstraints(Map<String, Object> constraints) { this.constraints = constraints; }
     
-    public String getOptimizationType() { return optimizationType; }
-    public void setOptimizationType(String optimizationType) { this.optimizationType = optimizationType; }
+    public String getOptimizationLevel() { return optimizationLevel; }
+    public void setOptimizationLevel(String optimizationLevel) { this.optimizationLevel = optimizationLevel; }
     
     public boolean isPreserveSemantics() { return preserveSemantics; }
     public void setPreserveSemantics(boolean preserveSemantics) { this.preserveSemantics = preserveSemantics; }
     
     @Override
     public String toString() {
-        return String.format("OptimizationRequest{policy='%s', type='%s', preserve=%s}", 
-                targetPolicyId, optimizationType, preserveSemantics);
+        return String.format("OptimizationRequest{policy='%s', level='%s', goals=%s}", 
+                targetPolicyId, optimizationLevel, optimizationGoals);
     }
 } 

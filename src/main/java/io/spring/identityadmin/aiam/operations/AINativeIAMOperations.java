@@ -12,6 +12,7 @@ import io.spring.identityadmin.aiam.protocol.response.*;
 import io.spring.identityadmin.aiam.protocol.types.PolicyContext;
 import io.spring.identityadmin.aiam.protocol.types.RiskContext;
 import io.spring.identityadmin.aiam.protocol.types.UserContext;
+import io.spring.identityadmin.aiam.protocol.enums.SecurityLevel;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -114,8 +115,9 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
             validatePolicyRequest(request);
         }
         
-        // 타입 안전한 실행
-        IAMRequest<T> iamRequest = typeConverter.toIAMRequest(request);
+        // 타입 안전한 실행 - 캐스팅 수정
+        @SuppressWarnings("unchecked")
+        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
         return executeWithAudit(iamRequest, PolicyResponse.class);
     }
     
@@ -126,7 +128,8 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         
         if (complexity >= operationConfig.getStreamingThreshold()) {
             // 고복잡도: 스트리밍 모드
-            AIRequest<T> coreRequest = typeConverter.toAIRequest(request);
+            @SuppressWarnings("unchecked")
+            AIRequest<T> coreRequest = (AIRequest<T>) request;
             Flux<? extends AIResponse> responseFlux = coreOperations.executeStreamTyped(
                 coreRequest, PolicyDraftResponse.class);
             
@@ -147,7 +150,8 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         request.setAnalysisDepth(operationConfig.getRiskAnalysisDepth());
         request.setRiskThreshold(operationConfig.getRiskThreshold());
         
-        IAMRequest<T> iamRequest = typeConverter.toIAMRequest(request);
+        @SuppressWarnings("unchecked")
+        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
         return executeWithAudit(iamRequest, RiskAssessmentResponse.class);
     }
     
@@ -165,9 +169,11 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
                     
                     // 위험 임계값 초과 시 콜백 호출
                     if (assessment.getRiskScore() > riskThreshold) {
+                        // String을 SecurityLevel로 변환
+                        SecurityLevel securityLevel = parseSecurityLevel(assessment.getRiskLevel());
                         RiskEvent event = new RiskEvent(
                             "HIGH_RISK_DETECTED", 
-                            assessment.getRiskLevel(),
+                            securityLevel,
                             "Risk score: " + assessment.getRiskScore()
                         );
                         callback.onRiskDetected(event);
@@ -190,7 +196,8 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
     public ConflictDetectionResponse detectConflicts(ConflictDetectionRequest<PolicyContext> request) {
         request.setSensitivity(operationConfig.getConflictSensitivity());
         
-        IAMRequest<T> iamRequest = typeConverter.toIAMRequest(request);
+        @SuppressWarnings("unchecked")
+        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
         return executeWithAudit(iamRequest, ConflictDetectionResponse.class);
     }
     
@@ -199,15 +206,21 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         request.setMaxRecommendations(operationConfig.getMaxRecommendations());
         request.setMinConfidenceThreshold(operationConfig.getMinConfidenceThreshold());
         
-        IAMRequest<T> iamRequest = typeConverter.toIAMRequest(request);
-        return executeWithAudit(iamRequest, (Class<RecommendationResponse<C>>) RecommendationResponse.class);
+        @SuppressWarnings("unchecked")
+        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
+        
+        // 제네릭 타입 캐스팅 문제 해결
+        @SuppressWarnings("unchecked")
+        RecommendationResponse<C> response = (RecommendationResponse<C>) executeWithAudit(iamRequest, RecommendationResponse.class);
+        return response;
     }
     
     @Override
     public UserAnalysisResponse analyzeUser(UserAnalysisRequest<UserContext> request) {
         request.setAnalysisDepth(operationConfig.getUserAnalysisDepth());
         
-        IAMRequest<T> iamRequest = typeConverter.toIAMRequest(request);
+        @SuppressWarnings("unchecked")
+        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
         return executeWithAudit(iamRequest, UserAnalysisResponse.class);
     }
     
@@ -215,7 +228,8 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
     public OptimizationResponse optimizePolicy(OptimizationRequest<PolicyContext> request) {
         request.setOptimizationLevel(operationConfig.getOptimizationLevel());
         
-        IAMRequest<T> iamRequest = typeConverter.toIAMRequest(request);
+        @SuppressWarnings("unchecked")
+        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
         return executeWithAudit(iamRequest, OptimizationResponse.class);
     }
     
@@ -223,7 +237,8 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
     public ValidationResponse validatePolicy(ValidationRequest<PolicyContext> request) {
         request.setStrictMode(operationConfig.isStrictValidationMode());
         
-        IAMRequest<T> iamRequest = typeConverter.toIAMRequest(request);
+        @SuppressWarnings("unchecked")
+        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
         return executeWithAudit(iamRequest, ValidationResponse.class);
     }
     
@@ -232,7 +247,7 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         return CompletableFuture.supplyAsync(() -> {
             // 대용량 로그 분석 설정
             request.setBatchSize(operationConfig.getLogAnalysisBatchSize());
-            request.setTimeout(operationConfig.getLogAnalysisTimeoutSeconds());
+            request.setAnalysisTimeoutSeconds(operationConfig.getLogAnalysisTimeoutSeconds());
             
             return executeWithAudit(request, AuditAnalysisResponse.class);
         });
@@ -294,8 +309,13 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         }
         
         PolicyContext context = request.getContext();
-        if (context.getPolicyName() == null || context.getPolicyName().trim().isEmpty()) {
-            throw new IllegalArgumentException("Policy name is required");
+        // PolicyContext의 실제 메서드들을 사용한 검증
+        if (!context.isComplete()) {
+            throw new IllegalArgumentException("Policy context is incomplete - missing required fields");
+        }
+        
+        if (context.getNaturalLanguageQuery() == null || context.getNaturalLanguageQuery().trim().isEmpty()) {
+            throw new IllegalArgumentException("Natural language query is required for policy generation");
         }
         
         // 추가 검증 로직...
@@ -310,9 +330,29 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         
         draft.setFinalDraft(true);
         draft.setCompletionPercentage(100.0);
-        draft.setGenerationTimestamp(System.currentTimeMillis());
+        // setGenerationTimestamp 메서드가 없으므로 제거
         
         return draft;
+    }
+    
+    /**
+     * String을 SecurityLevel로 변환하는 헬퍼 메서드
+     */
+    private SecurityLevel parseSecurityLevel(String riskLevel) {
+        if (riskLevel == null) {
+            return SecurityLevel.STANDARD;
+        }
+        
+        switch (riskLevel.toUpperCase()) {
+            case "CRITICAL":
+            case "HIGH":
+                return SecurityLevel.MAXIMUM;
+            case "MEDIUM":
+                return SecurityLevel.ENHANCED;
+            case "LOW":
+            default:
+                return SecurityLevel.STANDARD;
+        }
     }
     
     // ==================== Exception Classes ====================

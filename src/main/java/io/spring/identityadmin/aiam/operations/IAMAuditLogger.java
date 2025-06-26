@@ -121,9 +121,12 @@ public class IAMAuditLogger {
             org.springframework.web.context.request.RequestAttributes attrs = 
                 org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
             if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes) {
-                javax.servlet.http.HttpServletRequest request = 
-                    ((org.springframework.web.context.request.ServletRequestAttributes) attrs).getRequest();
-                return request.getRemoteAddr() + ":" + request.getRemotePort();
+                org.springframework.web.context.request.ServletRequestAttributes servletAttrs = 
+                    (org.springframework.web.context.request.ServletRequestAttributes) attrs;
+                // Spring의 추상화된 방식으로 클라이언트 정보 추출
+                String remoteAddr = servletAttrs.getRequest().getRemoteAddr();
+                int remotePort = servletAttrs.getRequest().getRemotePort();
+                return remoteAddr + ":" + remotePort;
             }
         } catch (Exception e) {
             // 웹 컨텍스트가 없는 경우 (배치 작업 등)

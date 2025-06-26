@@ -5,6 +5,8 @@ import io.spring.identityadmin.aiam.protocol.IAMRequest;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
+
 /**
  * IAM 보안 검증기
  * 
@@ -52,7 +54,8 @@ public class IAMSecurityValidator {
         }
         
         // 타임스탬프 검증 (재생 공격 방지)
-        long requestTime = request.getTimestamp();
+        LocalDateTime requestTimestamp = request.getTimestamp();
+        long requestTime = requestTimestamp.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli();
         long currentTime = System.currentTimeMillis();
         long timeDiff = Math.abs(currentTime - requestTime);
         

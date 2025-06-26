@@ -68,15 +68,17 @@ public class IAMTypeConverter {
     public <R extends IAMResponse> R convertWithMetadata(AIResponse source, Class<R> targetType) {
         R converted = toIAMResponse(source, targetType);
         
-        // 메타데이터 복사
+        // 메타데이터 복사 - IAMResponse에 실제로 존재하는 메서드들만 사용
         if (converted instanceof IAMResponse && source instanceof IAMResponse) {
             IAMResponse iamSource = (IAMResponse) source;
             IAMResponse iamTarget = (IAMResponse) converted;
             
-            // 감사 정보 복사
-            iamTarget.setAuditInfo(iamSource.getAuditInfo());
-            iamTarget.setSecurityValidation(iamSource.getSecurityValidation());
-            iamTarget.setComplianceInfo(iamSource.getComplianceInfo());
+            // 기본 메타데이터만 복사 (실제 존재하는 메서드들)
+            // TODO: IAMResponse에 실제 메타데이터 메서드들이 추가되면 여기서 복사
+            
+            // 현재는 기본 필드들만 복사 가능
+            // iamTarget.setRequestId(iamSource.getRequestId()); // 이미 생성자에서 설정됨
+            // iamTarget.setStatus(iamSource.getStatus()); // 이미 생성자에서 설정됨
         }
         
         return converted;
