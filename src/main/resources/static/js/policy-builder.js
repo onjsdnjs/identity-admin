@@ -107,25 +107,8 @@
                             document.dispatchEvent(event);
                         });
 
-                        // 조건 칩의 경우, 유효성 검증 결과에 따라 아이콘 추가
-                        if (type === 'condition' && value.isValidated) {
-                            const iconClass = value.isCompatible ? 'fa-check-circle text-green-500' : 'fa-exclamation-triangle text-red-500';
-                            const icon = document.createElement('i');
-                            icon.className = `fas ${iconClass} ml-2`;
-
-                            chip.appendChild(document.createTextNode(value.name + ' '));
-                            chip.appendChild(icon);
-                            chip.appendChild(document.createTextNode(' '));
-                            chip.appendChild(removeBtn);
-
-                            if (!value.isCompatible) {
-                                chip.title = value.reason;
-                                chip.classList.add('invalid-chip');
-                            }
-                        } else {
-                            chip.appendChild(document.createTextNode(value.name + ' '));
-                            chip.appendChild(removeBtn);
-                        }
+                        chip.appendChild(document.createTextNode(value.name + ' '));
+                        chip.appendChild(removeBtn);
 
                         canvasEl.appendChild(chip);
                     });
@@ -219,12 +202,7 @@
                     }
                 }
 
-                async validateCondition(resourceIdentifier, conditionSpel) {
-                    return this.fetchApi('/api/ai/policies/validate-condition', {
-                        method: 'POST',
-                        body: JSON.stringify({ resourceIdentifier, conditionSpel })
-                    });
-                }
+
 
                 /**
                  * 🔄 3단계: 특정 리소스에 대한 실시간 조건 추천 API 호출
@@ -588,201 +566,22 @@
                     const [id, ...nameParts] = info.split(':');
                     const name = nameParts.join(':');
 
-                    // 조건인 경우 먼저 AI 검증 수행
-                    if (type === 'condition') {
-                        const spelTemplate = this.findSpelForCondition(id);
-                        if (spelTemplate) {
-                            // 🔧 개선: 리소스 컨텍스트 확인
-                            let resourceIdentifier = 'GENERAL_POLICY'; // 기본값
-
-                            if (window.resourceContext && window.resourceContext.resourceIdentifier) {
-                                resourceIdentifier = window.resourceContext.resourceIdentifier;
-                                console.log('🔍 리소스 컨텍스트 사용:', resourceIdentifier);
-                            } else {
-                                console.log('🔧 기본 리소스 컨텍스트 사용:', resourceIdentifier);
-                            }
-
-                            // 검증 중 표시
-                            this.showLoadingModal('[ 조건 호환성 검증 중... ]');
-
-                            try {
-                                const response = await this.api.validateCondition(resourceIdentifier, spelTemplate);
-
-                                this.hideLoadingModal();
-
-                                if (!response.isCompatible) {
-                                    // 호환되지 않으면 드롭 취소하고 이유 표시
-                                    this.showValidationErrorModal(name, response.reason);
-                                    return; // 드롭 중단
-                                } else {
-                                    // 🔧 개선: 성공 시에도 AI 검증 결과 표시
-                                    if (response.reason.includes('AI 검증 불필요')) {
-                                        this.showMessage(`✅ "${name}" 조건이 즉시 추가되었습니다.`, 'success');
-                                    } else if (response.reason.includes('AI 고급 검증')) {
-                                        this.showMessage(`🤖 "${name}" 조건이 AI 검증을 통과하여 추가되었습니다.`, 'success');
-                                    } else {
-                                        this.showMessage(`✅ "${name}" 조건이 추가되었습니다.`, 'success');
-                                    }
-                                }
-                            } catch (error) {
-                                this.hideLoadingModal();
-                                console.error('조건 검증 오류:', error);
-                                this.showMessage('조건 검증 중 오류가 발생했습니다.', 'error');
-                                return; // 드롭 중단
-                            }
-                        }
-                    }
-
-                    // 검증 통과하거나 조건이 아닌 경우 정상적으로 추가
+                    // 🎯 개선: AI 검증 제거 - 사전 필터링으로 호환되는 조건만 표시되므로 즉시 추가
                     this.state.add(type, id, { id, name });
                     this.highlightPaletteItem(type, id);
                     this.ui.renderAll(this.state);
-                }
-
-                findSpelForCondition(conditionId) {
-                    const item = this.elements.conditionsPalette.querySelector(`.palette-item[data-info^="${conditionId}:"]`);
-                    return item ? item.dataset.spel : null;
-                }
-
-                showLoadingModal(message) {
-                    // 기존 모달이 있으면 제거
-                    this.hideLoadingModal();
-
-                    const modal = document.createElement('div');
-                    modal.id = 'validation-loading-modal';
-                    modal.style.cssText = `
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
-                        background-color: rgba(0, 0, 0, 0.5);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        z-index: 999998;
-                    `;
-
-                    const loadingContent = document.createElement('div');
-                    loadingContent.style.cssText = `
-                        background-color: #1f2937;
-                        border-radius: 0.5rem;
-                        padding: 1.5rem;
-                        display: flex;
-                        align-items: center;
-                        gap: 1rem;
-                        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-                    `;
-
-                    loadingContent.innerHTML = `
-                        <div style="
-                            width: 2rem;
-                            height: 2rem;
-                            border: 3px solid #4f46e5;
-                            border-top-color: transparent;
-                            border-radius: 50%;
-                            animation: spin 1s linear infinite;
-                        "></div>
-                        <span style="color: white; font-size: 1rem;">${message}</span>
-                        <style>
-                            @keyframes spin {
-                                to { transform: rotate(360deg); }
-                            }
-                        </style>
-                    `;
-
-                    modal.appendChild(loadingContent);
-                    document.body.appendChild(modal);
-                }
-
-                hideLoadingModal() {
-                    const modal = document.getElementById('validation-loading-modal');
-                    if (modal) {
-                        modal.remove();
+                    
+                    // 조건 추가 성공 메시지
+                    if (type === 'condition') {
+                        this.showMessage(`✅ "${name}" 조건이 추가되었습니다.`, 'success');
                     }
                 }
 
-                showValidationErrorModal(conditionName, reason) {
-                    // 기존 모달 제거
-                    const existingModal = document.getElementById('validation-error-modal');
-                    if (existingModal) {
-                        existingModal.remove();
-                    }
 
-                    const modal = document.createElement('div');
-                    modal.id = 'validation-error-modal';
-                    modal.style.cssText = `
-                        position: fixed;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
-                        background-color: rgba(0, 0, 0, 0.75);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        z-index: 999999;
-                    `;
 
-                    const modalContent = document.createElement('div');
-                    modalContent.style.cssText = `
-                        background-color: #1f2937;
-                        border-radius: 0.5rem;
-                        padding: 1.5rem;
-                        max-width: 28rem;
-                        margin: 0 1rem;
-                        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-                        border: 1px solid rgba(75, 85, 99, 0.3);
-                    `;
 
-                    modalContent.innerHTML = `
-                        <div style="display: flex; align-items: flex-start; margin-bottom: 1rem;">
-                            <div style="flex-shrink: 0;">
-                                <i class="fas fa-exclamation-triangle" style="color: #ef4444; font-size: 1.5rem;"></i>
-                            </div>
-                            <div style="margin-left: 0.75rem;">
-                                <h3 style="font-size: 1.125rem; font-weight: 600; color: #ffffff; margin: 0;">조건 호환성 오류</h3>
-                                <p style="color: #d1d5db; margin-top: 0.25rem; margin-bottom: 0;">'${conditionName}' 조건은 현재 리소스에서 사용할 수 없습니다.</p>
-                            </div>
-                        </div>
-                        <div style="background-color: #374151; border-radius: 0.375rem; padding: 0.75rem; margin-bottom: 1rem;">
-                            <p style="font-size: 0.875rem; color: #d1d5db; margin: 0;"><strong>AI 분석 결과:</strong></p>
-                            <p style="font-size: 0.875rem; color: #9ca3af; margin: 0.25rem 0 0 0;">${reason}</p>
-                        </div>
-                        <button id="close-validation-modal" style="
-                            width: 100%;
-                            background-color: #4f46e5;
-                            color: white;
-                            font-weight: 500;
-                            padding: 0.5rem 1rem;
-                            border-radius: 0.375rem;
-                            border: none;
-                            cursor: pointer;
-                            transition: background-color 0.2s;
-                        " onmouseover="this.style.backgroundColor='#4338ca'" onmouseout="this.style.backgroundColor='#4f46e5'">
-                            확인
-                        </button>
-                    `;
 
-                    modal.appendChild(modalContent);
-                    document.body.appendChild(modal);
 
-                    // 이벤트 리스너 추가
-                    const closeButton = document.getElementById('close-validation-modal');
-                    const closeModal = () => {
-                        modal.remove();
-                    };
-
-                    closeButton.addEventListener('click', closeModal);
-                    modal.addEventListener('click', (e) => {
-                        if (e.target === modal) {
-                            closeModal();
-                        }
-                    });
-
-                    // 디버깅을 위한 로그
-                    console.log('Validation error modal shown:', { conditionName, reason });
-                }
 
                 handleChipRemove(type, key) {
                     console.log(`🗑️ 칩 제거: ${type} ID=${key}`);
@@ -849,26 +648,7 @@
                 }
 
 
-                async validateConditionRealtime(conditionId, spel) {
-                    const resourceIdentifier = window.resourceContext.resourceIdentifier;
-                    const chip = this.elements.conditionsCanvas.querySelector(`[data-key="${conditionId}"]`);
-                    if (chip) chip.innerHTML += ' <i class="fas fa-spinner fa-spin"></i>'; // 검증 중 표시
 
-                    try {
-                        const response = await this.api.validateCondition(resourceIdentifier, spel); // 신규 API 호출
-                        const conditionState = this.state.conditions.get(conditionId);
-                        conditionState.isValidated = true;
-                        conditionState.isCompatible = response.isCompatible;
-                        conditionState.reason = response.reason;
-                    } catch (error) {
-                        const conditionState = this.state.conditions.get(conditionId);
-                        conditionState.isValidated = true;
-                        conditionState.isCompatible = false;
-                        conditionState.reason = "호환성 검증 중 오류가 발생했습니다.";
-                    } finally {
-                        this.ui.renderAll(this.state); // 검증 결과를 반영하여 UI 다시 렌더링
-                    }
-                }
 
 
 

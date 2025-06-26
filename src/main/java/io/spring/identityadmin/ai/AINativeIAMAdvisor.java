@@ -65,7 +65,7 @@ public interface AINativeIAMAdvisor {
      */
     Map<String, ResourceNameSuggestion> suggestResourceNamesInBatch(List<Map<String, String>> resourcesToSuggest);
 
-    ConditionValidationResponse validateCondition(String resourceIdentifier, String conditionSpel);
+
 
     /**
      * 범용적으로 사용할 수 있는 조건 템플릿들을 AI가 생성합니다.

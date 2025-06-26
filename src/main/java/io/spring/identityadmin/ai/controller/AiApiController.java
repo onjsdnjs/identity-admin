@@ -1,8 +1,6 @@
 package io.spring.identityadmin.ai.controller;
 
 import io.spring.identityadmin.ai.AINativeIAMSynapseArbiterFromOllama;
-import io.spring.identityadmin.ai.dto.ConditionValidationRequest;
-import io.spring.identityadmin.ai.dto.ConditionValidationResponse;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.entity.ConditionTemplate;
 import io.spring.identityadmin.domain.entity.ManagedResource;
@@ -126,51 +124,7 @@ public class AiApiController {
         }
     }
 
-    @PostMapping("/validate-condition")
-    public ResponseEntity<Map<String, Object>> validateCondition(@RequestBody ConditionValidationRequest request) {
-        try {
-            log.info("🔍 조건 검증 요청: 리소스={}, SpEL={}", request.resourceIdentifier(), request.conditionSpel());
-            
-            ConditionValidationResponse response = aiNativeIAMAdvisor.validateCondition(
-                request.resourceIdentifier(), 
-                request.conditionSpel()
-            );
-            
-            // 🔧 개선: 상세한 응답 정보 구성
-            Map<String, Object> result = new HashMap<>();
-            result.put("isCompatible", response.isCompatible());
-            result.put("valid", response.isCompatible()); // 기존 호환성
-            result.put("reason", response.reason());
-            result.put("message", response.reason()); // 기존 호환성
-            
-            // 추가 메타데이터
-            if (response.reason().contains("ABAC 조건을 적용할 수 없습니다")) {
-                result.put("errorType", "ABAC_NOT_APPLICABLE");
-                result.put("suggestion", "이 메서드는 전체 목록 조회나 파라미터가 없는 메서드입니다. ABAC 조건은 특정 객체나 ID를 다루는 메서드에서만 사용 가능합니다.");
-            } else if (response.reason().contains("AI 검증 불필요")) {
-                result.put("validationType", "IMMEDIATE");
-                result.put("aiRequired", false);
-            } else if (response.reason().contains("AI 고급 검증")) {
-                result.put("validationType", "AI_VERIFIED");
-                result.put("aiRequired", true);
-            }
-            
-            log.info("✅ 조건 검증 완료: 결과={}", result);
-            return ResponseEntity.ok(result);
-            
-        } catch (Exception e) {
-            log.error("❌ 조건 검증 실패", e);
-            
-            Map<String, Object> errorResult = new HashMap<>();
-            errorResult.put("isCompatible", false);
-            errorResult.put("valid", false);
-            errorResult.put("reason", "조건 검증 중 오류가 발생했습니다: " + e.getMessage());
-            errorResult.put("message", "조건 검증 중 오류가 발생했습니다: " + e.getMessage());
-            errorResult.put("errorType", "SYSTEM_ERROR");
-            
-            return ResponseEntity.status(500).body(errorResult);
-        }
-    }
+
     
     /**
      * �� 3단계: 특정 리소스에 대한 실시간 조건 추천 API

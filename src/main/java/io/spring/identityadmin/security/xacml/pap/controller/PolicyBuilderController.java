@@ -17,6 +17,7 @@ import io.spring.identityadmin.domain.entity.Role;
 import io.spring.identityadmin.domain.entity.policy.Policy;
 import io.spring.identityadmin.repository.ConditionTemplateRepository;
 import io.spring.identityadmin.repository.ManagedResourceRepository;
+import io.spring.identityadmin.resource.service.ConditionCompatibilityService;
 import io.spring.identityadmin.security.xacml.pap.dto.VisualPolicyDto;
 import io.spring.identityadmin.security.xacml.pap.service.PolicyBuilderService;
 import lombok.RequiredArgsConstructor;
@@ -50,6 +51,7 @@ public class PolicyBuilderController {
     private final ObjectMapper objectMapper;
     private final PermissionService permissionService;
     private final ModelMapper modelMapper;
+    private final ConditionCompatibilityService conditionCompatibilityService;
     private static final Pattern SPEL_VARIABLE_PATTERN = Pattern.compile("#(\\w+)");
     private static final Set<String> GLOBAL_CONTEXT_VARIABLES = Set.of("#authentication", "#request", "#ai");
 
@@ -381,10 +383,50 @@ public class PolicyBuilderController {
             @RequestParam Long permissionId,
             Model model) {
 
+        log.info("🚀 리소스 워크벤치에서 정책빌더 접근: resourceId={}, permissionId={}", resourceId, permissionId);
+
         ManagedResource resource = managedResourceRepository.findById(resourceId)
                 .orElseThrow(() -> new IllegalArgumentException("Resource not found"));
 
-        // 리소스에 사용 가능한 컨텍스트 변수 정보
+        // 🎯 핵심 개선: 호환되는 조건만 사전 필터링
+        List<ConditionTemplate> allConditions = conditionTemplateRepository.findAll();
+        List<ConditionTemplate> compatibleConditions = conditionCompatibilityService.getCompatibleConditions(resource, allConditions);
+        
+        log.info("🔍 조건 필터링 결과: 전체 {} 개 → 호환 {} 개", allConditions.size(), compatibleConditions.size());
+
+        // 호환되는 조건들을 DTO로 변환하여 모델에 추가
+        List<ConditionTemplateDto> conditionDtos = compatibleConditions.stream()
+                .map(cond -> {
+                    Set<String> requiredVars = extractVariablesFromSpel(cond.getSpelTemplate());
+                    String enhancedDescription = enhanceConditionDescriptionV2(cond);
+                    
+                    return new ConditionTemplateDto(
+                            cond.getId(),
+                            cond.getName(),
+                            enhancedDescription,
+                            requiredVars,
+                            true, // 호환되는 조건들은 모두 활성화
+                            cond.getSpelTemplate()
+                    );
+                })
+                .sorted((a, b) -> {
+                    // 범용 조건을 맨 위로, 나머지는 이름순
+                    ConditionTemplate condA = findConditionById(compatibleConditions, a.id());
+                    ConditionTemplate condB = findConditionById(compatibleConditions, b.id());
+                    
+                    int classificationOrder1 = getClassificationOrder(condA.getClassification());
+                    int classificationOrder2 = getClassificationOrder(condB.getClassification());
+                    if (classificationOrder1 != classificationOrder2) {
+                        return Integer.compare(classificationOrder1, classificationOrder2);
+                    }
+                    return a.name().compareTo(b.name());
+                })
+                .toList();
+
+        model.addAttribute("allConditions", conditionDtos);
+        model.addAttribute("conditionStatistics", calculateConditionStatistics(compatibleConditions));
+
+        // 리소스 컨텍스트 정보
         Map<String, Object> resourceContext = new HashMap<>();
         resourceContext.put("resourceIdentifier", resource.getResourceIdentifier());
         try {
@@ -393,7 +435,6 @@ public class PolicyBuilderController {
             resourceContext.put("parameterTypes", Collections.emptyList());
         }
         resourceContext.put("returnObjectType", resource.getReturnType());
-
         model.addAttribute("resourceContext", resourceContext);
 
         // Permission을 DTO로 변환하여 전달
@@ -408,8 +449,31 @@ public class PolicyBuilderController {
                     model.addAttribute("preselectedPermission", permissionDto);
                 });
 
-        // 기존 policyBuilder 메서드를 호출하여 공통 데이터 추가 및 뷰 렌더링
-        return policyBuilder(model);
+        // 공통 데이터 추가 (롤, 그룹 등)
+        List<RoleDto> roleDtos = roleService.getRolesWithoutExpression().stream()
+                .map(role -> RoleDto.builder()
+                        .id(role.getId())
+                        .roleName(role.getRoleName())
+                        .roleDesc(role.getRoleDesc())
+                        .build())
+                .collect(Collectors.toList());
+
+        List<PermissionDto> permissionDtos = permissionCatalogService.getAvailablePermissions().stream()
+                .map(permission -> PermissionDto.builder()
+                        .id(permission.getId())
+                        .name(permission.getName())
+                        .friendlyName(permission.getFriendlyName())
+                        .description(permission.getDescription())
+                        .targetType(permission.getTargetType())
+                        .actionType(permission.getActionType())
+                        .build())
+                .collect(Collectors.toList());
+
+        model.addAttribute("allRoles", roleDtos);
+        model.addAttribute("allPermissions", permissionDtos);
+        model.addAttribute("activePage", "policy-builder");
+        
+        return "admin/policy-builder";
     }
 
     /**
