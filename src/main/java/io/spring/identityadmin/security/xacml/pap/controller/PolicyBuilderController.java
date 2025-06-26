@@ -83,13 +83,37 @@ public class PolicyBuilderController {
 
         model.addAttribute("allRoles", roleDtos);
         model.addAttribute("allPermissions", permissionDtos);
+        
+        // 🔧 개선: 리소스 컨텍스트가 없을 때 기본 컨텍스트 설정
+        if (!model.containsAttribute("resourceContext")) {
+            Map<String, Object> defaultContext = createDefaultResourceContext();
+            model.addAttribute("resourceContext", defaultContext);
+            log.info("🔧 정책 빌더 직접 접근: 기본 리소스 컨텍스트 설정됨");
+        }
+        
         addContextAwareConditionsToModel(model);
 
         model.addAttribute("activePage", "policy-builder");
         return "admin/policy-builder";
     }
+    
+    /**
+     * 🔧 신규: 기본 리소스 컨텍스트를 생성합니다.
+     * 정책 빌더에 직접 접근할 때 사용됩니다.
+     */
+    private Map<String, Object> createDefaultResourceContext() {
+        Map<String, Object> context = new HashMap<>();
+        context.put("resourceIdentifier", "GENERAL_POLICY");
+        context.put("resourceType", "GENERAL");
+        context.put("friendlyName", "일반 정책");
+        context.put("description", "특정 리소스에 종속되지 않는 일반적인 정책");
+        context.put("parameterTypes", "");
+        context.put("returnType", "void");
+        context.put("isDirectAccess", true);
+        return context;
+    }
 
-        /**
+    /**
      * 모델에 '컨텍스트 인지형' 조건 템플릿 목록을 추가하는 헬퍼 메서드
      * 🔄 2단계: 조건 분류 시스템을 적용하여 시각적으로 구분된 조건들을 제공합니다.
      */

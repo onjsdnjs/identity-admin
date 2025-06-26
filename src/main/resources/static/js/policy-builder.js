@@ -589,14 +589,23 @@
                     const name = nameParts.join(':');
 
                     // 조건인 경우 먼저 AI 검증 수행
-                    if (type === 'condition' && window.resourceContext) {
+                    if (type === 'condition') {
                         const spelTemplate = this.findSpelForCondition(id);
                         if (spelTemplate) {
+                            // 🔧 개선: 리소스 컨텍스트 확인
+                            let resourceIdentifier = 'GENERAL_POLICY'; // 기본값
+                            
+                            if (window.resourceContext && window.resourceContext.resourceIdentifier) {
+                                resourceIdentifier = window.resourceContext.resourceIdentifier;
+                                console.log('🔍 리소스 컨텍스트 사용:', resourceIdentifier);
+                            } else {
+                                console.log('🔧 기본 리소스 컨텍스트 사용:', resourceIdentifier);
+                            }
+
                             // 검증 중 표시
-                            this.showLoadingModal('[ AI ] 조건 호환성 검증 중...');
+                            this.showLoadingModal('[ 조건 호환성 검증 중... ]');
 
                             try {
-                                const resourceIdentifier = window.resourceContext.resourceIdentifier;
                                 const response = await this.api.validateCondition(resourceIdentifier, spelTemplate);
 
                                 this.hideLoadingModal();
@@ -605,9 +614,19 @@
                                     // 호환되지 않으면 드롭 취소하고 이유 표시
                                     this.showValidationErrorModal(name, response.reason);
                                     return; // 드롭 중단
+                                } else {
+                                    // 🔧 개선: 성공 시에도 AI 검증 결과 표시
+                                    if (response.reason.includes('AI 검증 불필요')) {
+                                        this.showMessage(`✅ "${name}" 조건이 즉시 추가되었습니다.`, 'success');
+                                    } else if (response.reason.includes('AI 고급 검증')) {
+                                        this.showMessage(`🤖 "${name}" 조건이 AI 검증을 통과하여 추가되었습니다.`, 'success');
+                                    } else {
+                                        this.showMessage(`✅ "${name}" 조건이 추가되었습니다.`, 'success');
+                                    }
                                 }
                             } catch (error) {
                                 this.hideLoadingModal();
+                                console.error('조건 검증 오류:', error);
                                 this.showMessage('조건 검증 중 오류가 발생했습니다.', 'error');
                                 return; // 드롭 중단
                             }

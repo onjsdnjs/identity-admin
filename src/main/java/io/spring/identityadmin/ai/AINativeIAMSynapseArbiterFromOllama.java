@@ -1923,6 +1923,9 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
                 return new ConditionValidationResponse(false, "리소스를 찾을 수 없습니다: " + resourceIdentifier);
             }
 
+            log.debug("🔍 리소스 정보: 타입={}, 친숙한이름={}, 파라미터타입={}", 
+                resource.getResourceType(), resource.getFriendlyName(), resource.getParameterTypes());
+
             // 🔄 1단계: 조건 호환성 서비스를 통한 기본 호환성 검증
             ConditionTemplate tempCondition = new ConditionTemplate();
             tempCondition.setSpelTemplate(conditionSpel);
@@ -1931,7 +1934,12 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
             ConditionCompatibilityService.CompatibilityResult compatibilityResult = 
                 conditionCompatibilityService.checkCompatibility(tempCondition, resource);
                 
-            log.debug("🔍 1단계 호환성 검사 결과: {}", compatibilityResult.isCompatible());
+            log.info("🔍 1단계 호환성 검사 결과: 호환={}, 이유={}, 사용가능변수={}, 누락변수={}, AI검증필요={}", 
+                compatibilityResult.isCompatible(), 
+                compatibilityResult.getReason(),
+                compatibilityResult.getAvailableVariables(),
+                compatibilityResult.getMissingVariables(),
+                compatibilityResult.requiresAiValidation());
             
             // 호환성 검사 실패 시 즉시 반환 (AI 검증 생략)
             if (!compatibilityResult.isCompatible()) {
@@ -1940,8 +1948,17 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
                     "🔍 기본 호환성 검사 실패: " + compatibilityResult.getReason());
             }
 
-                         // 🔄 2단계: AI를 통한 고급 문법 및 보안 검증 (호환성 통과한 경우만)
-             String contextInfo = String.format("""
+            // 🔧 개선: AI 검증이 불필요한 경우 즉시 반환
+            if (!compatibilityResult.requiresAiValidation()) {
+                log.info("✅ AI 검증 생략 - 즉시 승인: {}", compatibilityResult.getReason());
+                return new ConditionValidationResponse(true, 
+                    "✅ 1단계 호환성 검사 통과 (AI 검증 불필요): " + compatibilityResult.getReason());
+            }
+
+            log.info("🤖 2단계 AI 고급 검증 시작 - 복잡한 조건으로 판단됨");
+
+            // 🔄 2단계: AI를 통한 고급 문법 및 보안 검증 (호환성 통과한 경우만)
+            String contextInfo = String.format("""
                  리소스 정보:
                  - 식별자: %s
                  - 타입: %s
@@ -1956,6 +1973,8 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
                  resource.getReturnType(),
                  resource.getParameterTypes(),
                  String.join(", ", compatibilityResult.getAvailableVariables()));
+
+            log.debug("🤖 AI에게 전송할 컨텍스트 정보: {}", contextInfo);
 
             String systemPrompt = """
                 당신은 Spring SpEL 표현식 보안 및 품질 검증 전문가입니다. 
@@ -2007,11 +2026,20 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
 
             try {
                 JsonNode jsonNode = objectMapper.readTree(cleanedJson);
+                
+                // 필수 필드 검증
+                if (!jsonNode.has("isCompatible") || !jsonNode.has("reason")) {
+                    log.warn("⚠️ AI 응답에 필수 필드 누락: isCompatible 또는 reason");
+                    throw new IllegalArgumentException("AI 응답 형식 오류: 필수 필드 누락");
+                }
+                
                 boolean aiCompatible = jsonNode.get("isCompatible").asBoolean();
                 String aiReason = jsonNode.get("reason").asText();
                 String securityRisk = jsonNode.has("securityRisk") ? jsonNode.get("securityRisk").asText() : "UNKNOWN";
                 boolean performanceIssue = jsonNode.has("performanceIssue") ? jsonNode.get("performanceIssue").asBoolean() : false;
                 String suggestions = jsonNode.has("suggestions") ? jsonNode.get("suggestions").asText() : "";
+
+                log.info("🤖 AI 검증 결과: 호환={}, 보안위험={}, 성능이슈={}", aiCompatible, securityRisk, performanceIssue);
 
                 // 🔄 3단계: 종합 결과 구성 (호환성 + AI 검증)
                 String finalReason = String.format("""
@@ -2033,11 +2061,12 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
 
             } catch (Exception parseException) {
                 log.warn("⚠️ AI 응답 파싱 실패, 1단계 호환성 결과만 사용: {}", parseException.getMessage());
+                log.debug("⚠️ 파싱 실패 상세:", parseException);
                 
                 // Fallback: 기본 호환성 검사 결과만 사용
                 return new ConditionValidationResponse(true, 
                     "✅ 1단계 호환성 검사 통과: " + compatibilityResult.getReason() + 
-                    " | ⚠️ 2단계 AI 고급 검증 실패");
+                    " | ⚠️ 2단계 AI 고급 검증 실패: " + parseException.getMessage());
             }
 
         } catch (Exception e) {
