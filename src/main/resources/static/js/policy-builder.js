@@ -570,18 +570,7 @@
                     this.state.add(type, id, { id, name });
                     this.highlightPaletteItem(type, id);
                     this.ui.renderAll(this.state);
-                    
-                    // 조건 추가 성공 메시지
-                    if (type === 'condition') {
-                        this.showMessage(`✅ "${name}" 조건이 추가되었습니다.`, 'success');
-                    }
                 }
-
-
-
-
-
-
 
                 handleChipRemove(type, key) {
                     console.log(`🗑️ 칩 제거: ${type} ID=${key}`);
@@ -1681,7 +1670,6 @@
                  * 모달 닫기 핸들러 (클래스 메서드)
                  */
                 handleCloseModal() {
-                    alert('🚪 handleCloseModal 함수가 호출되었습니다!');
                     console.log('🚪🚪🚪 모달 닫기 메서드 호출됨 🚪🚪🚪');
                     console.log('🚪 현재 시간:', new Date().toLocaleTimeString());
 

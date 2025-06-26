@@ -45,24 +45,47 @@ public class ConditionCompatibilityService {
 
         log.info("🔍 조건 호환성 사전 필터링 시작: {}", resource.getResourceIdentifier());
         
+        // 조건들을 분류별로 집계
+        Map<ConditionTemplate.ConditionClassification, Long> conditionsByClassification = allConditions.stream()
+            .collect(Collectors.groupingBy(
+                c -> c.getClassification() != null ? c.getClassification() : ConditionTemplate.ConditionClassification.UNIVERSAL,
+                Collectors.counting()));
+        
+        log.info("📊 입력 조건 분류별 개수: {}", conditionsByClassification);
+        
         List<ConditionTemplate> compatibleConditions = new ArrayList<>();
         Set<String> availableVariables = calculateAvailableVariables(resource);
         
         log.info("🔍 사용 가능한 변수들: {}", availableVariables);
 
+        int universalApproved = 0, domainFiltered = 0, variableFiltered = 0, abacFiltered = 0;
+
         for (ConditionTemplate condition : allConditions) {
+            log.info("🔍 조건 검사: [{}] - 분류=[{}]", condition.getName(), condition.getClassification());
             CompatibilityResult result = checkCompatibility(condition, resource, availableVariables);
             
             if (result.isCompatible()) {
                 compatibleConditions.add(condition);
-                log.debug("✅ 호환 조건 추가: {} ({})", condition.getName(), result.getClassification());
+                log.info("✅ 호환 조건 추가: {} - {}", condition.getName(), result.getReason());
+                if (ConditionTemplate.ConditionClassification.UNIVERSAL.equals(condition.getClassification())) {
+                    universalApproved++;
+                }
             } else {
-                log.debug("❌ 호환 불가 조건 제외: {} - {}", condition.getName(), result.getReason());
+                log.warn("❌ 호환 불가 조건 제외: {} - {}", condition.getName(), result.getReason());
+                if (result.getReason().contains("도메인 컨텍스트가 호환되지 않음")) {
+                    domainFiltered++;
+                } else if (result.getReason().contains("ABAC 적용 불가능")) {
+                    abacFiltered++;
+                } else if (result.getReason().contains("변수가 누락")) {
+                    variableFiltered++;
+                }
             }
         }
 
         log.info("🎯 필터링 완료: 전체 {} 개 중 {} 개 호환 조건 반환", 
             allConditions.size(), compatibleConditions.size());
+        log.info("📊 필터링 상세: 범용승인={}, 도메인필터={}, 변수필터={}, ABAC필터={}", 
+            universalApproved, domainFiltered, variableFiltered, abacFiltered);
 
         return compatibleConditions;
     }
@@ -105,12 +128,24 @@ public class ConditionCompatibilityService {
             );
         }
 
-        // 3. 필요한 변수들 추출
+        // 🎯 3. 도메인 컨텍스트 호환성 검사 (새로 추가)
+        if (!isDomainCompatible(condition, resource)) {
+            return new CompatibilityResult(
+                false, 
+                "도메인 컨텍스트가 호환되지 않음", 
+                Collections.emptySet(), 
+                availableVariables,
+                condition.getClassification(),
+                false
+            );
+        }
+
+        // 4. 필요한 변수들 추출
         Set<String> requiredVariables = extractVariablesFromSpel(condition.getSpelTemplate());
         Set<String> missingVariables = new HashSet<>(requiredVariables);
         missingVariables.removeAll(availableVariables);
 
-        // 4. 모든 필요한 변수가 있는지 확인
+        // 5. 모든 필요한 변수가 있는지 확인
         boolean isCompatible = missingVariables.isEmpty();
         
         if (isCompatible) {
@@ -375,6 +410,240 @@ public class ConditionCompatibilityService {
         return returnType != null && 
                !returnType.equals("void") && 
                !returnType.equals("java.lang.Void");
+    }
+
+    /**
+     * 🎯 도메인 컨텍스트 호환성 검사
+     * 그룹 권한에는 그룹 관련 조건만, 사용자 권한에는 사용자 관련 조건만 표시
+     */
+    private boolean isDomainCompatible(ConditionTemplate condition, ManagedResource resource) {
+        String resourceIdentifier = resource.getResourceIdentifier().toLowerCase();
+        String conditionName = condition.getName().toLowerCase();
+        String conditionSpel = condition.getSpelTemplate() != null ? condition.getSpelTemplate().toLowerCase() : "";
+        
+        log.info("🔍 도메인 호환성 검사: 리소스=[{}], 조건=[{}], SpEL=[{}], 분류=[{}]", 
+            resourceIdentifier, conditionName, conditionSpel, condition.getClassification());
+        
+        // 그룹 관련 리소스인지 확인
+        boolean isGroupResource = isGroupRelatedResource(resourceIdentifier);
+        boolean isUserResource = isUserRelatedResource(resourceIdentifier);
+        boolean isRoleResource = isRoleRelatedResource(resourceIdentifier);
+        boolean isPermissionResource = isPermissionRelatedResource(resourceIdentifier);
+        
+        log.info("📊 리소스 분류: 그룹={}, 사용자={}, 역할={}, 권한={}", 
+            isGroupResource, isUserResource, isRoleResource, isPermissionResource);
+        
+        // 조건이 그룹 관련인지 확인
+        boolean isGroupCondition = isGroupRelatedCondition(conditionName, conditionSpel);
+        boolean isUserCondition = isUserRelatedCondition(conditionName, conditionSpel);
+        boolean isRoleCondition = isRoleRelatedCondition(conditionName, conditionSpel);
+        boolean isPermissionCondition = isPermissionRelatedCondition(conditionName, conditionSpel);
+        
+        log.info("📊 조건 분류: 그룹={}, 사용자={}, 역할={}, 권한={}", 
+            isGroupCondition, isUserCondition, isRoleCondition, isPermissionCondition);
+        
+        // 범용 조건은 모든 도메인과 호환 (단, 의미적 도메인 검사도 수행)
+        if (ConditionTemplate.ConditionClassification.UNIVERSAL.equals(condition.getClassification())) {
+            // 🔍 UNIVERSAL 조건이라도 의미적으로 특정 도메인에 특화된 경우 필터링
+            boolean hasSpecificDomain = isGroupCondition || isUserCondition || isRoleCondition || isPermissionCondition;
+            if (hasSpecificDomain) {
+                log.info("🔍 UNIVERSAL 조건이지만 특정 도메인 키워드 감지 - 도메인 검사 수행: {}", conditionName);
+                // 도메인 검사를 계속 수행
+            } else {
+                log.info("✅ 순수 범용 조건으로 승인: {}", conditionName);
+                return true;
+            }
+        }
+        
+        // 도메인별 매칭 규칙 - 완전 일치 우선
+        if (isGroupResource && isGroupCondition) {
+            log.info("✅ 그룹 리소스 + 그룹 조건 매칭");
+            return true;
+        }
+        
+        if (isUserResource && isUserCondition) {
+            log.info("✅ 사용자 리소스 + 사용자 조건 매칭");
+            return true;
+        }
+        
+        if (isRoleResource && isRoleCondition) {
+            log.info("✅ 역할 리소스 + 역할 조건 매칭");
+            return true;
+        }
+        
+        if (isPermissionResource && isPermissionCondition) {
+            log.info("✅ 권한 리소스 + 권한 조건 매칭");
+            return true;
+        }
+        
+        // 일반적인 객체 기반 조건들 (ID 기반 접근제어) - 도메인 제약 추가
+        boolean isObjectBasedCondition = isObjectBasedCondition(conditionName, conditionSpel);
+        if (isObjectBasedCondition && hasObjectIdParameter(resource)) {
+            // 🚫 객체 기반 조건도 도메인 일치 검사 적용
+            if (isGroupResource && !isGroupCondition && (isUserCondition || isRoleCondition || isPermissionCondition)) {
+                log.warn("🚫 그룹 리소스에서 다른 도메인의 객체 기반 조건 차단: {}", conditionName);
+                return false;
+            }
+            if (isUserResource && !isUserCondition && (isGroupCondition || isRoleCondition || isPermissionCondition)) {
+                log.warn("🚫 사용자 리소스에서 다른 도메인의 객체 기반 조건 차단: {}", conditionName);
+                return false;
+            }
+            if (isRoleResource && !isRoleCondition && (isGroupCondition || isUserCondition || isPermissionCondition)) {
+                log.warn("🚫 역할 리소스에서 다른 도메인의 객체 기반 조건 차단: {}", conditionName);
+                return false;
+            }
+            if (isPermissionResource && !isPermissionCondition && (isGroupCondition || isUserCondition || isRoleCondition)) {
+                log.warn("🚫 권한 리소스에서 다른 도메인의 객체 기반 조건 차단: {}", conditionName);
+                return false;
+            }
+            
+            log.info("✅ 객체 기반 조건 + ID 파라미터 매칭 (도메인 일치)");
+            return true;
+        }
+        
+        // 🚫 엄격한 도메인 분리: 다른 도메인 조건은 차단
+        if (isGroupResource) {
+            if (isUserCondition || isRoleCondition || isPermissionCondition) {
+                log.warn("🚫 그룹 리소스에 다른 도메인 조건 차단: 사용자={}, 역할={}, 권한={}", 
+                    isUserCondition, isRoleCondition, isPermissionCondition);
+                return false;
+            }
+        }
+        
+        if (isUserResource) {
+            if (isGroupCondition || isRoleCondition || isPermissionCondition) {
+                log.warn("🚫 사용자 리소스에 다른 도메인 조건 차단: 그룹={}, 역할={}, 권한={}", 
+                    isGroupCondition, isRoleCondition, isPermissionCondition);
+                return false;
+            }
+        }
+        
+        if (isRoleResource) {
+            if (isGroupCondition || isUserCondition || isPermissionCondition) {
+                log.warn("🚫 역할 리소스에 다른 도메인 조건 차단: 그룹={}, 사용자={}, 권한={}", 
+                    isGroupCondition, isUserCondition, isPermissionCondition);
+                return false;
+            }
+        }
+        
+        if (isPermissionResource) {
+            if (isGroupCondition || isUserCondition || isRoleCondition) {
+                log.warn("🚫 권한 리소스에 다른 도메인 조건 차단: 그룹={}, 사용자={}, 역할={}", 
+                    isGroupCondition, isUserCondition, isRoleCondition);
+                return false;
+            }
+        }
+        
+        // 🔍 마지막 시도: 소스 메서드 기반 도메인 추론
+        if (condition.getSourceMethod() != null) {
+            String sourceMethod = condition.getSourceMethod().toLowerCase();
+            if (isGroupResource && (sourceMethod.contains("group") || sourceMethod.contains("그룹"))) {
+                log.info("✅ 소스 메서드 기반 그룹 도메인 매칭: {}", condition.getSourceMethod());
+                return true;
+            }
+            if (isUserResource && (sourceMethod.contains("user") || sourceMethod.contains("사용자"))) {
+                log.info("✅ 소스 메서드 기반 사용자 도메인 매칭: {}", condition.getSourceMethod());
+                return true;
+            }
+            if (isRoleResource && (sourceMethod.contains("role") || sourceMethod.contains("역할"))) {
+                log.info("✅ 소스 메서드 기반 역할 도메인 매칭: {}", condition.getSourceMethod());
+                return true;
+            }
+            if (isPermissionResource && (sourceMethod.contains("permission") || sourceMethod.contains("권한"))) {
+                log.info("✅ 소스 메서드 기반 권한 도메인 매칭: {}", condition.getSourceMethod());
+                return true;
+            }
+        }
+        
+        log.warn("❌ 도메인 호환성 불일치: 리소스[그룹={}, 사용자={}, 역할={}, 권한={}], 조건[그룹={}, 사용자={}, 역할={}, 권한={}, 객체기반={}], 소스메서드=[{}]", 
+            isGroupResource, isUserResource, isRoleResource, isPermissionResource,
+            isGroupCondition, isUserCondition, isRoleCondition, isPermissionCondition, isObjectBasedCondition,
+            condition.getSourceMethod());
+        
+        return false;
+    }
+    
+    private boolean isGroupRelatedResource(String resourceIdentifier) {
+        return resourceIdentifier.contains("group") || resourceIdentifier.contains("그룹");
+    }
+    
+    private boolean isUserRelatedResource(String resourceIdentifier) {
+        return resourceIdentifier.contains("user") || resourceIdentifier.contains("사용자") || 
+               resourceIdentifier.contains("member") || resourceIdentifier.contains("멤버");
+    }
+    
+    private boolean isRoleRelatedResource(String resourceIdentifier) {
+        return resourceIdentifier.contains("role") || resourceIdentifier.contains("역할");
+    }
+    
+    private boolean isPermissionRelatedResource(String resourceIdentifier) {
+        return resourceIdentifier.contains("permission") || resourceIdentifier.contains("권한");
+    }
+    
+    private boolean isGroupRelatedCondition(String conditionName, String conditionSpel) {
+        boolean nameMatch = conditionName.contains("그룹") || conditionName.contains("group") ||
+                           conditionName.contains("팀") || conditionName.contains("team");
+        boolean spelMatch = conditionSpel.contains("#group") || conditionSpel.contains("group") ||
+                           conditionSpel.contains("'group'") || conditionSpel.contains("\"group\"");
+        
+        boolean result = nameMatch || spelMatch;
+        log.debug("🔍 그룹 조건 검사: 이름=[{}], SpEL=[{}] → 이름매치={}, SpEL매치={}, 결과={}", 
+            conditionName, conditionSpel, nameMatch, spelMatch, result);
+        return result;
+    }
+    
+    private boolean isUserRelatedCondition(String conditionName, String conditionSpel) {
+        boolean nameMatch = conditionName.contains("사용자") || conditionName.contains("user") ||
+                           conditionName.contains("소유자") || conditionName.contains("owner") ||
+                           conditionName.contains("멤버") || conditionName.contains("member");
+        boolean spelMatch = conditionSpel.contains("#user") || conditionSpel.contains("user") ||
+                           conditionSpel.contains("#owner") || conditionSpel.contains("owner") ||
+                           conditionSpel.contains("'user'") || conditionSpel.contains("\"user\"");
+        
+        boolean result = nameMatch || spelMatch;
+        log.debug("🔍 사용자 조건 검사: 이름=[{}], SpEL=[{}] → 이름매치={}, SpEL매치={}, 결과={}", 
+            conditionName, conditionSpel, nameMatch, spelMatch, result);
+        return result;
+    }
+    
+    private boolean isRoleRelatedCondition(String conditionName, String conditionSpel) {
+        boolean nameMatch = conditionName.contains("역할") || conditionName.contains("role") ||
+                           conditionName.contains("직책") || conditionName.contains("position");
+        boolean spelMatch = conditionSpel.contains("#role") || conditionSpel.contains("role") ||
+                           conditionSpel.contains("'role'") || conditionSpel.contains("\"role\"");
+        
+        boolean result = nameMatch || spelMatch;
+        log.debug("🔍 역할 조건 검사: 이름=[{}], SpEL=[{}] → 이름매치={}, SpEL매치={}, 결과={}", 
+            conditionName, conditionSpel, nameMatch, spelMatch, result);
+        return result;
+    }
+    
+    private boolean isPermissionRelatedCondition(String conditionName, String conditionSpel) {
+        boolean nameMatch = conditionName.contains("권한") || conditionName.contains("permission") ||
+                           conditionName.contains("허가") || conditionName.contains("authority");
+        boolean spelMatch = conditionSpel.contains("#permission") || conditionSpel.contains("permission") ||
+                           conditionSpel.contains("'permission'") || conditionSpel.contains("\"permission\"") ||
+                           conditionSpel.contains("hasauthority") || conditionSpel.contains("hasrole");
+        
+        boolean result = nameMatch || spelMatch;
+        log.debug("🔍 권한 조건 검사: 이름=[{}], SpEL=[{}] → 이름매치={}, SpEL매치={}, 결과={}", 
+            conditionName, conditionSpel, nameMatch, spelMatch, result);
+        return result;
+    }
+    
+    private boolean isObjectBasedCondition(String conditionName, String conditionSpel) {
+        return conditionName.contains("소유자") || conditionName.contains("owner") ||
+               conditionName.contains("접근") || conditionName.contains("access") ||
+               conditionSpel.contains("#id") || conditionSpel.contains("#returnobject");
+    }
+    
+    private boolean hasObjectIdParameter(ManagedResource resource) {
+        String paramTypes = resource.getParameterTypes();
+        if (paramTypes == null) return false;
+        
+        return paramTypes.toLowerCase().contains("long") || 
+               paramTypes.toLowerCase().contains("id") ||
+               paramTypes.toLowerCase().contains("integer");
     }
 
     /**
