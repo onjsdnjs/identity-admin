@@ -435,4 +435,47 @@ public class ConditionCompatibilityService {
         public ConditionTemplate.ConditionClassification getClassification() { return classification; }
         public boolean requiresAiValidation() { return requiresAiValidation; }
     }
+
+    /**
+     * 🔄 기존 코드 호환성을 위한 메서드 (2 파라미터)
+     */
+    public CompatibilityResult checkCompatibility(ConditionTemplate condition, ManagedResource resource) {
+        if (condition == null || resource == null) {
+            return new CompatibilityResult(false, "조건 또는 리소스가 null입니다.", 
+                Collections.emptySet(), Collections.emptySet(), 
+                ConditionTemplate.ConditionClassification.CUSTOM_COMPLEX, false);
+        }
+
+        Set<String> availableVariables = calculateAvailableVariables(resource);
+        return checkCompatibility(condition, resource, availableVariables);
+    }
+
+    /**
+     * 🔄 기존 코드 호환성을 위한 배치 호환성 검사
+     */
+    public Map<Long, CompatibilityResult> checkBatchCompatibility(List<ConditionTemplate> conditions, 
+                                                                ManagedResource resource) {
+        Map<Long, CompatibilityResult> results = new HashMap<>();
+        
+        for (ConditionTemplate condition : conditions) {
+            CompatibilityResult result = checkCompatibility(condition, resource);
+            results.put(condition.getId(), result);
+        }
+        
+        log.debug("🔍 배치 호환성 검사 완료: {} 개 조건, 호환 가능: {} 개", 
+            conditions.size(), 
+            results.values().stream().mapToInt(r -> r.isCompatible() ? 1 : 0).sum());
+        
+        return results;
+    }
+
+    /**
+     * 🔄 기존 코드 호환성을 위한 위험도별 그룹화
+     */
+    public Map<ConditionTemplate.RiskLevel, List<ConditionTemplate>> groupByRiskLevel(List<ConditionTemplate> conditions) {
+        return conditions.stream()
+            .collect(Collectors.groupingBy(
+                condition -> condition.getRiskLevel() != null ? 
+                    condition.getRiskLevel() : ConditionTemplate.RiskLevel.LOW));
+    }
 } 
