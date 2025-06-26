@@ -1,5 +1,5 @@
-package io.spring.identityadmin.aiam;
-import io.spring.identityadmin.aiam.dto.*;
+package io.spring.identityadmin.ai;
+import io.spring.identityadmin.ai.dto.*;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
 import io.spring.identityadmin.security.xacml.pip.context.AuthorizationContext;

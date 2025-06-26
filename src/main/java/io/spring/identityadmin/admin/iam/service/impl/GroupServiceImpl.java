@@ -36,6 +36,7 @@ public class GroupServiceImpl implements GroupService {
             },
             put = { @CachePut(value = "groups", key = "#result.id") }
     )
+    @Protectable
     public Group createGroup(Group group, List<Long> selectedRoleIds) {
         if (groupRepository.findByName(group.getName()).isPresent()) {
             throw new IllegalArgumentException("Group with name " + group.getName() + " already exists.");

@@ -2,7 +2,7 @@ package io.spring.identityadmin.resource.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.spring.identityadmin.aiam.AINativeIAMAdvisor;
+import io.spring.identityadmin.ai.AINativeIAMAdvisor;
 import io.spring.identityadmin.domain.entity.ConditionTemplate;
 import io.spring.identityadmin.domain.entity.ManagedResource;
 import io.spring.identityadmin.repository.ConditionTemplateRepository;
@@ -30,6 +30,21 @@ public class AutoConditionTemplateService {
     private final ManagedResourceRepository managedResourceRepository;
     private final AINativeIAMAdvisor aiAdvisor;
     private final ObjectMapper objectMapper;
+
+    /**
+     * 메서드 시그니처 정보를 담는 클래스
+     */
+    public static class MethodSignature {
+        public final String methodName;
+        public final String parameterInfo;
+        public final String resourceType;
+        
+        public MethodSignature(String methodName, String parameterInfo, String resourceType) {
+            this.methodName = methodName;
+            this.parameterInfo = parameterInfo;
+            this.resourceType = resourceType;
+        }
+    }
 
     /**
      * 자동 생성된 조건 템플릿 정보를 담는 DTO
@@ -233,64 +248,173 @@ public class AutoConditionTemplateService {
     }
 
     /**
-     * 🔄 개선: 엔티티 타입을 한국어로 변환
+     * 엔티티 타입을 동적으로 한국어로 변환
+     * 패턴 분석을 통해 하드코딩 없이 한국어명 생성
      */
     private String getKoreanEntityName(String entityType) {
-        if (entityType == null) return "리소스";
-
-        Map<String, String> entityNames = Map.of(
-                "User", "사용자",
-                "Document", "문서",
-                "Group", "그룹",
-                "Role", "역할",
-                "Permission", "권한",
-                "Policy", "정책",
-                "Resource", "리소스",
-                "File", "파일",
-                "Project", "프로젝트",
-                "Organization", "조직"
-        );
-
-        return entityNames.getOrDefault(entityType, entityType.toLowerCase());
+        if (entityType == null || entityType.trim().isEmpty()) {
+            return "리소스";
+        }
+        
+        // 대소문자 정규화
+        String normalizedType = entityType.trim();
+        String lowerType = normalizedType.toLowerCase();
+        
+        // 동적 패턴 매칭을 통한 한국어 변환
+        if (lowerType.contains("user")) {
+            return "사용자";
+        } else if (lowerType.contains("group")) {
+            return "그룹";
+        } else if (lowerType.contains("role")) {
+            return "역할";
+        } else if (lowerType.contains("permission")) {
+            return "권한";
+        } else if (lowerType.contains("policy")) {
+            return "정책";
+        } else if (lowerType.contains("document")) {
+            return "문서";
+        } else if (lowerType.contains("file")) {
+            return "파일";
+        } else if (lowerType.contains("project")) {
+            return "프로젝트";
+        } else if (lowerType.contains("organization") || lowerType.contains("org")) {
+            return "조직";
+        } else if (lowerType.contains("department") || lowerType.contains("dept")) {
+            return "부서";
+        } else if (lowerType.contains("team")) {
+            return "팀";
+        } else if (lowerType.contains("resource")) {
+            return "리소스";
+        } else if (lowerType.contains("data")) {
+            return "데이터";
+        } else if (lowerType.contains("system")) {
+            return "시스템";
+        } else if (lowerType.contains("service")) {
+            return "서비스";
+        } else {
+            // 알 수 없는 타입의 경우 영어 그대로 반환하되 첫 글자만 소문자로
+            return normalizedType.substring(0, 1).toLowerCase() + normalizedType.substring(1);
+        }
     }
 
     /**
-     * 🔄 개선: 메서드명에서 액션 타입 추출
+     * 메서드명에서 액션 타입을 동적으로 추출
+     * 다양한 패턴을 분석하여 적절한 한국어 액션명 반환
      */
     private String extractActionFromMethod(String methodName) {
-        if (methodName == null) return "처리";
-
-        String lowerMethod = methodName.toLowerCase();
-
-        if (lowerMethod.contains("update") || lowerMethod.contains("modify") || lowerMethod.contains("edit")) {
-            return "수정";
-        } else if (lowerMethod.contains("delete") || lowerMethod.contains("remove")) {
-            return "삭제";
-        } else if (lowerMethod.contains("create") || lowerMethod.contains("add") || lowerMethod.contains("insert")) {
-            return "생성";
-        } else if (lowerMethod.contains("read") || lowerMethod.contains("get") || lowerMethod.contains("find") || lowerMethod.contains("view")) {
-            return "조회";
-        } else if (lowerMethod.contains("approve")) {
-            return "승인";
-        } else if (lowerMethod.contains("reject")) {
-            return "거부";
-        } else if (lowerMethod.contains("assign")) {
-            return "할당";
-        } else if (lowerMethod.contains("revoke")) {
-            return "취소";
+        if (methodName == null || methodName.trim().isEmpty()) {
+            return "처리";
         }
 
-        return "처리";
+        String lowerMethod = methodName.toLowerCase().trim();
+        
+        // 동사 패턴 분석 (시작 패턴 우선)
+        if (lowerMethod.startsWith("create") || lowerMethod.startsWith("add") || 
+            lowerMethod.startsWith("insert") || lowerMethod.startsWith("new") ||
+            lowerMethod.startsWith("register") || lowerMethod.startsWith("build")) {
+            return "생성";
+        } else if (lowerMethod.startsWith("get") || lowerMethod.startsWith("find") || 
+                   lowerMethod.startsWith("fetch") || lowerMethod.startsWith("retrieve") ||
+                   lowerMethod.startsWith("select") || lowerMethod.startsWith("search") ||
+                   lowerMethod.startsWith("load") || lowerMethod.startsWith("read") ||
+                   lowerMethod.startsWith("view") || lowerMethod.startsWith("show")) {
+            return "조회";
+        } else if (lowerMethod.startsWith("update") || lowerMethod.startsWith("modify") || 
+                   lowerMethod.startsWith("edit") || lowerMethod.startsWith("change") ||
+                   lowerMethod.startsWith("alter") || lowerMethod.startsWith("set")) {
+            return "수정";
+        } else if (lowerMethod.startsWith("delete") || lowerMethod.startsWith("remove") || 
+                   lowerMethod.startsWith("drop") || lowerMethod.startsWith("clear") ||
+                   lowerMethod.startsWith("destroy") || lowerMethod.startsWith("purge")) {
+            return "삭제";
+        } else if (lowerMethod.startsWith("save") || lowerMethod.startsWith("store") ||
+                   lowerMethod.startsWith("persist")) {
+            return "저장";
+        } else if (lowerMethod.startsWith("validate") || lowerMethod.startsWith("check") ||
+                   lowerMethod.startsWith("verify") || lowerMethod.startsWith("confirm")) {
+            return "검증";
+        } else if (lowerMethod.startsWith("approve") || lowerMethod.startsWith("accept")) {
+            return "승인";
+        } else if (lowerMethod.startsWith("reject") || lowerMethod.startsWith("deny") ||
+                   lowerMethod.startsWith("decline")) {
+            return "거부";
+        } else if (lowerMethod.startsWith("assign") || lowerMethod.startsWith("grant") ||
+                   lowerMethod.startsWith("give") || lowerMethod.startsWith("allocate")) {
+            return "할당";
+        } else if (lowerMethod.startsWith("revoke") || lowerMethod.startsWith("unassign") ||
+                   lowerMethod.startsWith("withdraw") || lowerMethod.startsWith("cancel")) {
+            return "취소";
+        } else if (lowerMethod.startsWith("send") || lowerMethod.startsWith("notify") ||
+                   lowerMethod.startsWith("alert")) {
+            return "전송";
+        } else if (lowerMethod.startsWith("process") || lowerMethod.startsWith("handle") ||
+                   lowerMethod.startsWith("execute") || lowerMethod.startsWith("run")) {
+            return "처리";
+        } else if (lowerMethod.startsWith("count") || lowerMethod.startsWith("calculate") ||
+                   lowerMethod.startsWith("compute")) {
+            return "계산";
+        } else if (lowerMethod.startsWith("copy") || lowerMethod.startsWith("clone") ||
+                   lowerMethod.startsWith("duplicate")) {
+            return "복사";
+        } else if (lowerMethod.startsWith("move") || lowerMethod.startsWith("transfer")) {
+            return "이동";
+        } else if (lowerMethod.startsWith("export") || lowerMethod.startsWith("download")) {
+            return "내보내기";
+        } else if (lowerMethod.startsWith("import") || lowerMethod.startsWith("upload")) {
+            return "가져오기";
+        } else {
+            // 알 수 없는 패턴의 경우 기본값
+            return "처리";
+        }
     }
 
     /**
-     * 🔄 개선: 메서드 ID에서 메서드명만 추출
+     * 메서드 ID에서 메서드명을 동적으로 추출
+     * resource_identifier 형태: "io.spring.identityadmin.admin.iam.service.impl.GroupServiceImpl.updateGroup(Group,List)"
      */
     private String extractMethodName(String methodId) {
-        if (methodId == null) return "unknown";
+        if (methodId == null || methodId.trim().isEmpty()) {
+            return "unknown";
+        }
 
-        String[] parts = methodId.split("\\.");
-        return parts.length > 0 ? parts[parts.length - 1] : methodId;
+        try {
+            String trimmed = methodId.trim();
+            
+            // 마지막 점(.) 이후의 부분을 추출
+            int lastDotIndex = trimmed.lastIndexOf('.');
+            if (lastDotIndex == -1) {
+                // 점이 없으면 전체가 메서드명
+                return extractMethodNameFromSignature(trimmed);
+            }
+            
+            String methodPart = trimmed.substring(lastDotIndex + 1);
+            return extractMethodNameFromSignature(methodPart);
+            
+        } catch (Exception e) {
+            log.warn("⚠️ 메서드명 추출 실패: {}", methodId, e);
+            return "unknown";
+        }
+    }
+    
+    /**
+     * 메서드 시그니처에서 순수 메서드명만 추출
+     * 예: "updateGroup(Group,List)" -> "updateGroup"
+     */
+    private String extractMethodNameFromSignature(String methodSignature) {
+        if (methodSignature == null || methodSignature.trim().isEmpty()) {
+            return "unknown";
+        }
+        
+        String trimmed = methodSignature.trim();
+        
+        // 괄호가 있으면 괄호 앞까지만 추출
+        int parenIndex = trimmed.indexOf('(');
+        if (parenIndex != -1) {
+            return trimmed.substring(0, parenIndex).trim();
+        }
+        
+        // 괄호가 없으면 전체가 메서드명
+        return trimmed;
     }
 
     /**
@@ -492,14 +616,38 @@ public class AutoConditionTemplateService {
         // 1. 범용 조건 템플릿 (AI로 생성)
         templates.addAll(generateAIUniversalTemplates());
 
-        // 2. METHOD 리소스별 AI 특화 조건 템플릿
+                // 2. METHOD 리소스별 AI 특화 조건 템플릿  
+        Set<String> processedMethodSignatures = new HashSet<>();
+        int processedCount = 0;
+        int skippedCount = 0;
+        
         for (ManagedResource resource : methodResources) {
             try {
-                templates.addAll(generateAISpecificTemplates(resource));
+                // 메서드 시그니처 파싱하여 고유 식별자 생성
+                MethodSignature signature = parseMethodSignature(resource);
+                String methodSignatureKey = signature.methodName + ":" + signature.parameterInfo + ":" + signature.resourceType;
+                
+                // 중복 메서드 시그니처 처리 방지
+                if (processedMethodSignatures.contains(methodSignatureKey)) {
+                    log.warn("⚠️ 중복 메서드 시그니처 건너뛰기: {} - {}", signature.methodName, resource.getResourceIdentifier());
+                    skippedCount++;
+                    continue;
+                }
+                
+                List<ConditionTemplate> methodTemplates = generateAISpecificTemplates(resource);
+                templates.addAll(methodTemplates);
+                processedMethodSignatures.add(methodSignatureKey);
+                processedCount++;
+                
+                log.info("✅ 메서드 {} 처리 완료: {} 개 조건 생성", signature.methodName, methodTemplates.size());
+                
             } catch (Exception e) {
                 log.warn("⚠️ AI 메서드 분석 실패: {} - {}", resource.getResourceIdentifier(), e.getMessage());
+                skippedCount++;
             }
         }
+        
+        log.info("📊 메서드 처리 결과: 처리됨 {} 개, 건너뜀 {} 개", processedCount, skippedCount);
 
         // 중복 제거 및 저장
         List<ConditionTemplate> savedTemplates = saveDedupedTemplates(templates);
@@ -514,102 +662,176 @@ public class AutoConditionTemplateService {
     private List<ConditionTemplate> generateAIUniversalTemplates() {
         log.info("🤖 AI 범용 조건 템플릿 생성 시작");
 
+        // 개선된 프롬프트 없이 바로 AINativeIAMAdvisor 호출
+        String userPrompt = "서비스 레이어에서 정말 필요한 핵심 범용 조건 4-5개만 생성해주세요.";
+
         try {
-            // AINativeIAMAdvisor의 개선된 메서드 호출
-            String aiResponse = aiAdvisor.generateUniversalConditionTemplates();
-            return parseAITemplateResponse(aiResponse, "UNIVERSAL");
+            String aiResponse = callAI("", userPrompt);
+            return parseAITemplateResponse(aiResponse, "범용");
         } catch (Exception e) {
             log.error("🔥 AI 범용 템플릿 생성 실패", e);
-            return generateFallbackUniversalAbacTemplates();
+            return generateFallbackUniversalTemplates();
         }
     }
 
     /**
-     * AI를 통한 메서드별 ABAC 조건 템플릿 생성
+     * AI를 통한 특정 메서드별 조건 템플릿 생성
      */
-    private List<ConditionTemplate> generateAISpecificTemplates(ManagedResource resource) {
-        log.debug("🤖 AI 특화 ABAC 조건 생성: {}", resource.getResourceIdentifier());
-
-        // 파라미터가 없는 메서드는 건너뛰기
-        if (resource.getParameterTypes() == null ||
-                resource.getParameterTypes().isEmpty() ||
-                resource.getParameterTypes().equals("없음") ||
-                resource.getParameterTypes().equals("()")) {
-            log.info("⏭️ 파라미터가 없는 메서드 건너뛰기: {}", resource.getResourceIdentifier());
+        private List<ConditionTemplate> generateAISpecificTemplates(ManagedResource resource) {
+        log.info("🤖 AI 특화 조건 생성: {}", resource.getResourceIdentifier());
+        
+        // 메서드 시그니처 정확히 파싱
+        MethodSignature signature = parseMethodSignature(resource);
+        
+        // 파라미터가 없는 메서드는 건너뛰기 (동적 파싱 결과 기준)
+        if (signature.parameterInfo.equals("파라미터 없음")) {
+            log.info("⏭️ 파라미터 없는 메서드 건너뛰기: {} - {}", signature.methodName, resource.getResourceIdentifier());
             return new ArrayList<>();
         }
-
-        // 메서드명에서 의미있는 정보 추출
-        String methodName = extractMethodName(resource.getResourceIdentifier());
-        String entityType = extractEntityType(resource);
-
-        String methodInfo = String.format("""
-            메서드 정보:
-            - 메서드명: %s
-            - 엔티티 타입: %s
-            - 파라미터: %s
-            - 반환 타입: %s
+        
+        // 알 수 없는 파라미터인 경우도 건너뛰기
+        if (signature.parameterInfo.contains("알 수 없는 파라미터")) {
+            log.info("⏭️ 알 수 없는 파라미터 메서드 건너뛰기: {} - {}", signature.methodName, resource.getResourceIdentifier());
+            return new ArrayList<>();
+        }
+        
+        // 객체 파라미터인지 ID 파라미터인지 구분
+        boolean isObjectParam = signature.parameterInfo.contains("객체") || 
+                               signature.parameterInfo.contains("#group") || 
+                               signature.parameterInfo.contains("#userDto");
+        
+        String methodInfo;
+        if (isObjectParam) {
+            // 객체 파라미터인 경우 - 리소스 타입 정보 제공하되 hasPermission에서 사용 금지 명시
+            methodInfo = String.format("""
+                🚨 극도로 제한된 조건 생성 요청 🚨
+                
+                📋 분석 대상 메서드:
+                - 서비스: %s 
+                - 메서드명: %s
+                - 허용된 파라미터: %s (이것만 사용 가능!)
+                - 리소스 타입: %s (참고용, hasPermission에서 사용 금지!)
+                
+                🔒 hasPermission 사용법:
+                %s
+                
+                🔍 메서드 컨텍스트:
+                %s
+                
+                🚨 시스템 크래시 방지 규칙:
+                1. 정확히 하나의 조건만 생성 (2개 이상 시 시스템 오류)
+                2. 위에 명시된 파라미터만 사용 (다른 파라미터 시 크래시)
+                3. hasPermission()은 반드시 2개 파라미터만 사용 (3개 파라미터 시 크래시)
+                4. 리소스 타입을 hasPermission에 절대 사용하지 마세요! (크래시!)
+                5. "~대상 검증", "~접근 확인" 용어만 사용 ("~권한" 시 크래시)
+                6. hasPermission() 함수만 사용 (다른 함수 시 크래시)
+                
+                ❌ 시스템 크래시 유발 항목:
+                - #currentUser, #user, #rootScope (절대 존재하지 않음)
+                - hasPermission(#userDto, 'USER', 'UPDATE') 형식 (크래시!)
+                - hasPermission(#document, 'DOCUMENT', 'CREATE') 형식 (크래시!)
+                - hasPermission(#group, 'GROUP', 'UPDATE') 형식 (크래시!)
+                - 여러 조건 생성
+                - "권한" 용어 사용
+                
+                ✅ 올바른 예시:
+                - hasPermission(#document, 'CREATE') ← 2개 파라미터만!
+                - hasPermission(#userDto, 'UPDATE') ← 2개 파라미터만!
+                - hasPermission(#group, 'UPDATE') ← 2개 파라미터만!
+                """, 
+                getServiceName(signature.resourceType),
+                signature.methodName,
+                signature.parameterInfo,
+                signature.resourceType,
+                generateHasPermissionUsage(signature),
+                getMethodContext(signature.methodName));
+        } else {
+            // ID 파라미터인 경우 - 리소스 타입 정보 제공
+            methodInfo = String.format("""
+                🚨 극도로 제한된 조건 생성 요청 🚨
+                
+                📋 분석 대상 메서드:
+                - 서비스: %s 
+                - 메서드명: %s
+                - 허용된 파라미터: %s (이것만 사용 가능!)
+                - 허용된 리소스 타입: %s (이것만 사용 가능!)
+                
+                🔒 hasPermission 사용법:
+                %s
+                
+                🔍 메서드 컨텍스트:
+                %s
+                
+                🚨 시스템 크래시 방지 규칙:
+                1. 정확히 하나의 조건만 생성 (2개 이상 시 시스템 오류)
+                2. 위에 명시된 파라미터만 사용 (다른 파라미터 시 크래시)
+                3. 위에 명시된 리소스 타입만 사용 (다른 타입 시 크래시)
+                4. hasPermission()은 반드시 3개 파라미터 사용 (2개 파라미터 시 크래시)
+                5. "~검증", "~확인" 용어만 사용 ("~권한" 시 크래시)
+                6. hasPermission() 함수만 사용 (다른 함수 시 크래시)
+                
+                ❌ 시스템 크래시 유발 항목:
+                - #document, #currentUser, #user (절대 존재하지 않음)
+                - DOCUMENT, ROLE, SYSTEM (절대 존재하지 않음)
+                - hasPermission(#id, 'READ') 형식 (2개 파라미터 크래시!)
+                - 여러 조건 생성
+                - "권한" 용어 사용
+                """, 
+                getServiceName(signature.resourceType),
+                signature.methodName,
+                signature.parameterInfo,
+                signature.resourceType,
+                generateHasPermissionUsage(signature),
+                getMethodContext(signature.methodName));
+        }
             
-            이 메서드에 적합한 hasPermission 조건을 생성하세요.
-            예시:
-            - create 메서드 → hasPermission(#entity, 'CREATE')
-            - get 메서드 → hasPermission(#id, 'ENTITY', 'READ')
-            - update 메서드 → hasPermission(#entity, 'UPDATE')
-            - delete 메서드 → hasPermission(#id, 'ENTITY', 'DELETE')
-            """,
-                methodName,
-                entityType,
-                resource.getParameterTypes(),
-                resource.getReturnType() != null ? resource.getReturnType() : "void");
-
         try {
-            String aiResponse = aiAdvisor.generateSpecificConditionTemplates(
-                    resource.getResourceIdentifier(), methodInfo);
-
-            log.info("🔍 AI 응답 (리소스: {}): {}", resource.getResourceIdentifier(), aiResponse);
-
+            String aiResponse = callAI("", methodInfo);
             List<ConditionTemplate> templates = parseAITemplateResponse(aiResponse, resource.getResourceIdentifier());
-
-            if (templates.isEmpty()) {
-                log.warn("⚠️ AI가 빈 응답 반환 (파라미터 없는 메서드일 가능성): {}", resource.getResourceIdentifier());
+            
+            // 안전장치: 하나의 조건만 반환하도록 제한
+            if (templates.size() > 1) {
+                log.warn("⚠️ AI가 {} 개 조건 생성했지만 첫 번째만 사용: {}", templates.size(), resource.getResourceIdentifier());
+                templates = List.of(templates.get(0));
             }
-
+            
             return templates;
         } catch (Exception e) {
-            log.warn("🔥 AI 특화 ABAC 템플릿 생성 실패: {}", resource.getResourceIdentifier(), e);
-
-            // fallback 주석 처리 - AI 응답 분석 필요
-            // return generateMethodBasedAbacConditions(resource);
+            log.warn("🔥 AI 특화 템플릿 생성 실패: {}", resource.getResourceIdentifier(), e);
             return new ArrayList<>();
         }
     }
 
     /**
-     * 메서드명에서 엔티티 타입 추출
+     * AI 호출 헬퍼 메서드 - AINativeIAMAdvisor를 통한 실제 AI 호출
      */
-    private String extractEntityType(ManagedResource resource) {
-        String identifier = resource.getResourceIdentifier();
+    private String callAI(String systemPrompt, String userPrompt) {
+        try {
+            log.info("🤖 AINativeIAMAdvisor를 통한 AI 호출 시작");
 
-        // 일반적인 엔티티 패턴
-        if (identifier.contains("User")) return "사용자";
-        if (identifier.contains("Document")) return "문서";
-        if (identifier.contains("Group")) return "그룹";
-        if (identifier.contains("Role")) return "역할";
-        if (identifier.contains("Permission")) return "권한";
-        if (identifier.contains("Policy")) return "정책";
-        if (identifier.contains("Project")) return "프로젝트";
-        if (identifier.contains("File")) return "파일";
-
-        // friendlyName에서 추출 시도
-        if (resource.getFriendlyName() != null) {
-            String[] words = resource.getFriendlyName().split(" ");
-            if (words.length > 0) {
-                return words[0];
+            // 범용 조건인지 특화 조건인지 구분하여 적절한 메서드 호출
+            if (userPrompt.contains("범용") || userPrompt.contains("업무 환경에서 자주 사용되는")) {
+                log.info("🌐 범용 조건 템플릿 생성 요청");
+                log.info("📝 범용 조건 입력: {}", userPrompt);
+                String response = aiAdvisor.generateUniversalConditionTemplates();
+                log.info("🤖 AI 범용 응답: {}", response);
+                return response;
+            } else {
+                log.info("🎯 특화 조건 템플릿 생성 요청");
+                log.info("📝 특화 조건 입력: {}", userPrompt);
+                String response = aiAdvisor.generateSpecificConditionTemplates("METHOD", userPrompt);
+                log.info("🤖 AI 특화 응답: {}", response);
+                return response;
             }
-        }
 
-        return "객체";
+        } catch (Exception e) {
+            log.error("🔥 AINativeIAMAdvisor 호출 실패", e);
+            // 폴백 제거 - AI 실패 시 빈 응답 반환
+            return "[]";
+        }
     }
+
+    // 폴백 메서드 제거됨 - AI 응답만 분석
 
     /**
      * AI 응답을 ConditionTemplate 객체로 파싱
@@ -617,22 +839,24 @@ public class AutoConditionTemplateService {
     private List<ConditionTemplate> parseAITemplateResponse(String aiResponse, String sourceMethod) {
         List<ConditionTemplate> templates = new ArrayList<>();
 
+        log.info("🔍 AI 응답 파싱 시작 - 소스: {}", sourceMethod);
+        log.info("📄 원본 AI 응답: {}", aiResponse);
+
         try {
             // JSON 정제 - 마크다운 코드 블록 제거 및 불필요한 텍스트 제거
             String cleanedJson = extractAndCleanJson(aiResponse);
-            log.debug("🔍 정제된 JSON: {}", cleanedJson);
-
-            // 빈 배열인 경우 바로 리턴
-            if (cleanedJson.trim().equals("[]")) {
-                log.info("✅ AI가 빈 배열 반환 (파라미터 없는 메서드): {}", sourceMethod);
-                return templates;
-            }
+            log.info("🔍 정제된 JSON: {}", cleanedJson);
 
             // JSON 배열 파싱 시도
             List<Map<String, Object>> rawTemplates = objectMapper.readValue(
                     cleanedJson, new TypeReference<List<Map<String, Object>>>() {});
 
-            for (Map<String, Object> raw : rawTemplates) {
+            log.info("📊 파싱된 템플릿 개수: {} 개", rawTemplates.size());
+
+            for (int i = 0; i < rawTemplates.size(); i++) {
+                Map<String, Object> raw = rawTemplates.get(i);
+                log.info("🎯 템플릿 {} 파싱: {}", i+1, raw);
+
                 try {
                     ConditionTemplate template = ConditionTemplate.builder()
                             .name((String) raw.get("name"))
@@ -648,21 +872,21 @@ public class AutoConditionTemplateService {
 
                     // SpEL 템플릿이 비어있지 않은 경우만 추가
                     if (template.getSpelTemplate() != null && !template.getSpelTemplate().trim().isEmpty()) {
-                        log.info("📌 파싱된 조건: {} -> {}", template.getName(), template.getSpelTemplate());
                         templates.add(template);
+                        log.info("✅ 템플릿 추가됨: {} - {}", template.getName(), template.getSpelTemplate());
                     } else {
-                        log.warn("⚠️ SpEL 템플릿이 비어있어 건너뜀: {}", template.getName());
+                        log.warn("⚠️ 빈 SpEL 템플릿으로 인해 제외됨: {}", raw);
                     }
                 } catch (Exception itemError) {
-                    log.warn("🔥 템플릿 항목 파싱 실패: {}", raw, itemError);
+                    log.error("🔥 템플릿 항목 파싱 실패: {}", raw, itemError);
                 }
             }
 
-            log.info("✅ AI 응답 파싱 성공: {} 개 템플릿", templates.size());
+            log.info("✅ AI 응답 파싱 완료: {} 개 템플릿 최종 생성", templates.size());
 
         } catch (Exception e) {
             log.error("🔥 AI 응답 파싱 실패: {}", aiResponse, e);
-            // 파싱 실패 시 빈 리스트 반환 (fallback은 주석 처리됨)
+            // 파싱 실패 시 빈 리스트 반환
         }
 
         return templates;
@@ -712,204 +936,448 @@ public class AutoConditionTemplateService {
     }
 
     /**
-     * AI 실패 시 기본 범용 hasPermission 템플릿들 - 주석 처리
+     * AI 실패 시 기본 범용 템플릿들
      */
-    private List<ConditionTemplate> generateFallbackUniversalAbacTemplates() {
-        log.info("🔄 AI 실패로 인한 기본 범용 조건 템플릿 생성");
+    private List<ConditionTemplate> generateFallbackUniversalTemplates() {
+        log.info("🔄 AI 실패로 인한 기본 범용 템플릿 생성");
 
-        // fallback 주석 처리 - AI 응답 분석 필요
-        /*
         List<ConditionTemplate> templates = new ArrayList<>();
 
-        // 1. 읽기 권한 확인 (범용)
+        // hasPermission 기반 권한 체크
         templates.add(ConditionTemplate.builder()
-            .name("객체 읽기 조건")
-            .description("객체에 대한 읽기 권한을 확인하는 범용 조건")
-            .category("권한 확인")
-            .classification(ConditionTemplate.ConditionClassification.CONTEXT_DEPENDENT)
-            .spelTemplate("hasPermission(#returnObject, 'READ')")
-            .sourceMethod("UNIVERSAL")
-            .isAutoGenerated(true)
-            .templateType("fallback")
-            .riskLevel(ConditionTemplate.RiskLevel.LOW)
-            .complexityScore(2)
-            .approvalRequired(false)
-            .contextDependent(true)
-            .createdAt(LocalDateTime.now())
-            .build());
+                .name("객체 읽기 권한")
+                .description("메서드가 반환하는 객체에 대한 읽기 권한 확인")
+                .category("권한 기반")
+                .classification(ConditionTemplate.ConditionClassification.CONTEXT_DEPENDENT)
+                .spelTemplate("hasPermission(#returnObject, 'READ')")
+                .sourceMethod("기본")
+                .isAutoGenerated(true)
+                .templateType("fallback")
+                .createdAt(LocalDateTime.now())
+                .build());
 
-        // 2. 쓰기 권한 확인 (범용)
+        // Spring Security 기본 표현식
         templates.add(ConditionTemplate.builder()
-            .name("객체 수정 조건")
-            .description("객체에 대한 수정 권한을 확인하는 범용 조건")
-            .category("권한 확인")
-            .classification(ConditionTemplate.ConditionClassification.CONTEXT_DEPENDENT)
-            .spelTemplate("hasPermission(#returnObject, 'UPDATE')")
-            .sourceMethod("UNIVERSAL")
-            .isAutoGenerated(true)
-            .templateType("fallback")
-            .riskLevel(ConditionTemplate.RiskLevel.MEDIUM)
-            .complexityScore(2)
-            .approvalRequired(false)
-            .contextDependent(true)
-            .createdAt(LocalDateTime.now())
-            .build());
-
-        // 3. 삭제 권한 확인 (범용)
-        templates.add(ConditionTemplate.builder()
-            .name("객체 삭제 조건")
-            .description("객체에 대한 삭제 권한을 확인하는 범용 조건")
-            .category("권한 확인")
-            .classification(ConditionTemplate.ConditionClassification.CONTEXT_DEPENDENT)
-            .spelTemplate("hasPermission(#returnObject, 'DELETE')")
-            .sourceMethod("UNIVERSAL")
-            .isAutoGenerated(true)
-            .templateType("fallback")
-            .riskLevel(ConditionTemplate.RiskLevel.HIGH)
-            .complexityScore(2)
-            .approvalRequired(false)
-            .contextDependent(true)
-            .createdAt(LocalDateTime.now())
-            .build());
-
-        // 4. 인증 확인 (범용)
-        templates.add(ConditionTemplate.builder()
-            .name("인증 상태 확인")
-            .description("사용자가 인증되었는지 확인하는 범용 조건")
-            .category("인증 확인")
-            .classification(ConditionTemplate.ConditionClassification.UNIVERSAL)
-            .spelTemplate("isAuthenticated()")
-            .sourceMethod("UNIVERSAL")
-            .isAutoGenerated(true)
-            .templateType("fallback")
-            .riskLevel(ConditionTemplate.RiskLevel.LOW)
-            .complexityScore(1)
-            .approvalRequired(false)
-            .contextDependent(false)
-            .createdAt(LocalDateTime.now())
-            .build());
+                .name("인증 확인")
+                .description("사용자가 인증되었는지 확인")
+                .category("인증 기반")
+                .classification(ConditionTemplate.ConditionClassification.UNIVERSAL)
+                .spelTemplate("isAuthenticated()")
+                .sourceMethod("기본")
+                .isAutoGenerated(true)
+                .templateType("fallback")
+                .createdAt(LocalDateTime.now())
+                .build());
 
         return templates;
-        */
-
-        return new ArrayList<>(); // 빈 리스트 반환
     }
 
+    private String generateFallbackUniversalResponse() {
+        return """
+        [
+          {
+            "name": "인증된 사용자 확인",
+            "description": "사용자가 정상적으로 로그인되어 있는지 확인",
+            "spelTemplate": "isAuthenticated()",
+            "category": "인증 기반",
+            "classification": "UNIVERSAL"
+          },
+          {
+            "name": "완전 인증 확인", 
+            "description": "Remember-me가 아닌 완전한 인증 확인",
+            "spelTemplate": "isFullyAuthenticated()",
+            "category": "인증 기반",
+            "classification": "UNIVERSAL"
+          },
+          {
+            "name": "업무시간 접근",
+            "description": "오전 9시부터 오후 6시 사이에만 접근 허용",
+            "spelTemplate": "T(java.time.LocalTime).now().hour >= 9 and T(java.time.LocalTime).now().hour < 18",
+            "category": "시간 기반",
+            "classification": "UNIVERSAL"
+          },
+          {
+            "name": "반환 객체 읽기 권한",
+            "description": "메서드가 반환하는 객체에 대한 읽기 권한",
+            "spelTemplate": "hasPermission(#returnObject, 'READ')",
+            "category": "권한 기반", 
+            "classification": "CONTEXT_DEPENDENT"
+          }
+        ]
+        """;
+    }
+
+    private String generateFallbackSpecificResponse(String methodInfo) {
+        // 메서드 정보에서 간단한 패턴 추출
+        if (methodInfo.contains("getDocument") || methodInfo.contains("Document")) {
+            return """
+            [
+              {
+                "name": "문서 조회 권한",
+                "description": "특정 문서 ID에 대한 조회 권한 확인",
+                "spelTemplate": "hasPermission(#id, 'DOCUMENT', 'READ')",
+                "category": "권한 기반",
+                "classification": "CONTEXT_DEPENDENT"
+              }
+            ]
+            """;
+        }
+
+        return """
+        [
+          {
+            "name": "기본 실행 권한",
+            "description": "메서드 실행에 대한 기본 권한",
+            "spelTemplate": "hasPermission(#id, 'RESOURCE', 'EXECUTE')",
+            "category": "권한 기반", 
+            "classification": "CONTEXT_DEPENDENT"
+          }
+        ]
+        """;
+    }
+    
     /**
-     * 메서드 패턴 기반 hasPermission 조건 생성 - 주석 처리
+     * ManagedResource에서 resource_identifier를 동적으로 파싱하여 메서드 시그니처 정보를 추출합니다.
+     * resource_identifier 형태: "io.spring.identityadmin.admin.iam.service.impl.GroupServiceImpl.updateGroup(Group,List)"
      */
-    private List<ConditionTemplate> generateMethodBasedAbacConditions(ManagedResource resource) {
-        // fallback 주석 처리 - AI 응답 분석 필요
-        /*
-        List<ConditionTemplate> templates = new ArrayList<>();
-        String methodName = extractMethodName(resource.getResourceIdentifier());
-        String entityType = extractEntityType(resource);
-        String entityTypeUpper = entityType.toUpperCase();
-
-        // 파라미터 타입 분석
-        boolean hasIdParam = resource.getParameterTypes() != null &&
-            (resource.getParameterTypes().contains("Long") || resource.getParameterTypes().contains("id"));
-        boolean hasObjectParam = resource.getParameterTypes() != null &&
-            resource.getParameterTypes().toLowerCase().contains(entityType.toLowerCase());
-
-        // 1. CREATE 패턴 - hasPermission(#object, 'CREATE')
-        if (methodName.contains("create") || methodName.contains("add") || methodName.contains("insert")) {
-            if (hasObjectParam) {
-                templates.add(ConditionTemplate.builder()
-                    .name(String.format("%s 생성 조건", entityType))
-                    .description(String.format("%s를 생성할 수 있는 권한을 확인하는 조건", entityType))
-                    .category("권한 확인")
-                    .classification(ConditionTemplate.ConditionClassification.CONTEXT_DEPENDENT)
-                    .spelTemplate(String.format("hasPermission(#%s, 'CREATE')", entityType.toLowerCase()))
-                    .sourceMethod(resource.getResourceIdentifier())
-                    .isAutoGenerated(true)
-                    .templateType("method_based")
-                    .riskLevel(ConditionTemplate.RiskLevel.MEDIUM)
-                    .complexityScore(2)
-                    .contextDependent(true)
-                    .createdAt(LocalDateTime.now())
-                    .build());
+    private MethodSignature parseMethodSignature(ManagedResource resource) {
+        String identifier = resource.getResourceIdentifier();
+        
+        log.debug("🔍 메서드 시그니처 파싱: {}", identifier);
+        
+        try {
+            // 1. 클래스명과 메서드 부분 분리
+            int lastDotIndex = identifier.lastIndexOf('.');
+            if (lastDotIndex == -1) {
+                throw new IllegalArgumentException("잘못된 resource_identifier 형태: " + identifier);
             }
-        }
-
-        // 2. READ 패턴 - hasPermission(#id, 'TYPE', 'READ')
-        else if (methodName.contains("get") || methodName.contains("find") || methodName.contains("read") || methodName.contains("view")) {
-            if (hasIdParam) {
-                templates.add(ConditionTemplate.builder()
-                    .name(String.format("%s 조회 조건", entityType))
-                    .description(String.format("%s를 조회할 수 있는 권한을 확인하는 조건", entityType))
-                    .category("권한 확인")
-                    .classification(ConditionTemplate.ConditionClassification.CONTEXT_DEPENDENT)
-                    .spelTemplate(String.format("hasPermission(#id, '%s', 'READ')", entityTypeUpper))
-                    .sourceMethod(resource.getResourceIdentifier())
-                    .isAutoGenerated(true)
-                    .templateType("method_based")
-                    .riskLevel(ConditionTemplate.RiskLevel.LOW)
-                    .complexityScore(2)
-                    .contextDependent(true)
-                    .createdAt(LocalDateTime.now())
-                    .build());
+            
+            String className = identifier.substring(0, lastDotIndex);
+            String methodPart = identifier.substring(lastDotIndex + 1);
+            
+            // 2. 메서드명과 파라미터 부분 분리
+            String methodName;
+            String paramTypes = "";
+            
+            if (methodPart.contains("(")) {
+                methodName = methodPart.substring(0, methodPart.indexOf("("));
+                String paramPart = methodPart.substring(methodPart.indexOf("(") + 1, methodPart.lastIndexOf(")"));
+                paramTypes = paramPart.trim();
+            } else {
+                methodName = methodPart;
             }
+            
+            // 3. 리소스 타입 동적 결정 (클래스명 기반)
+            String resourceType = determineResourceTypeFromClassName(className);
+            
+            // 4. 파라미터 정보 동적 파싱
+            String parameterInfo = parseParameterInfo(methodName, paramTypes);
+            
+            log.debug("✅ 파싱 결과 - 메서드: {}, 파라미터: {}, 리소스타입: {}", 
+                     methodName, parameterInfo, resourceType);
+            
+            return new MethodSignature(methodName, parameterInfo, resourceType);
+            
+        } catch (Exception e) {
+            log.error("🔥 메서드 시그니처 파싱 실패: {}", identifier, e);
+            // 폴백: 기존 방식 사용
+            return new MethodSignature(
+                extractMethodName(identifier), 
+                "파라미터 파싱 실패", 
+                "UNKNOWN"
+            );
         }
-
-        // 3. UPDATE 패턴 - hasPermission(#object, 'UPDATE')
-        else if (methodName.contains("update") || methodName.contains("modify") || methodName.contains("edit")) {
-            if (hasObjectParam) {
-                templates.add(ConditionTemplate.builder()
-                    .name(String.format("%s 수정 조건", entityType))
-                    .description(String.format("%s를 수정할 수 있는 권한을 확인하는 조건", entityType))
-                    .category("권한 확인")
-                    .classification(ConditionTemplate.ConditionClassification.CONTEXT_DEPENDENT)
-                    .spelTemplate(String.format("hasPermission(#%s, 'UPDATE')", entityType.toLowerCase()))
-                    .sourceMethod(resource.getResourceIdentifier())
-                    .isAutoGenerated(true)
-                    .templateType("method_based")
-                    .riskLevel(ConditionTemplate.RiskLevel.MEDIUM)
-                    .complexityScore(2)
-                    .contextDependent(true)
-                    .createdAt(LocalDateTime.now())
-                    .build());
-            } else if (hasIdParam) {
-                templates.add(ConditionTemplate.builder()
-                    .name(String.format("%s 수정 조건", entityType))
-                    .description(String.format("%s를 수정할 수 있는 권한을 확인하는 조건", entityType))
-                    .category("권한 확인")
-                    .classification(ConditionTemplate.ConditionClassification.CONTEXT_DEPENDENT)
-                    .spelTemplate(String.format("hasPermission(#id, '%s', 'UPDATE')", entityTypeUpper))
-                    .sourceMethod(resource.getResourceIdentifier())
-                    .isAutoGenerated(true)
-                    .templateType("method_based")
-                    .riskLevel(ConditionTemplate.RiskLevel.MEDIUM)
-                    .complexityScore(2)
-                    .contextDependent(true)
-                    .createdAt(LocalDateTime.now())
-                    .build());
-            }
-        }
-
-        // 4. DELETE 패턴 - hasPermission(#id, 'TYPE', 'DELETE')
-        else if (methodName.contains("delete") || methodName.contains("remove")) {
-            if (hasIdParam) {
-                templates.add(ConditionTemplate.builder()
-                    .name(String.format("%s 삭제 조건", entityType))
-                    .description(String.format("%s를 삭제할 수 있는 권한을 확인하는 조건", entityType))
-                    .category("권한 확인")
-                    .classification(ConditionTemplate.ConditionClassification.CONTEXT_DEPENDENT)
-                    .spelTemplate(String.format("hasPermission(#id, '%s', 'DELETE')", entityTypeUpper))
-                    .sourceMethod(resource.getResourceIdentifier())
-                    .isAutoGenerated(true)
-                    .templateType("method_based")
-                    .riskLevel(ConditionTemplate.RiskLevel.HIGH)
-                    .complexityScore(2)
-                    .contextDependent(true)
-                    .createdAt(LocalDateTime.now())
-                    .build());
-            }
-        }
-
-        return templates;
-        */
-
-        return new ArrayList<>(); // 빈 리스트 반환
     }
+    
+    /**
+     * 클래스명으로부터 리소스 타입을 동적으로 결정
+     */
+    private String determineResourceTypeFromClassName(String className) {
+        String simpleName = className.substring(className.lastIndexOf('.') + 1);
+        
+        // 서비스 클래스명 패턴 분석
+        if (simpleName.contains("Group")) {
+            return "GROUP";
+        } else if (simpleName.contains("User")) {
+            return "USER";
+        } else if (simpleName.contains("Role")) {
+            return "ROLE";
+        } else if (simpleName.contains("Permission")) {
+            return "PERMISSION";
+        } else if (simpleName.contains("Document")) {
+            return "DOCUMENT";
+        } else if (simpleName.contains("Policy")) {
+            return "POLICY";
+        } else {
+            // 클래스명에서 Service 제거하고 대문자로 변환
+            String resourceName = simpleName.replace("Service", "").replace("Impl", "");
+            return resourceName.toUpperCase();
+        }
+    }
+    
+    /**
+     * 리플렉션을 사용하여 실제 메서드 시그니처로부터 동적으로 파라미터 정보를 파싱합니다.
+     * resource_identifier 형태: "io.spring.identityadmin.admin.iam.service.impl.GroupServiceImpl.updateGroup(Group,List)"
+     */
+    private String parseParameterInfo(String methodName, String paramTypes) {
+        if (paramTypes == null || paramTypes.trim().isEmpty() || paramTypes.equals("없음") || paramTypes.equals("()")) {
+            return "파라미터 없음";
+        }
+        
+        // 파라미터 타입 문자열을 파싱하여 실제 파라미터 정보 생성
+        return parseParameterTypesFromString(paramTypes);
+    }
+    
+    /**
+     * 파라미터 타입 문자열을 파싱하여 SpEL에서 사용할 수 있는 파라미터 정보로 변환
+     * 예: "Group,List" -> "#group (Group 객체), #selectedRoleIds (List<Long> 타입)"
+     * 예: "Long" -> "#id (Long 타입)"
+     * 예: "UserDto" -> "#userDto (UserDto 객체)"
+     */
+    private String parseParameterTypesFromString(String paramTypes) {
+        if (paramTypes == null || paramTypes.trim().isEmpty()) {
+            return "파라미터 없음";
+        }
+        
+        // 괄호 제거
+        String cleanTypes = paramTypes.replaceAll("[()]", "").trim();
+        if (cleanTypes.isEmpty()) {
+            return "파라미터 없음";
+        }
+        
+        // 쉼표로 분리
+        String[] types = cleanTypes.split(",");
+        List<String> parameterInfos = new ArrayList<>();
+        
+        for (int i = 0; i < types.length; i++) {
+            String type = types[i].trim();
+            String paramInfo = generateParameterInfo(type, i);
+            parameterInfos.add(paramInfo);
+        }
+        
+        return String.join(", ", parameterInfos);
+    }
+    
+    /**
+     * 타입명으로부터 SpEL 파라미터 정보를 생성
+     */
+    private String generateParameterInfo(String type, int index) {
+        // 제네릭 타입 처리
+        String baseType = type.contains("<") ? type.substring(0, type.indexOf("<")) : type;
+        
+        // 패키지명 제거 (마지막 . 이후만 사용)
+        if (baseType.contains(".")) {
+            baseType = baseType.substring(baseType.lastIndexOf(".") + 1);
+        }
+        
+        // 타입에 따른 파라미터명 생성
+        String paramName = generateParameterName(baseType, index);
+        String typeDescription = generateTypeDescription(type);
+        
+        return String.format("#%s (%s)", paramName, typeDescription);
+    }
+    
+    /**
+     * 타입에 따른 파라미터명 생성 (camelCase)
+     */
+    private String generateParameterName(String type, int index) {
+        // 제네릭 타입 처리 (List<Long> -> selectedRoleIds)
+        if (type.startsWith("List<")) {
+            if (type.contains("Long")) {
+                return "selectedRoleIds"; // List<Long>은 보통 ID 목록
+            } else if (type.contains("String")) {
+                return "selectedItems";
+            } else {
+                return "list" + (index == 0 ? "" : index);
+            }
+        }
+        
+        switch (type) {
+            // 기본 타입들
+            case "Long":
+            case "Integer":
+            case "int":
+            case "long":
+                return index == 0 ? "id" : (index == 1 ? "idx" : "param" + index);
+            case "String":
+                return index == 0 ? "value" : "param" + index;
+            case "Boolean":
+            case "boolean":
+                return index == 0 ? "flag" : "param" + index;
+                
+            // 엔티티/DTO 타입들
+            case "Group":
+                return "group";
+            case "User":
+                return "user";
+            case "UserDto":
+                return "userDto";
+            case "UserListDto":
+                return "userListDto";
+            case "Role":
+                return "role";
+            case "Permission":
+                return "permission";
+            case "Document":
+                return "document";
+                
+            // 컬렉션 타입들
+            case "List":
+                return "selectedRoleIds"; // 기본적으로 역할 ID 목록으로 가정
+            case "Set":
+                return index == 0 ? "set" : "set" + index;
+            case "Map":
+                return index == 0 ? "map" : "map" + index;
+                
+            // 기타
+            default:
+                // 클래스명을 camelCase로 변환
+                String camelCase = type.substring(0, 1).toLowerCase() + type.substring(1);
+                return camelCase;
+        }
+    }
+    
+    /**
+     * 타입 설명 생성
+     */
+    private String generateTypeDescription(String fullType) {
+        if (fullType.contains("<")) {
+            // 제네릭 타입 처리: List<Long> -> List<Long> 타입
+            return fullType + " 타입";
+        } else {
+            // 단순 타입 처리
+            String baseType = fullType.contains(".") ? 
+                fullType.substring(fullType.lastIndexOf(".") + 1) : fullType;
+            
+            // 기본 타입인지 객체 타입인지 구분
+            switch (baseType) {
+                case "Long":
+                case "Integer":
+                case "String":
+                case "Boolean":
+                case "int":
+                case "long":
+                case "boolean":
+                    return baseType + " 타입";
+                default:
+                    return baseType + " 객체";
+            }
+        }
+    }
+    
+    /**
+     * 리소스 타입에 따른 서비스명 동적 생성
+     */
+    private String getServiceName(String resourceType) {
+        if (resourceType == null || resourceType.equals("UNKNOWN")) {
+            return "Unknown Service";
+        }
+        
+        // 리소스 타입을 기반으로 서비스명 생성
+        String serviceName = resourceType.toLowerCase();
+        serviceName = serviceName.substring(0, 1).toUpperCase() + serviceName.substring(1);
+        return serviceName + "Service";
+    }
+    
+    /**
+     * 메서드명과 파라미터 정보를 기반으로 동적 컨텍스트 생성
+     */
+    private String getMethodContext(String methodName) {
+        if (methodName == null) {
+            return "메서드 정보가 없습니다.";
+        }
+        
+        // 메서드명 패턴 분석을 통한 동적 컨텍스트 생성
+        String action = determineMethodAction(methodName);
+        String entity = determineMethodEntity(methodName);
+        
+        return String.format("%s %s 메서드입니다.", entity, action);
+    }
+    
+    /**
+     * 메서드명으로부터 액션 결정
+     */
+    private String determineMethodAction(String methodName) {
+        String lowerName = methodName.toLowerCase();
+        
+        if (lowerName.startsWith("create") || lowerName.startsWith("add") || lowerName.startsWith("insert")) {
+            return "생성하는";
+        } else if (lowerName.startsWith("get") || lowerName.startsWith("find") || lowerName.startsWith("select") || lowerName.startsWith("retrieve")) {
+            return "조회하는";
+        } else if (lowerName.startsWith("update") || lowerName.startsWith("modify") || lowerName.startsWith("edit")) {
+            return "수정하는";
+        } else if (lowerName.startsWith("delete") || lowerName.startsWith("remove")) {
+            return "삭제하는";
+        } else if (lowerName.startsWith("save")) {
+            return "저장하는";
+        } else if (lowerName.startsWith("validate") || lowerName.startsWith("check")) {
+            return "검증하는";
+        } else {
+            return "처리하는";
+        }
+    }
+    
+    /**
+     * 메서드명으로부터 엔티티 결정
+     */
+    private String determineMethodEntity(String methodName) {
+        String lowerName = methodName.toLowerCase();
+        
+        if (lowerName.contains("group")) {
+            return "그룹을";
+        } else if (lowerName.contains("user")) {
+            return "사용자를";
+        } else if (lowerName.contains("role")) {
+            return "역할을";
+        } else if (lowerName.contains("permission")) {
+            return "권한을";
+        } else if (lowerName.contains("document")) {
+            return "문서를";
+        } else if (lowerName.contains("policy")) {
+            return "정책을";
+        } else {
+                         return "리소스를";
+         }
+     }
+     
+     /**
+      * 메서드 시그니처에 따른 올바른 hasPermission 사용법 생성
+      */
+     private String generateHasPermissionUsage(MethodSignature signature) {
+         // 파라미터 분석
+         String paramInfo = signature.parameterInfo.toLowerCase();
+         
+         if (paramInfo.contains("#id (long") || paramInfo.contains("#idx (long")) {
+             // ID 파라미터인 경우 - 3개 파라미터 형식
+             String paramName = paramInfo.contains("#idx") ? "#idx" : "#id";
+             return String.format("✅ 올바른 형식: hasPermission(%s, '%s', 'DELETE') - ID는 반드시 3개 파라미터", 
+                                paramName, signature.resourceType);
+         } else if (paramInfo.contains("객체") || paramInfo.contains("#group") || paramInfo.contains("#userDto")) {
+             // 객체 파라미터인 경우 - 2개 파라미터 형식
+             String paramName = extractParamName(signature.parameterInfo);
+             return String.format("✅ 올바른 형식: hasPermission(%s, 'UPDATE') - 객체는 반드시 2개 파라미터만! 리소스 타입 사용 금지!", paramName);
+         } else if (paramInfo.contains("#selectedRoleIds")) {
+             // List 파라미터는 보통 사용하지 않음
+             return "⚠️ List 파라미터는 hasPermission에서 직접 사용하지 않음";
+         } else {
+             return "hasPermission() 형식을 정확히 사용하세요";
+         }
+     }
+     
+     /**
+      * 파라미터 정보에서 파라미터명 추출
+      */
+     private String extractParamName(String parameterInfo) {
+         if (parameterInfo.contains("#group")) {
+             return "#group";
+         } else if (parameterInfo.contains("#userDto")) {
+             return "#userDto";
+         } else if (parameterInfo.contains("#id")) {
+             return "#id";
+         } else if (parameterInfo.contains("#idx")) {
+             return "#idx";
+         } else {
+             return "#param";
+         }
+     }
 }

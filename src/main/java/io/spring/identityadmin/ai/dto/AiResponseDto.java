@@ -1,4 +1,4 @@
-package io.spring.identityadmin.aiam.dto;
+package io.spring.identityadmin.ai.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.spring.identityadmin.domain.entity.policy.Policy;

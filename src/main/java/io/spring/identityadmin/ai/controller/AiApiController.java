@@ -1,8 +1,8 @@
-package io.spring.identityadmin.aiam.controller;
+package io.spring.identityadmin.ai.controller;
 
-import io.spring.identityadmin.aiam.AINativeIAMSynapseArbiterFromOllama;
-import io.spring.identityadmin.aiam.dto.ConditionValidationRequest;
-import io.spring.identityadmin.aiam.dto.ConditionValidationResponse;
+import io.spring.identityadmin.ai.AINativeIAMSynapseArbiterFromOllama;
+import io.spring.identityadmin.ai.dto.ConditionValidationRequest;
+import io.spring.identityadmin.ai.dto.ConditionValidationResponse;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.entity.ConditionTemplate;
 import io.spring.identityadmin.domain.entity.ManagedResource;
@@ -23,7 +23,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
-import io.spring.identityadmin.aiam.dto.PolicyGenerationRequest;
+import io.spring.identityadmin.ai.dto.PolicyGenerationRequest;
 import java.util.List;
 import java.util.EnumMap;
 import java.util.ArrayList;

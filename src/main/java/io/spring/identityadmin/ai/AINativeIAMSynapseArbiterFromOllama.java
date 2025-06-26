@@ -1,4 +1,4 @@
-package io.spring.identityadmin.aiam;
+package io.spring.identityadmin.ai;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.spring.identityadmin.aiam.dto.*;
+import io.spring.identityadmin.ai.dto.*;
 import io.spring.identityadmin.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.identityadmin.domain.dto.BusinessPolicyDto;
 import io.spring.identityadmin.domain.dto.PolicyDto;
@@ -310,7 +310,7 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         return buildSystemMetadata(null);
     }
 
-    private String buildSystemMetadata(io.spring.identityadmin.aiam.dto.PolicyGenerationRequest.AvailableItems availableItems) {
+    private String buildSystemMetadata(io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
         StringBuilder metadata = new StringBuilder();
 
         if (availableItems != null) {
@@ -386,7 +386,7 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
     /**
      * 사용 가능한 항목들을 포함한 정책 생성
      */
-    public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery, io.spring.identityadmin.aiam.dto.PolicyGenerationRequest.AvailableItems availableItems) {
+    public AiGeneratedPolicyDraftDto generatePolicyFromTextByAi(String naturalLanguageQuery, io.spring.identityadmin.ai.dto.PolicyGenerationRequest.AvailableItems availableItems) {
         // RAG 검색
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(naturalLanguageQuery)
@@ -2086,29 +2086,45 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
         log.info("🤖 AI 범용 조건 템플릿 생성 시작");
 
         String systemPrompt = """
-        당신은 Spring Security hasPermission 전문가입니다.
+        당신은 ABAC 범용 조건 생성 전문가입니다.
         반드시 JSON 배열 형식으로만 응답하세요. 다른 텍스트는 절대 포함하지 마세요.
         
         **필수 JSON 응답 형식:**
         [
           {
-            "name": "인증 상태 확인",
+            "name": "사용자 인증 상태 확인",
             "description": "사용자 인증 상태를 확인하는 조건",
             "spelTemplate": "isAuthenticated()",
-            "category": "인증",
+            "category": "인증 상태",
             "classification": "UNIVERSAL"
           }
         ]
         
-        **생성할 조건:**
-        1. isAuthenticated() - 인증 확인
-        2. hasRole('ROLE_ADMIN') - 관리자 역할
-        3. 시간 기반 제한 조건
+        **생성할 범용 조건 (정확히 3개만):**
+        1. isAuthenticated() - 사용자 인증 상태 확인
+        2. hasRole('ROLE_ADMIN') - 관리자 역할 확인  
+        3. 업무시간 접근 제한 (9시-18시)
+        
+        **주의사항:**
+        - "~권한" 용어 사용 금지
+        - "~확인", "~제한" 용어 사용
+        - 정확히 3개만 생성
         
         JSON만 출력하세요. 설명 텍스트 금지.
         """;
 
-        String userPrompt = "범용 보안 조건 3개를 JSON 형식으로 생성하세요.";
+        String userPrompt = """
+        🎯 정확히 3개의 범용 조건만 생성하세요:
+        
+        1. 사용자 인증 상태 확인 - isAuthenticated()
+        2. 관리자 역할 확인 - hasRole('ROLE_ADMIN')  
+        3. 업무시간 접근 제한 - T(java.time.LocalTime).now().hour >= 9 && T(java.time.LocalTime).now().hour <= 18
+        
+        ❌ 절대 금지:
+        - 4개 이상 생성
+        - hasPermission() 사용 (범용 조건에서는 금지)
+        - 존재하지 않는 파라미터 사용
+        """;
 
         try {
             SystemMessage systemMessage = new SystemMessage(systemPrompt);
@@ -2146,10 +2162,10 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
             "classification": "UNIVERSAL"
           },
           {
-            "name": "관리자 권한 확인",
+            "name": "관리자 역할 확인",
             "description": "관리자 역할을 가진 사용자인지 확인하는 조건",
             "spelTemplate": "hasRole('ROLE_ADMIN')",
-            "category": "권한 확인",
+            "category": "역할 확인",
             "classification": "UNIVERSAL"
           },
           {
@@ -2166,26 +2182,78 @@ public class AINativeIAMSynapseArbiterFromOllama implements AINativeIAMAdvisor {
     @Override
     public String generateSpecificConditionTemplates(String resourceIdentifier, String methodInfo) {
         log.debug("🤖 AI 특화 조건 생성: {}", resourceIdentifier);
+        log.info("📝 전달받은 메서드 정보: {}", methodInfo);
 
         String systemPrompt = """
-        JSON 형식으로만 응답하세요. 마크다운이나 설명 텍스트는 절대 포함하지 마세요.
+        🚨 극도로 제한된 ABAC 조건 생성기 🚨
         
-        hasPermission 규칙:
-        - ID 파라미터: hasPermission(#id, '타입', '권한')
-        - 객체 파라미터: hasPermission(#객체, '권한')
-        - 파라미터 없음: 빈 배열 []
+        당신은 hasPermission() 전용 조건 생성기입니다.
+        반드시 hasPermission(파라미터, 리소스타입, 액션) 형식만 사용하세요.
         
-        타입: USER, GROUP, ROLE, PERMISSION
-        권한: CREATE, READ, UPDATE, DELETE
+                 🔒 절대적 제약사항:
+         1. hasPermission() 함수만 사용 (올바른 형식으로)
+         2. 제공된 파라미터만 사용 (추가 파라미터 절대 금지)
+         3. 정확히 하나의 조건만 생성 (여러 개 절대 금지)
+         4. "~검증", "~확인" 용어만 사용 ("~권한" 절대 금지)
+         5. 액션은 CREATE, READ, UPDATE, DELETE만 사용
         
-        JSON 형식:
-        [{
-          "name": "조건명",
-          "description": "설명",
-          "spelTemplate": "hasPermission(...)",
-          "category": "권한 확인",
-          "classification": "CONTEXT_DEPENDENT"
-        }]
+                 🎯 허용된 형식:
+         
+         **ID 파라미터인 경우 (반드시 3개 파라미터):**
+         - hasPermission(#id, 'GROUP', 'READ') - Long id 파라미터용
+         - hasPermission(#id, 'GROUP', 'DELETE') - Long id 파라미터용  
+         - hasPermission(#idx, 'USER', 'DELETE') - Long idx 파라미터용
+         - hasPermission(#id, 'USER', 'READ') - Long id 파라미터용
+         
+         **객체 파라미터인 경우 (반드시 2개 파라미터):**
+         - hasPermission(#group, 'CREATE') - Group 객체용 (절대 3개 파라미터 금지!)
+         - hasPermission(#group, 'UPDATE') - Group 객체용 (절대 3개 파라미터 금지!)
+         - hasPermission(#userDto, 'UPDATE') - UserDto 객체용 (절대 3개 파라미터 금지!)
+         
+         **실제 파라미터 예시:**
+         - createGroup(Group group, List<Long> selectedRoleIds) → #group, #selectedRoleIds 사용
+         - modifyUser(UserDto userDto) → #userDto 사용 (2개 파라미터 형식!)
+         - getGroup(Long id) → #id 사용 (3개 파라미터 형식!)
+         - deleteUser(Long idx) → #idx 사용 (3개 파라미터 형식!)
+        
+                 ❌ 절대 금지 (시스템 크래시 발생):
+         - #document, #currentUser, #user, #rootScope (절대 존재하지 않음)
+         - hasPermission(#userDto, 'USER', 'UPDATE') (UserDto는 객체이므로 2개 파라미터만!)
+         - hasPermission(#group, 'GROUP', 'CREATE') (Group은 객체이므로 2개 파라미터만!)
+         - hasPermission(#id, 'READ') (ID는 3개 파라미터 필수!)
+         - DOCUMENT, ROLE, SYSTEM 리소스 타입 (존재하지 않음)
+         - #groupExists(), getCurrentUser() (존재하지 않는 함수)
+         - && || 연산자 (복합 조건 금지)
+         - 여러 조건 생성
+         - "권한" 용어 사용 ("검증", "확인"만 허용)
+         
+         🚨 특별 주의사항:
+         - createGroup 메서드에서 #document 파라미터 사용 절대 금지!
+         - modifyUser 메서드에서 hasPermission(#userDto, 'USER', 'UPDATE') 형식 절대 금지!
+        
+                 **응답 형식 (정확히 하나만):**
+         [
+           {
+             "name": "그룹 수정 대상 검증",
+             "description": "수정하려는 그룹에 대한 UPDATE 권한을 검증하는 조건",
+             "spelTemplate": "hasPermission(#group, 'UPDATE')",
+             "category": "권한 검증",
+             "classification": "CONTEXT_DEPENDENT"
+           }
+         ]
+         
+         **ID 파라미터 예시:**
+         [
+           {
+             "name": "그룹 조회 권한 검증",
+             "description": "특정 ID의 그룹에 대한 READ 권한을 검증하는 조건",
+             "spelTemplate": "hasPermission(#id, 'GROUP', 'READ')",
+             "category": "권한 검증",
+             "classification": "CONTEXT_DEPENDENT"
+           }
+         ]
+        
+        🚨 경고: 위 제약사항을 위반하면 시스템 오류가 발생합니다!
         """;
 
         try {
