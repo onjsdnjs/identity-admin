@@ -175,22 +175,28 @@ public class ConditionCompatibilityService {
     }
 
     /**
-     * 🔍 리소스에서 사용 가능한 변수들 계산
+     * 🔍 리소스에서 사용 가능한 변수들 계산 (디버깅 강화)
      */
     private Set<String> calculateAvailableVariables(ManagedResource resource) {
         Set<String> variables = new HashSet<>();
         
         // 항상 사용 가능한 범용 변수들
-        variables.addAll(getAllUniversalVariables());
+        Set<String> universalVars = getAllUniversalVariables();
+        variables.addAll(universalVars);
+        log.info("🌍 범용 변수 추가: {}", universalVars);
         
         // 파라미터에서 추출한 변수들
-        variables.addAll(extractParameterVariables(resource));
+        Set<String> paramVars = extractParameterVariables(resource);
+        variables.addAll(paramVars);
+        log.info("🔧 파라미터 변수 추가: {}", paramVars);
         
         // 반환 객체가 있는 경우
         if (hasReturnObject(resource)) {
             variables.add("#returnObject");
+            log.info("📤 반환 객체 변수 추가: #returnObject");
         }
         
+        log.info("🎯 최종 사용 가능한 변수들: {}", variables);
         return variables;
     }
 
@@ -205,27 +211,36 @@ public class ConditionCompatibilityService {
     }
 
     /**
-     * 🔍 메서드 파라미터에서 변수들을 추출
+     * 🔍 메서드 파라미터에서 변수들을 추출 (디버깅 강화)
      */
     private Set<String> extractParameterVariables(ManagedResource resource) {
         Set<String> variables = new HashSet<>();
         
         try {
             String paramTypes = resource.getParameterTypes();
-            log.debug("🔍 파라미터 타입 처리: {}", paramTypes);
+            log.info("🔍 파라미터 타입 원본: '{}'", paramTypes);
             
             if (paramTypes != null && !paramTypes.trim().isEmpty()) {
                 if (paramTypes.startsWith("[") && paramTypes.endsWith("]")) {
                     // JSON 배열 형태: ["java.lang.Long", "java.util.List"]
+                    log.info("📋 JSON 배열 형태로 파싱 시도");
                     variables.addAll(extractFromJsonArray(paramTypes));
                 } else if (paramTypes.contains(",")) {
                     // 쉼표 구분 형태: Long,List<String>
+                    log.info("📋 쉼표 구분 형태로 파싱 시도");
                     variables.addAll(extractFromCommaSeparated(paramTypes));
                 } else if (!paramTypes.equals("[]") && !paramTypes.equals("()")) {
                     // 단일 파라미터
+                    log.info("📋 단일 파라미터로 파싱 시도");
                     variables.addAll(extractFromSingleParam(paramTypes));
+                } else {
+                    log.info("📋 빈 파라미터 리스트");
                 }
+            } else {
+                log.info("📋 파라미터 타입이 null 또는 빈 문자열");
             }
+            
+            log.info("🔧 추출된 파라미터 변수들: {}", variables);
             
         } catch (Exception e) {
             log.warn("파라미터 변수 추출 실패: {}", resource.getResourceIdentifier(), e);
@@ -235,23 +250,34 @@ public class ConditionCompatibilityService {
     }
 
     /**
-     * JSON 배열에서 파라미터 변수 추출
+     * JSON 배열에서 파라미터 변수 추출 (디버깅 강화)
      */
     private Set<String> extractFromJsonArray(String paramTypes) {
         Set<String> variables = new HashSet<>();
         
         try {
             String content = paramTypes.substring(1, paramTypes.length() - 1).trim();
+            log.info("📋 JSON 배열 내용: '{}'", content);
+            
             if (content.isEmpty()) {
+                log.info("📋 JSON 배열이 비어있음");
                 return variables;
             }
             
             String[] types = content.split(",");
+            log.info("📋 분할된 타입들: {}", Arrays.toString(types));
+            
             for (String type : types) {
                 String cleanType = type.trim().replaceAll("[\\\"']", "");
+                log.info("📋 정리된 타입: '{}'", cleanType);
+                
                 String paramName = inferParameterNameFromType(cleanType);
+                log.info("📋 추론된 파라미터명: '{}'", paramName);
+                
                 if (paramName != null) {
-                    variables.add("#" + paramName);
+                    String variable = "#" + paramName;
+                    variables.add(variable);
+                    log.info("📋 변수 추가: '{}'", variable);
                 }
             }
             
@@ -259,6 +285,7 @@ public class ConditionCompatibilityService {
             log.warn("JSON 배열 파라미터 파싱 실패: {}", paramTypes, e);
         }
         
+        log.info("📋 JSON 배열에서 추출된 최종 변수들: {}", variables);
         return variables;
     }
 

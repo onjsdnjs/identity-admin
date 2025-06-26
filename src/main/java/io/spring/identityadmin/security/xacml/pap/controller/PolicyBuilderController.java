@@ -109,7 +109,7 @@ public class PolicyBuilderController {
     }
 
     /**
-     * 🎯 리소스에 호환되는 조건들만 반환
+     * 🎯 리소스에 호환되는 조건들만 반환 (디버깅 강화)
      */
     private List<ConditionTemplate> getCompatibleConditionsForResource(ManagedResource resource, List<ConditionTemplate> allConditions) {
         log.info("🔍 조건 호환성 필터링 시작: resource={}, 전체조건수={}", 
@@ -123,9 +123,21 @@ public class PolicyBuilderController {
             return universalConditions;
         }
 
+        // 상세한 리소스 정보 로깅
+        log.info("🔍 리소스 상세 정보:");
+        log.info("  - 식별자: {}", resource.getResourceIdentifier());
+        log.info("  - 파라미터 타입: {}", resource.getParameterTypes());
+        log.info("  - 반환 타입: {}", resource.getReturnType());
+        log.info("  - 리소스 타입: {}", resource.getResourceType());
+
         // 리소스와 호환되는 조건들 필터링
         List<ConditionTemplate> compatibleConditions = conditionCompatibilityService.getCompatibleConditions(resource, allConditions);
         log.info("🎯 호환 조건 필터링 결과: {} 개", compatibleConditions.size());
+        
+        // 호환 조건들의 이름을 로깅
+        compatibleConditions.forEach(condition -> 
+            log.info("  ✅ 호환 조건: {} (분류: {})", condition.getName(), condition.getClassification()));
+        
         return compatibleConditions;
     }
 
