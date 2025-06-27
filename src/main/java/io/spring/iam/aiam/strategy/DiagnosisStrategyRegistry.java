@@ -68,7 +68,6 @@ public class DiagnosisStrategyRegistry {
      * @return 해당 전략 (없으면 예외 발생)
      * @throws DiagnosisException 지원하지 않는 진단 타입인 경우
      */
-    @SuppressWarnings("unchecked")
     public <T extends IAMContext, R extends IAMResponse> DiagnosisStrategy<T, R> getStrategy(DiagnosisType diagnosisType) {
         DiagnosisStrategy<?, ?> strategy = strategies.get(diagnosisType);
         

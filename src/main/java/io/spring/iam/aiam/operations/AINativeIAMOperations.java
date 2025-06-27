@@ -7,27 +7,21 @@ import io.spring.aicore.protocol.DomainContext;
 import io.spring.iam.aiam.protocol.IAMContext;
 import io.spring.iam.aiam.protocol.IAMRequest;
 import io.spring.iam.aiam.protocol.IAMResponse;
-import io.spring.iam.aiam.protocol.request.*;
-import io.spring.iam.aiam.protocol.response.*;
-import io.spring.iam.aiam.protocol.types.PolicyContext;
-import io.spring.iam.aiam.protocol.types.RiskContext;
-import io.spring.iam.aiam.protocol.types.UserContext;
-
 import io.spring.iam.aiam.strategy.DiagnosisStrategyRegistry;
 import io.spring.redis.RedisDistributedLockService;
-
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Stream;
 
 /**
  * 🎭 AI Native IAM Operations - 세계 최첨단 분산 AI 전략 기관 마스터 브레인
@@ -79,7 +73,14 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
     
     // ==================== 🏛️ 최고 전략 지휘 메서드 (불변의 자연 법칙) ====================
     
-    @Override
+    /**
+     * 🎯 유일한 진입점 - 모든 AI 진단 요청의 단일 통로
+     * 
+     * 🌿 자연의 이치:
+     * - 어떤 AI 진단이 추가되어도 이 메서드는 절대 변하지 않음
+     * - 오직 IAMRequest → IAMResponse 변환만 수행
+     * - 구체적 진단 로직은 DiagnosisStrategyRegistry가 알아서 처리
+     */
     public <R extends IAMResponse> R executeWithAudit(IAMRequest<T> request, Class<R> responseType) {
         String strategyId = generateStrategyId(request, responseType);
         String lockKey = STRATEGIC_LOCK_PREFIX + strategyId;
@@ -112,8 +113,7 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         }
     }
     
-    @Override
-    public <R extends IAMResponse> R executeWithSecurity(IAMRequest<T> request, 
+    public <R extends IAMResponse> R executeWithSecurity(IAMRequest<T> request,
                                                          SecurityContext securityContext,
                                                          Class<R> responseType) {
         log.info("🛡️ Master Brain: Secured strategic operation");
@@ -122,107 +122,59 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         return executeWithAudit(request, responseType);
     }
     
-    // ==================== 🏭 도메인별 전략 지휘 ====================
+    // ==================== 🎯 진짜 진입점들 (AICoreOperations 표준) ====================
     
+    /**
+     * 🎯 주요 진입점 - 모든 AI 요청의 표준 진입점
+     * 
+     * 🌿 자연의 이치: 이 메서드는 절대 변하지 않음
+     * - AICoreOperations 표준을 준수
+     * - 내부적으로 executeWithAudit() 호출
+     */
     @Override
-    public PolicyResponse generatePolicy(PolicyRequest<PolicyContext> request) {
-        log.info("🏭 Master Brain: Policy generation strategy");
-        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
-        return executeWithAudit(iamRequest, PolicyResponse.class);
-    }
-    
-    @Override
-    public Stream<PolicyDraftResponse> generatePolicyStream(PolicyRequest<PolicyContext> request) {
-        log.info("📡 Master Brain: Policy streaming strategy");
-        PolicyResponse response = generatePolicy(request);
-        return Stream.of(convertToDraftResponse(response));
-    }
-    
-    @Override
-    public RiskAssessmentResponse assessRisk(RiskRequest<RiskContext> request) {
-        log.info("⚠️ Master Brain: Risk assessment strategy");
-        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
-        return executeWithAudit(iamRequest, RiskAssessmentResponse.class);
-    }
-    
-    @Override
-    public CompletableFuture<Void> startRiskMonitoring(RiskRequest<RiskContext> request, 
-                                                       RiskEventCallback callback) {
-        log.info("📊 Master Brain: Risk monitoring strategy");
-        return CompletableFuture.runAsync(() -> {
-            log.info("🔍 Risk monitoring under Master Brain supervision");
+    public <R extends AIResponse> Mono<R> execute(AIRequest<T> request, Class<R> responseType) {
+        log.info("🎯 Main Entry Point: AI request received - {}", request.getOperation());
+        return Mono.fromCallable(() -> {
+            // IAMRequest로 변환하고 executeWithAudit 호출
+            IAMRequest<T> iamRequest = convertToIAMRequest(request);
+            return (R) executeWithAudit(iamRequest, (Class<IAMResponse>) responseType);
         });
     }
     
-    @Override
-    public ConflictDetectionResponse detectConflicts(ConflictDetectionRequest<PolicyContext> request) {
-        log.info("⚔️ Master Brain: Conflict detection strategy");
-        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
-        return executeWithAudit(iamRequest, ConflictDetectionResponse.class);
-    }
-    
-    @Override
-    public <C extends IAMContext> RecommendationResponse<C> recommend(RecommendationRequest<C> request) {
-        log.info("💡 Master Brain: Recommendation strategy");
-        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
-        return (RecommendationResponse<C>) executeWithAudit(iamRequest, RecommendationResponse.class);
-    }
-    
-    @Override
-    public UserAnalysisResponse analyzeUser(UserAnalysisRequest<UserContext> request) {
-        log.info("👤 Master Brain: User analysis strategy");
-        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
-        return executeWithAudit(iamRequest, UserAnalysisResponse.class);
-    }
-    
-    @Override
-    public OptimizationResponse optimizePolicy(OptimizationRequest<PolicyContext> request) {
-        log.info("⚡ Master Brain: Policy optimization strategy");
-        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
-        return executeWithAudit(iamRequest, OptimizationResponse.class);
-    }
-    
-    @Override
-    public ValidationResponse validatePolicy(ValidationRequest<PolicyContext> request) {
-        log.info("✅ Master Brain: Policy validation strategy");
-        IAMRequest<T> iamRequest = (IAMRequest<T>) request;
-        return executeWithAudit(iamRequest, ValidationResponse.class);
-    }
-    
-    @Override
-    public CompletableFuture<AuditAnalysisResponse> analyzeAuditLogs(AuditAnalysisRequest<T> request) {
-        log.info("📋 Master Brain: Audit analysis strategy");
-        return CompletableFuture.supplyAsync(() -> 
-            executeWithAudit(request, AuditAnalysisResponse.class)
-        );
-    }
-    
-    // ==================== 🔗 AI Core 통합 인터페이스 ====================
-    
-    @Override
-    public <R extends AIResponse> Mono<R> execute(AIRequest<T> request, Class<R> responseType) {
-        return Mono.error(new UnsupportedOperationException("AI Core integration pending"));
-    }
-    
+    /**
+     * 🌊 스트리밍 진입점 - 스트리밍 AI 요청 처리
+     */
     @Override
     public Flux<String> executeStream(AIRequest<T> request) {
-        return Flux.error(new UnsupportedOperationException("AI Core streaming pending"));
+        log.info("🌊 Stream Entry Point: {}", request.getOperation());
+        return Flux.error(new UnsupportedOperationException("Streaming through AI Core not yet implemented"));
     }
     
+    /**
+     * 🌊 타입 스트리밍 진입점
+     */
     @Override
     public <R extends AIResponse> Flux<R> executeStreamTyped(AIRequest<T> request, Class<R> responseType) {
-        return Flux.error(new UnsupportedOperationException("AI Core typed streaming pending"));
+        log.info("🌊 Typed Stream Entry Point: {}", request.getOperation());
+        return Flux.error(new UnsupportedOperationException("Typed streaming through AI Core not yet implemented"));
     }
     
+    /**
+     * 📦 배치 진입점 - 여러 AI 요청 일괄 처리
+     */
     @Override
     public <R extends AIResponse> Mono<List<R>> executeBatch(List<AIRequest<T>> requests, Class<R> responseType) {
-        return Mono.error(new UnsupportedOperationException("AI Core batch processing pending"));
+        log.info("📦 Batch Entry Point: {} requests", requests.size());
+        return Flux.fromIterable(requests)
+                .flatMap(req -> execute(req, responseType))
+                .collectList();
     }
     
     @Override
     public <T1 extends DomainContext, T2 extends DomainContext> 
            Mono<AIResponse> executeMixed(List<AIRequest<T1>> requests1, List<AIRequest<T2>> requests2) {
-        return Mono.error(new UnsupportedOperationException("AI Core mixed processing pending"));
+        log.info("🔀 Mixed Entry Point");
+        return Mono.error(new UnsupportedOperationException("Mixed execution not yet implemented"));
     }
     
     @Override
@@ -233,19 +185,18 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
     @Override
     public Set<AICoreOperations.AICapability> getSupportedCapabilities() {
         return Set.of(
-            AICoreOperations.AICapability.TEXT_GENERATION
+                AICoreOperations.AICapability.TEXT_GENERATION
         );
     }
     
     @Override
     public boolean supportsOperation(String operation) {
-        return getSupportedCapabilities().stream()
-            .anyMatch(cap -> cap.name().equalsIgnoreCase(operation));
+        return operation.startsWith("iam.") || operation.startsWith("policy.") || operation.startsWith("risk.");
     }
     
     @Override
     public Mono<AICoreOperations.SystemMetrics> getMetrics() {
-        return Mono.error(new UnsupportedOperationException("System metrics pending"));
+        return Mono.error(new UnsupportedOperationException("System metrics not yet implemented"));
     }
     
     // ==================== 🎯 분산 모니터링 및 관리 API ====================
@@ -337,7 +288,11 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         return total > 0 ? (double) failedStrategicOperations.get() / total * 100.0 : 0.0;
     }
     
-    private PolicyDraftResponse convertToDraftResponse(PolicyResponse response) {
-        return new PolicyDraftResponse(response.getRequestId(), response.getStatus());
+    // ==================== 🔄 변환 유틸리티 ====================
+    
+    private IAMRequest<T> convertToIAMRequest(AIRequest<T> aiRequest) {
+        // AIRequest를 IAMRequest로 변환하는 로직
+        // 실제 구현 필요
+        return (IAMRequest<T>) aiRequest; // 임시 캐스팅
     }
 } 
