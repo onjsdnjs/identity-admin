@@ -1,5 +1,6 @@
 package io.spring.iam.aiam.strategy.impl;
 
+import io.spring.iam.aiam.labs.LabAccessor;
 import io.spring.iam.aiam.labs.condition.ConditionTemplateGenerationLab;
 import io.spring.iam.aiam.protocol.IAMContext;
 import io.spring.iam.aiam.protocol.IAMRequest;
@@ -12,28 +13,29 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * 🔬 조건 템플릿 생성 진단 전략
+ * 🔬 조건 템플릿 진단 전략
  * 
- * AINativeIAMSynapseArbiterFromOllama의 조건 템플릿 생성 기능을 완전히 대체
- * - generateUniversalConditionTemplates
- * - generateSpecificConditionTemplates
+ * ✅ 동적 Lab 접근 패턴 사용!
+ * LabAccessor를 통한 타입 안전한 동적 Lab 조회
  * 
  * 🎯 역할:
  * 1. 요청 데이터 검증 및 전처리
- * 2. ConditionTemplateGenerationLab에 작업 위임
- * 3. 결과 후처리 및 응답 생성
+ * 2. LabAccessor를 통한 동적 Lab 조회
+ * 3. ConditionTemplateGenerationLab에 작업 위임 (Pipeline 활용)
+ * 4. 결과 후처리 및 응답 생성
  */
 @Slf4j
 @Component
 public class ConditionTemplateDiagnosisStrategy implements DiagnosisStrategy<IAMContext, IAMResponse> {
     
-    private final ConditionTemplateGenerationLab conditionTemplateGenerationLab;
+    private final LabAccessor labAccessor;
     
-    public ConditionTemplateDiagnosisStrategy(ConditionTemplateGenerationLab conditionTemplateGenerationLab) {
-        this.conditionTemplateGenerationLab = conditionTemplateGenerationLab;
-        log.info("🔬 ConditionTemplateDiagnosisStrategy initialized");
+    public ConditionTemplateDiagnosisStrategy(LabAccessor labAccessor) {
+        this.labAccessor = labAccessor;
+        log.info("🔬 ConditionTemplateDiagnosisStrategy initialized with dynamic LabAccessor");
     }
     
     @Override
@@ -43,7 +45,7 @@ public class ConditionTemplateDiagnosisStrategy implements DiagnosisStrategy<IAM
     
     @Override
     public int getPriority() {
-        return 10; // 높은 우선순위
+        return 15; // 중간 우선순위
     }
     
     @Override
@@ -54,29 +56,33 @@ public class ConditionTemplateDiagnosisStrategy implements DiagnosisStrategy<IAM
             // 1. 요청 데이터 검증
             validateRequest(request);
             
-            // 2. 요청 타입에 따른 분기 처리
+            // 2. 동적 Lab 조회
+            Optional<ConditionTemplateGenerationLab> labOpt = labAccessor.getLab(ConditionTemplateGenerationLab.class);
+            if (labOpt.isEmpty()) {
+                throw new DiagnosisException("CONDITION_TEMPLATE", "LAB_NOT_FOUND", 
+                    "ConditionTemplateGenerationLab을 찾을 수 없습니다");
+            }
+            
+            ConditionTemplateGenerationLab conditionTemplateGenerationLab = labOpt.get();
+            
+            // 3. 템플릿 타입 확인 및 생성
             String templateType = request.getParameter("templateType", String.class);
             String result;
             
             if ("universal".equals(templateType)) {
-                // 범용 조건 템플릿 생성
-                log.debug("🌐 범용 조건 템플릿 생성 요청");
+                log.debug("🔬 범용 조건 템플릿 생성 요청");
                 result = conditionTemplateGenerationLab.generateUniversalConditionTemplates();
-                
             } else if ("specific".equals(templateType)) {
-                // 특화 조건 템플릿 생성
+                log.debug("🔬 특화 조건 템플릿 생성 요청");
                 String resourceIdentifier = request.getParameter("resourceIdentifier", String.class);
                 String methodInfo = request.getParameter("methodInfo", String.class);
-                
-                log.debug("🎯 특화 조건 템플릿 생성 요청 - 리소스: {}", resourceIdentifier);
                 result = conditionTemplateGenerationLab.generateSpecificConditionTemplates(resourceIdentifier, methodInfo);
-                
             } else {
                 throw new DiagnosisException("CONDITION_TEMPLATE", "INVALID_TEMPLATE_TYPE", 
                     "지원하지 않는 템플릿 타입입니다: " + templateType);
             }
             
-            // 3. 응답 생성
+            // 4. 응답 생성
             ConditionTemplateResponse response = new ConditionTemplateResponse(
                 request.getRequestId(),
                 ExecutionStatus.SUCCESS,
@@ -87,6 +93,8 @@ public class ConditionTemplateDiagnosisStrategy implements DiagnosisStrategy<IAM
             log.info("✅ 조건 템플릿 진단 전략 실행 완료 - 요청: {}", request.getRequestId());
             return response;
             
+        } catch (DiagnosisException e) {
+            throw e; // 이미 DiagnosisException인 경우 그대로 전파
         } catch (Exception e) {
             log.error("🔥 조건 템플릿 진단 전략 실행 실패 - 요청: {}", request.getRequestId(), e);
             throw new DiagnosisException("CONDITION_TEMPLATE", "EXECUTION_FAILED", 
@@ -98,20 +106,17 @@ public class ConditionTemplateDiagnosisStrategy implements DiagnosisStrategy<IAM
      * 요청 데이터 검증
      */
     private void validateRequest(IAMRequest<IAMContext> request) throws DiagnosisException {
-        if (request.getParameter("templateType", String.class) == null) {
+        String templateType = request.getParameter("templateType", String.class);
+        if (templateType == null) {
             throw new DiagnosisException("CONDITION_TEMPLATE", "MISSING_TEMPLATE_TYPE", 
                 "templateType 파라미터가 필요합니다");
         }
         
-        String templateType = request.getParameter("templateType", String.class);
         if ("specific".equals(templateType)) {
-            if (request.getParameter("resourceIdentifier", String.class) == null) {
+            String resourceIdentifier = request.getParameter("resourceIdentifier", String.class);
+            if (resourceIdentifier == null || resourceIdentifier.trim().isEmpty()) {
                 throw new DiagnosisException("CONDITION_TEMPLATE", "MISSING_RESOURCE_IDENTIFIER", 
-                    "특화 템플릿 생성 시 resourceIdentifier 파라미터가 필요합니다");
-            }
-            if (request.getParameter("methodInfo", String.class) == null) {
-                throw new DiagnosisException("CONDITION_TEMPLATE", "MISSING_METHOD_INFO", 
-                    "특화 템플릿 생성 시 methodInfo 파라미터가 필요합니다");
+                    "specific 템플릿 타입에는 resourceIdentifier 파라미터가 필요합니다");
             }
         }
     }
@@ -120,12 +125,13 @@ public class ConditionTemplateDiagnosisStrategy implements DiagnosisStrategy<IAM
      * 조건 템플릿 응답 클래스
      */
     public static class ConditionTemplateResponse extends IAMResponse {
-        private final String templateJson;
+        private final String templateResult;
         private final String templateType;
         
-        public ConditionTemplateResponse(String requestId, ExecutionStatus status, String templateJson, String templateType) {
+        public ConditionTemplateResponse(String requestId, ExecutionStatus status, 
+                                       String templateResult, String templateType) {
             super(requestId, status);
-            this.templateJson = templateJson;
+            this.templateResult = templateResult;
             this.templateType = templateType;
         }
         
@@ -136,22 +142,21 @@ public class ConditionTemplateDiagnosisStrategy implements DiagnosisStrategy<IAM
         
         @Override
         public Object getData() {
-            // 템플릿 JSON과 타입을 포함한 데이터 맵 반환
             return Map.of(
-                "templateJson", templateJson != null ? templateJson : "",
+                "templates", templateResult != null ? templateResult : "",
                 "templateType", templateType != null ? templateType : "",
                 "timestamp", getTimestamp(),
                 "requestId", getRequestId()
             );
         }
         
-        public String getTemplateJson() { return templateJson; }
+        public String getTemplateResult() { return templateResult; }
         
         public String getTemplateType() { return templateType; }
         
         @Override
         public String toString() {
-            return String.format("ConditionTemplateResponse{requestId='%s', status='%s', templateType='%s'}", 
+            return String.format("ConditionTemplateResponse{requestId='%s', status='%s', type='%s'}", 
                 getResponseId(), getStatus(), templateType);
         }
     }

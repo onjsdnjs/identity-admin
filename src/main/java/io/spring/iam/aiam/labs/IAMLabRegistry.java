@@ -1,72 +1,121 @@
 package io.spring.iam.aiam.labs;
 
-import io.spring.iam.aiam.labs.policy.AdvancedPolicyGenerationLab;
-import io.spring.iam.aiam.labs.risk.ComprehensiveRiskAssessmentLab;
-import io.spring.iam.aiam.protocol.IAMContext;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-
-import jakarta.annotation.PostConstruct;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * IAM 전문 연구소 레지스트리
  * 
- * 🏛️ 세계 최고 수준의 AI-Native IAM 연구소들을 통합 관리
- * - 각 도메인별 전문 연구소 등록/조회
- * - 연구소 간 협업 조정
- * - 연구소 성능 모니터링
- * - 동적 연구소 할당
- * 
- * @param <T> IAM 컨텍스트 타입
+ * 🏛️ Pipeline 기반 AI-Native IAM 연구소들을 동적 통합 관리
+ * - 모든 Lab을 List로 자동 주입받아 동적 등록
+ * - 클래스 이름 기반 자동 식별
+ * - Lab 추가/제거시 코드 수정 불필요
+ * - Pipeline 기반 표준화된 AI 처리
  */
 @Slf4j
 @Component
-public class IAMLabRegistry<T extends IAMContext> {
+public class IAMLabRegistry {
     
-    private final Map<Class<? extends AbstractIAMLab<?>>, AbstractIAMLab<?>> labs = new ConcurrentHashMap<>();
-    private final Map<String, Class<? extends AbstractIAMLab<?>>> labsByName = new ConcurrentHashMap<>();
+    private final Map<String, Object> labs = new ConcurrentHashMap<>();
+    private final Map<Class<?>, Object> labsByType = new ConcurrentHashMap<>();
     
-    // ==================== 🏭 전문 연구소 인스턴스들 ====================
-    private final AdvancedPolicyGenerationLab policyGenerationLab;
-    private final ComprehensiveRiskAssessmentLab riskAssessmentLab;
+    // ==================== 🏭 모든 Lab을 동적으로 주입받음 ====================
+    private final List<Object> allLabs;
     
     @Autowired
-    public IAMLabRegistry(AdvancedPolicyGenerationLab policyGenerationLab,
-                         ComprehensiveRiskAssessmentLab riskAssessmentLab) {
-        this.policyGenerationLab = policyGenerationLab;
-        this.riskAssessmentLab = riskAssessmentLab;
+    public IAMLabRegistry(List<Object> allLabs) {
+        this.allLabs = allLabs != null ? allLabs : new ArrayList<>();
+        log.info("🔬 IAMLabRegistry created with {} potential labs", this.allLabs.size());
     }
     
     /**
-     * 스프링 초기화 후 모든 연구소를 자동 등록합니다
+     * 스프링 초기화 후 모든 Lab을 자동 등록합니다
      */
     @PostConstruct
     public void initializeLabs() {
-        log.info("🔬 Initializing IAM Labs Registry...");
+        log.info("🔬 Initializing dynamic Pipeline-based IAM Labs Registry...");
         
-        // 전문 연구소들 등록
-        registerLab((AbstractIAMLab<T>) policyGenerationLab);
-        registerLab((AbstractIAMLab<T>) riskAssessmentLab);
+        // 모든 주입된 객체 중에서 Lab 으로 판단되는 것들만 필터링하여 등록
+        allLabs.stream()
+            .filter(this::isLabComponent)
+            .forEach(this::registerLabDynamically);
         
         log.info("✅ IAM Labs Registry initialized with {} labs", labs.size());
-        labs.values().forEach(lab -> 
-            log.info("  📋 Registered: {} [{}]", lab.getLabName(), lab.getSpecialization().getDisplayName())
+        labs.forEach((name, lab) -> 
+            log.info("  📋 Registered: {} [{}]", name, lab.getClass().getSimpleName())
         );
+        
+        // 등록된 Lab이 없는 경우 경고
+        if (labs.isEmpty()) {
+            log.warn("⚠️ No Labs were registered! Please check if Lab components are properly annotated with @Component");
+        }
     }
     
     /**
-     * 연구소를 등록합니다
+     * 객체가 Lab 컴포넌트인지 판단합니다
+     * @param obj 검사할 객체
+     * @return Lab 여부
+     */
+    private boolean isLabComponent(Object obj) {
+        if (obj == null) return false;
+        
+        String className = obj.getClass().getSimpleName();
+        
+        // Lab으로 끝나는 클래스명을 가진 컴포넌트들을 Lab으로 인식
+        boolean isLab = className.endsWith("Lab");
+        
+        if (isLab) {
+            log.debug("🔍 Lab component detected: {}", className);
+        }
+        
+        return isLab;
+    }
+    
+    /**
+     * Lab을 동적으로 등록합니다
+     * @param lab Lab 인스턴스
+     */
+    private void registerLabDynamically(Object lab) {
+        String className = lab.getClass().getSimpleName();
+        
+        // 클래스 이름을 키로 사용하여 등록
+        labs.put(className, lab);
+        labsByType.put(lab.getClass(), lab);
+        
+        log.debug("🔬 Lab registered dynamically: {} -> {}", className, lab.getClass().getName());
+    }
+    
+    /**
+     * 수동으로 연구소를 등록합니다 (필요시)
+     * @param name 연구소 이름
      * @param lab 연구소 인스턴스
      */
-    public <L extends AbstractIAMLab<T>> void registerLab(L lab) {
-        labs.put((Class<? extends AbstractIAMLab<?>>) lab.getClass(), lab);
-        labsByName.put(lab.getLabName(), (Class<? extends AbstractIAMLab<?>>) lab.getClass());
+    public void registerLab(String name, Object lab) {
+        labs.put(name, lab);
+        labsByType.put(lab.getClass(), lab);
+        log.debug("🔬 Lab registered manually: {} -> {}", name, lab.getClass().getSimpleName());
+    }
+    
+    /**
+     * 이름으로 연구소를 조회합니다
+     * @param labName 연구소 이름 (클래스 이름)
+     * @param labType 연구소 타입
+     * @return 연구소 인스턴스
+     */
+    public <T> Optional<T> getLab(String labName, Class<T> labType) {
+        Object lab = labs.get(labName);
+        if (lab != null && labType.isInstance(lab)) {
+            return Optional.of((T) lab);
+        }
+        return Optional.empty();
     }
     
     /**
@@ -74,101 +123,67 @@ public class IAMLabRegistry<T extends IAMContext> {
      * @param labType 연구소 타입
      * @return 연구소 인스턴스
      */
-    @SuppressWarnings("unchecked")
-    public <L extends AbstractIAMLab<T>> Optional<L> getLab(Class<L> labType) {
-        AbstractIAMLab<?> lab = labs.get(labType);
-        return lab != null ? Optional.of((L) lab) : Optional.empty();
-    }
-    
-    /**
-     * 이름으로 연구소를 조회합니다
-     * @param labName 연구소 이름
-     * @return 연구소 인스턴스
-     */
-    @SuppressWarnings("unchecked")
-    public <L extends AbstractIAMLab<T>> Optional<L> getLabByName(String labName) {
-        Class<? extends AbstractIAMLab<?>> labType = labsByName.get(labName);
-        if (labType != null) {
-            AbstractIAMLab<?> lab = labs.get(labType);
-            return lab != null ? Optional.of((L) lab) : Optional.empty();
+    public <T> Optional<T> getLab(Class<T> labType) {
+        Object lab = labsByType.get(labType);
+        if (lab != null) {
+            return Optional.of((T) lab);
         }
         return Optional.empty();
     }
     
     /**
-     * 특정 작업을 수행할 수 있는 연구소들을 조회합니다
-     * @param operation 작업명
-     * @return 지원 가능한 연구소 목록
+     * 클래스 이름으로 연구소를 조회합니다 (동적 조회)
+     * @param className 클래스 이름 (예: "ConditionTemplateGenerationLab")
+     * @return 연구소 인스턴스
      */
-    public List<AbstractIAMLab<T>> getLabsForOperation(String operation) {
-        return labs.values().stream()
-                .filter(lab -> lab.supportsOperation(operation))
-                .map(lab -> (AbstractIAMLab<T>) lab)
-                .toList();
+    public Optional<Object> getLabByClassName(String className) {
+        return Optional.ofNullable(labs.get(className));
     }
     
     /**
-     * 모든 등록된 연구소를 조회합니다
-     * @return 연구소 목록
+     * 특정 타입의 모든 연구소를 조회합니다
+     * @param baseType 기본 타입
+     * @return 해당 타입의 연구소 목록
      */
-    public List<AbstractIAMLab<T>> getAllLabs() {
+    public <T> List<T> getLabsByType(Class<T> baseType) {
         return labs.values().stream()
-                .map(lab -> (AbstractIAMLab<T>) lab)
-                .toList();
+            .filter(baseType::isInstance)
+            .map(lab -> (T) lab)
+            .toList();
+    }
+    
+    /**
+     * 모든 등록된 연구소 이름을 조회합니다
+     * @return 연구소 이름 목록
+     */
+    public List<String> getAllLabNames() {
+        return new ArrayList<>(labs.keySet());
+    }
+    
+    /**
+     * 모든 등록된 연구소 인스턴스를 조회합니다
+     * @return 연구소 인스턴스 목록
+     */
+    public List<Object> getAllLabs() {
+        return new ArrayList<>(labs.values());
     }
     
     /**
      * 연구소 등록 상태를 확인합니다
+     * @param labName 연구소 이름
+     * @return 등록 여부
+     */
+    public boolean isLabRegistered(String labName) {
+        return labs.containsKey(labName);
+    }
+    
+    /**
+     * 타입별 연구소 등록 상태를 확인합니다
      * @param labType 연구소 타입
      * @return 등록 여부
      */
-    public boolean isLabRegistered(Class<? extends AbstractIAMLab<T>> labType) {
-        return labs.containsKey(labType);
-    }
-    
-    /**
-     * 연구소 성능 통계를 조회합니다
-     * @return 연구소별 성능 통계
-     */
-    public Map<String, LabMetrics> getLabMetrics() {
-        Map<String, LabMetrics> metrics = new ConcurrentHashMap<>();
-        
-        labs.values().forEach(lab -> {
-            LabMetrics labMetrics = lab.getMetrics();
-            metrics.put(lab.getLabName(), labMetrics);
-        });
-        
-        return metrics;
-    }
-    
-    /**
-     * 가장 성능이 좋은 연구소를 조회합니다
-     * @param operation 작업명
-     * @return 최적 연구소
-     */
-    public Optional<AbstractIAMLab<T>> getBestPerformingLab(String operation) {
-        return getLabsForOperation(operation).stream()
-                .max((lab1, lab2) -> {
-                    double score1 = calculatePerformanceScore(lab1);
-                    double score2 = calculatePerformanceScore(lab2);
-                    return Double.compare(score1, score2);
-                });
-    }
-    
-    /**
-     * 연구소 성능 점수를 계산합니다
-     * @param lab 연구소
-     * @return 성능 점수 (0.0 ~ 1.0)
-     */
-    private double calculatePerformanceScore(AbstractIAMLab<T> lab) {
-        LabMetrics metrics = lab.getMetrics();
-        
-        // 성공률 (40%) + 평균 응답시간 (30%) + 처리량 (30%)
-        double successRate = metrics.getSuccessRate();
-        double responseTimeScore = Math.max(0, 1.0 - (metrics.getAverageResponseTime() / 10000.0)); // 10초 기준
-        double throughputScore = Math.min(1.0, metrics.getThroughput() / 100.0); // 100 req/s 기준
-        
-        return (successRate * 0.4) + (responseTimeScore * 0.3) + (throughputScore * 0.3);
+    public boolean isLabRegistered(Class<?> labType) {
+        return labsByType.containsKey(labType);
     }
     
     /**
@@ -177,5 +192,42 @@ public class IAMLabRegistry<T extends IAMContext> {
      */
     public int getLabCount() {
         return labs.size();
+    }
+    
+    /**
+     * 연구소 상태 정보를 조회합니다
+     * @return 연구소별 상태 정보
+     */
+    public Map<String, String> getLabStatus() {
+        Map<String, String> status = new ConcurrentHashMap<>();
+        
+        labs.forEach((name, lab) -> {
+            status.put(name, String.format("ACTIVE - %s [%s]", 
+                lab.getClass().getSimpleName(), 
+                lab.getClass().getPackage().getName()));
+        });
+        
+        return status;
+    }
+    
+    /**
+     * 연구소 통계 정보를 조회합니다
+     * @return 통계 정보
+     */
+    public Map<String, Object> getLabStatistics() {
+        Map<String, Object> stats = new ConcurrentHashMap<>();
+        
+        stats.put("totalLabs", labs.size());
+        stats.put("labNames", getAllLabNames());
+        stats.put("labTypes", labs.values().stream()
+            .map(lab -> lab.getClass().getSimpleName())
+            .distinct()
+            .toList());
+        stats.put("packages", labs.values().stream()
+            .map(lab -> lab.getClass().getPackage().getName())
+            .distinct()
+            .toList());
+        
+        return stats;
     }
 } 

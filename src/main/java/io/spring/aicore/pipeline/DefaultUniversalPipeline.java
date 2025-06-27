@@ -63,21 +63,21 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
         
         return Mono.fromCallable(() -> {
             
-            // 1. CONTEXT_RETRIEVAL 단계 (현재 하드코딩된 RAG 검색과 동일)
+            // 1. CONTEXT_RETRIEVAL 단계 (RAG 검색)
             if (configuration.hasStep(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL)) {
                 log.debug("🔍 CONTEXT_RETRIEVAL 단계 실행");
                 ContextRetriever.ContextRetrievalResult contextResult = contextRetriever.retrieveContext(request);
                 context.addStepResult(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL, contextResult);
             }
             
-            // 2. PREPROCESSING 단계 (현재 하드코딩된 메타데이터 구성과 동일)
+            // 2. PREPROCESSING 단계 (메타데이터 구성)
             if (configuration.hasStep(PipelineConfiguration.PipelineStep.PREPROCESSING)) {
                 log.debug("📋 PREPROCESSING 단계 실행");
                 String systemMetadata = buildSystemMetadata(request);
                 context.addStepResult(PipelineConfiguration.PipelineStep.PREPROCESSING, systemMetadata);
             }
             
-            // 3. PROMPT_GENERATION 단계 (현재 하드코딩된 프롬프트 생성과 동일)
+            // 3. PROMPT_GENERATION 단계 (프롬프트 생성)
             if (configuration.hasStep(PipelineConfiguration.PipelineStep.PROMPT_GENERATION)) {
                 log.debug("✏️ PROMPT_GENERATION 단계 실행");
                 
@@ -97,7 +97,7 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
             return context;
         })
         .flatMap(ctx -> {
-            // 4. LLM_EXECUTION 단계 (현재 하드코딩된 AI 모델 호출과 동일)
+            // 4. LLM_EXECUTION 단계 (AI 모델 호출)
             if (configuration.hasStep(PipelineConfiguration.PipelineStep.LLM_EXECUTION)) {
                 log.debug("🤖 LLM_EXECUTION 단계 실행");
                 
@@ -105,7 +105,7 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
                     ctx.getStepResult(PipelineConfiguration.PipelineStep.PROMPT_GENERATION, PromptGenerator.PromptGenerationResult.class);
                 
                 if (promptResult != null) {
-                    // 스트리밍 처리 (현재 하드코딩된 로직과 동일)
+                    // 스트리밍 처리
                     Flux<String> streamResponse = streamingProcessor.processStream(chatModel, promptResult.getPrompt());
                     
                     // 전체 응답을 수집
@@ -124,7 +124,7 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
             }
         })
         .map(ctx -> {
-            // 5. RESPONSE_PARSING 단계 (현재 하드코딩된 JSON 파싱과 동일)
+            // 5. RESPONSE_PARSING 단계 (JSON 파싱)
             if (configuration.hasStep(PipelineConfiguration.PipelineStep.RESPONSE_PARSING)) {
                 log.debug("🔧 RESPONSE_PARSING 단계 실행");
                 
@@ -135,7 +135,7 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
                 }
             }
             
-            // 6. POSTPROCESSING 단계 (현재 하드코딩된 후처리와 동일)
+            // 6. POSTPROCESSING 단계 (후처리)
             if (configuration.hasStep(PipelineConfiguration.PipelineStep.POSTPROCESSING)) {
                 log.debug("✅ POSTPROCESSING 단계 실행");
                 

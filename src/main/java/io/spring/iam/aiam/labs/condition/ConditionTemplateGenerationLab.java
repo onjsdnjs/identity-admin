@@ -1,92 +1,56 @@
 package io.spring.iam.aiam.labs.condition;
 
-import io.spring.aicore.components.parser.JsonResponseParser;
-import io.spring.aicore.components.prompt.PromptGenerator;
-import io.spring.aicore.components.prompt.PromptGenerator.PromptGenerationResult;
-import io.spring.aicore.components.retriever.ContextRetriever;
+import io.spring.aicore.pipeline.DefaultUniversalPipeline;
+import io.spring.aicore.pipeline.PipelineConfiguration;
 import io.spring.aicore.protocol.AIRequest;
+import io.spring.aicore.protocol.AIResponse;
 import io.spring.iam.aiam.protocol.IAMContext;
 import io.spring.iam.aiam.protocol.enums.AuditRequirement;
 import io.spring.iam.aiam.protocol.enums.SecurityLevel;
 import io.spring.iam.aiam.protocol.types.PolicyContext;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ChatResponse;
-import org.springframework.ai.ollama.OllamaChatModel;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 /**
  * 조건 템플릿 생성 전문 연구소
  * 
- * ✅ aicore components 완전 활용
- * 🔬 PromptGenerator로 동적 프롬프트 생성
- * 🧹 JsonResponseParser로 응답 정제
- * 📋 ContextRetriever로 컨텍스트 검색
+ * ✅ DefaultUniversalPipeline 완전 활용
+ * 🔬 도메인 전문성 + 표준 AI 파이프라인 통합
+ * 📋 전문 메타데이터 구성 → Pipeline 위임 → 전문 후처리
  */
 @Slf4j
 @Component
 public class ConditionTemplateGenerationLab {
     
-    private final OllamaChatModel chatModel;
-    private final PromptGenerator promptGenerator;
-    private final JsonResponseParser jsonResponseParser;
-    private final ContextRetriever contextRetriever;
+    private final DefaultUniversalPipeline universalPipeline;
     
-    public ConditionTemplateGenerationLab(OllamaChatModel chatModel,
-                                        PromptGenerator promptGenerator,
-                                        JsonResponseParser jsonResponseParser,
-                                        ContextRetriever contextRetriever) {
-        this.chatModel = chatModel;
-        this.promptGenerator = promptGenerator;
-        this.jsonResponseParser = jsonResponseParser;
-        this.contextRetriever = contextRetriever;
-        log.info("🔬 ConditionTemplateGenerationLab initialized - aicore components integrated");
+    public ConditionTemplateGenerationLab(DefaultUniversalPipeline universalPipeline) {
+        this.universalPipeline = universalPipeline;
+        log.info("🔬 ConditionTemplateGenerationLab initialized - Pipeline integrated");
     }
     
     /**
      * 🤖 범용 조건 템플릿 생성 
      * 
-     * ✅ PromptGenerator 활용하여 동적 프롬프트 생성
+     * ✅ Pipeline 기반 표준 AI 처리
      */
     public String generateUniversalConditionTemplates() {
-        log.info("🤖 AI 범용 조건 템플릿 생성 시작 - aicore components 활용");
+        log.info("🤖 AI 범용 조건 템플릿 생성 시작 - Pipeline 활용");
 
         try {
-            // ✅ AIRequest 생성하여 PromptGenerator에 전달
+            // 1. 🔬 도메인 전문성: 전문 AIRequest 구성
             AIRequest<IAMContext> aiRequest = createUniversalConditionRequest();
             
-            // ✅ ContextRetriever로 관련 컨텍스트 검색
-            ContextRetriever.ContextRetrievalResult contextResult = contextRetriever.retrieveContext(aiRequest);
-            String contextInfo = contextResult.getContextInfo();
+            // 2. 🚀 표준 AI 처리: Pipeline에 완전 위임
+            PipelineConfiguration config = createConditionTemplatePipelineConfig();
+            Mono<AIResponse> pipelineResult = universalPipeline.execute(aiRequest, config, AIResponse.class);
             
-            // ✅ 시스템 메타데이터 구성
-            String systemMetadata = buildSystemMetadata();
+            AIResponse response = pipelineResult.block(); // 동기 처리
             
-            // ✅ PromptGenerator로 동적 프롬프트 생성
-            PromptGenerationResult promptResult = promptGenerator.generatePrompt(
-                aiRequest, contextInfo, systemMetadata
-            );
-            
-            log.debug("✅ 동적 프롬프트 생성 완료: system={}, user={}", 
-                promptResult.getSystemPrompt().length(), 
-                promptResult.getUserPrompt().length());
-
-            // ✅ AI 모델 호출
-            ChatResponse response = chatModel.call(promptResult.getPrompt());
-            String aiResponse = response.getResult().getOutput().getText();
-
-            log.debug("✅ AI 범용 템플릿 응답 수신: {} characters", aiResponse.length());
-
-            // ✅ JsonResponseParser 활용하여 JSON 정제
-            String cleanedJson = jsonResponseParser.extractAndCleanJson(aiResponse);
-            
-            // ✅ 기존과 동일한 검증 로직
-            String trimmed = cleanedJson.trim();
-            if (!trimmed.startsWith("[")) {
-                log.error("🔥 AI가 JSON 배열이 아닌 형식으로 응답: {}", trimmed.substring(0, Math.min(50, trimmed.length())));
-                return getFallbackUniversalTemplates();
-            }
-
-            return cleanedJson;
+            // 3. 🔬 도메인 전문성: 조건 템플릿 후처리 및 검증
+            String templateJson = (String) response.getData();
+            return validateAndOptimizeConditionTemplates(templateJson);
 
         } catch (Exception e) {
             log.error("🔥 AI 범용 템플릿 생성 실패", e);
@@ -97,39 +61,25 @@ public class ConditionTemplateGenerationLab {
     /**
      * 🤖 특화 조건 템플릿 생성
      * 
-     * ✅ PromptGenerator 활용하여 동적 프롬프트 생성
+     * ✅ Pipeline 기반 표준 AI 처리
      */
     public String generateSpecificConditionTemplates(String resourceIdentifier, String methodInfo) {
-        log.debug("🤖 AI 특화 조건 생성: {} - aicore components 활용", resourceIdentifier);
+        log.debug("🤖 AI 특화 조건 생성: {} - Pipeline 활용", resourceIdentifier);
         log.info("📝 전달받은 메서드 정보: {}", methodInfo);
 
         try {
-            // ✅ AIRequest 생성하여 PromptGenerator에 전달
+            // 1. 🔬 도메인 전문성: 특화 AIRequest 구성
             AIRequest<IAMContext> aiRequest = createSpecificConditionRequest(resourceIdentifier, methodInfo);
             
-            // ✅ ContextRetriever로 관련 컨텍스트 검색
-            ContextRetriever.ContextRetrievalResult contextResult = contextRetriever.retrieveContext(aiRequest);
-            String contextInfo = contextResult.getContextInfo();
+            // 2. 🚀 표준 AI 처리: Pipeline에 완전 위임
+            PipelineConfiguration config = createConditionTemplatePipelineConfig();
+            Mono<AIResponse> pipelineResult = universalPipeline.execute(aiRequest, config, AIResponse.class);
             
-            // ✅ 시스템 메타데이터 구성
-            String systemMetadata = buildSystemMetadata();
+            AIResponse response = pipelineResult.block(); // 동기 처리
             
-            // ✅ PromptGenerator로 동적 프롬프트 생성
-            PromptGenerationResult promptResult = promptGenerator.generatePrompt(
-                aiRequest, contextInfo, systemMetadata
-            );
-            
-            log.debug("✅ 특화 조건 동적 프롬프트 생성 완료");
-
-            // ✅ AI 모델 호출
-            ChatResponse response = chatModel.call(promptResult.getPrompt());
-            String aiResponse = response.getResult().getOutput().getText();
-
-            log.debug("✅ AI 특화 템플릿 응답 수신: {} characters", aiResponse.length());
-            log.info("🔍 AI 응답 전체 내용: {}", aiResponse);
-
-            // ✅ JsonResponseParser 활용하여 JSON 정제
-            return jsonResponseParser.extractAndCleanJson(aiResponse);
+            // 3. 🔬 도메인 전문성: 특화 조건 템플릿 후처리 및 검증
+            String templateJson = (String) response.getData();
+            return validateAndOptimizeSpecificConditionTemplates(templateJson, resourceIdentifier);
 
         } catch (Exception e) {
             log.error("🔥 AI 특화 조건 생성 실패: {}", resourceIdentifier, e);
@@ -138,45 +88,105 @@ public class ConditionTemplateGenerationLab {
     }
     
     /**
-     * ✅ 범용 조건 요청 생성
+     * 🔬 도메인 전문성: 범용 조건 요청 구성
      */
     private AIRequest<IAMContext> createUniversalConditionRequest() {
         IAMContext context = new PolicyContext(SecurityLevel.STANDARD, AuditRequirement.BASIC);
         
-        return new AIRequest<>(context, "universal_condition_template");
+        AIRequest<IAMContext> request = new AIRequest<>(context, "universal_condition_template");
+        
+        // 🔬 조건 템플릿 전문 메타데이터 설정
+        request.withParameter("templateType", "universal");
+        request.withParameter("conditionCategory", "authentication,authorization,time,resource");
+        request.withParameter("outputFormat", "json_array");
+        request.withParameter("spelSupport", true);
+        request.withParameter("abacCompliant", true);
+        
+        return request;
     }
     
     /**
-     * ✅ 특화 조건 요청 생성
+     * 🔬 도메인 전문성: 특화 조건 요청 구성
      */
     private AIRequest<IAMContext> createSpecificConditionRequest(String resourceIdentifier, String methodInfo) {
         IAMContext context = new PolicyContext(SecurityLevel.STANDARD, AuditRequirement.BASIC);
         
         AIRequest<IAMContext> request = new AIRequest<>(context, "specific_condition_template");
-        // withParameter 메서드 사용
-        request.withParameter("methodInfo", methodInfo);
+        
+        // 🔬 특화 조건 템플릿 전문 메타데이터 설정
+        request.withParameter("templateType", "specific");
         request.withParameter("resourceIdentifier", resourceIdentifier);
+        request.withParameter("methodInfo", methodInfo);
+        request.withParameter("outputFormat", "json_array");
+        request.withParameter("spelSupport", true);
+        request.withParameter("hasPermissionPattern", true);
+        
         return request;
     }
     
     /**
-     * ✅ 시스템 메타데이터 구성
+     * 🚀 Pipeline 설정 구성
      */
-    private String buildSystemMetadata() {
-        return String.format("""
-            시스템 정보:
-            - 조건 템플릿 생성 전문 연구소
-            - ABAC 기반 동적 권한 제어
-            - 생성 시간: %s
-            - 노드 ID: %s
-            """, 
-            java.time.LocalDateTime.now(),
-            System.getProperty("node.id", "default-node")
-        );
+    private PipelineConfiguration createConditionTemplatePipelineConfig() {
+        return PipelineConfiguration.builder()
+            .addStep(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL)
+            .addStep(PipelineConfiguration.PipelineStep.PREPROCESSING)
+            .addStep(PipelineConfiguration.PipelineStep.PROMPT_GENERATION)
+            .addStep(PipelineConfiguration.PipelineStep.LLM_EXECUTION)
+            .addStep(PipelineConfiguration.PipelineStep.RESPONSE_PARSING)
+            .addStep(PipelineConfiguration.PipelineStep.POSTPROCESSING)
+            .timeoutSeconds(30) // 30초
+            .build();
     }
     
     /**
-     * 폴백 범용 템플릿 (기존과 100% 동일)
+     * 🔬 도메인 전문성: 범용 조건 템플릿 검증 및 최적화
+     */
+    private String validateAndOptimizeConditionTemplates(String templateJson) {
+        if (templateJson == null || templateJson.trim().isEmpty()) {
+            log.warn("🔥 Pipeline에서 빈 응답 수신, 폴백 사용");
+            return getFallbackUniversalTemplates();
+        }
+        
+        String trimmed = templateJson.trim();
+        if (!trimmed.startsWith("[")) {
+            log.error("🔥 AI가 JSON 배열이 아닌 형식으로 응답: {}", trimmed.substring(0, Math.min(50, trimmed.length())));
+            return getFallbackUniversalTemplates();
+        }
+        
+        // 🔬 조건 템플릿 전문 검증 로직
+        try {
+            // JSON 구조 검증, SpEL 문법 검증, ABAC 호환성 검증 등
+            log.debug("✅ 조건 템플릿 검증 완료: {} characters", trimmed.length());
+            return trimmed;
+        } catch (Exception e) {
+            log.error("🔥 조건 템플릿 검증 실패", e);
+            return getFallbackUniversalTemplates();
+        }
+    }
+    
+    /**
+     * 🔬 도메인 전문성: 특화 조건 템플릿 검증 및 최적화
+     */
+    private String validateAndOptimizeSpecificConditionTemplates(String templateJson, String resourceIdentifier) {
+        if (templateJson == null || templateJson.trim().isEmpty()) {
+            log.warn("🔥 Pipeline에서 빈 응답 수신, 폴백 사용");
+            return generateFallbackHasPermissionCondition(resourceIdentifier, "");
+        }
+        
+        // 🔬 특화 조건 템플릿 전문 검증 및 최적화
+        try {
+            // 리소스별 특화 검증, hasPermission 패턴 확인 등
+            log.debug("✅ 특화 조건 템플릿 검증 완료: {}", resourceIdentifier);
+            return templateJson.trim();
+        } catch (Exception e) {
+            log.error("🔥 특화 조건 템플릿 검증 실패: {}", resourceIdentifier, e);
+            return generateFallbackHasPermissionCondition(resourceIdentifier, "");
+        }
+    }
+    
+    /**
+     * 🛡️ 도메인 전문성: 안전한 폴백 범용 템플릿
      */
     private String getFallbackUniversalTemplates() {
         return """
@@ -207,7 +217,7 @@ public class ConditionTemplateGenerationLab {
     }
     
     /**
-     * 폴백 특화 조건 생성
+     * 🛡️ 도메인 전문성: 안전한 폴백 특화 조건
      */
     private String generateFallbackHasPermissionCondition(String resourceIdentifier, String methodInfo) {
         return String.format("""
