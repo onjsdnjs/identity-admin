@@ -1,157 +1,265 @@
 package io.spring.aicore.pipeline;
 
+import io.spring.aicore.components.parser.JsonResponseParser;
+import io.spring.aicore.components.prompt.PromptGenerator;
+import io.spring.aicore.components.retriever.ContextRetriever;
+import io.spring.aicore.components.streaming.StreamingProcessor;
 import io.spring.aicore.protocol.AIRequest;
 import io.spring.aicore.protocol.AIResponse;
 import io.spring.aicore.protocol.DomainContext;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.Map;
 
 /**
- * UniversalPipeline의 기본 구현체
+ * 기본 범용 AI 파이프라인 구현체
  * 
- * 🎯 실제 AI 파이프라인 실행을 담당
- * - 단계별 파이프라인 실행
- * - 에러 핸들링 및 복구
- * - 메트릭 수집 및 모니터링
- * - Spring Bean으로 등록되어 의존성 주입 지원
+ * 🚀 현재 하드코딩된 6단계 처리 로직을 체계화
+ * - CONTEXT_RETRIEVAL: RAG 검색
+ * - PREPROCESSING: 메타데이터 구성
+ * - PROMPT_GENERATION: 프롬프트 생성
+ * - LLM_EXECUTION: AI 모델 실행
+ * - RESPONSE_PARSING: JSON 파싱
+ * - POSTPROCESSING: 후처리 및 검증
  */
 @Slf4j
 @Component
-public class DefaultUniversalPipeline<T extends DomainContext> implements UniversalPipeline<T> {
+public class DefaultUniversalPipeline implements UniversalPipeline {
     
-    private final AtomicReference<PipelineStatus> currentStatus = new AtomicReference<>(PipelineStatus.READY);
-    private final AtomicLong totalExecutions = new AtomicLong(0);
-    private final AtomicLong successfulExecutions = new AtomicLong(0);
-    private final AtomicLong failedExecutions = new AtomicLong(0);
-    private final AtomicLong totalExecutionTime = new AtomicLong(0);
-    private final AtomicLong activeExecutions = new AtomicLong(0);
+    private final ContextRetriever contextRetriever;
+    private final PromptGenerator promptGenerator;
+    private final StreamingProcessor streamingProcessor;
+    private final JsonResponseParser jsonResponseParser;
+    private final ChatModel chatModel;
+    
+    @Autowired
+    public DefaultUniversalPipeline(ContextRetriever contextRetriever,
+                                   PromptGenerator promptGenerator,
+                                   StreamingProcessor streamingProcessor,
+                                   JsonResponseParser jsonResponseParser,
+                                   ChatModel chatModel) {
+        this.contextRetriever = contextRetriever;
+        this.promptGenerator = promptGenerator;
+        this.streamingProcessor = streamingProcessor;
+        this.jsonResponseParser = jsonResponseParser;
+        this.chatModel = chatModel;
+    }
     
     @Override
-    public <R extends AIResponse> Mono<R> execute(AIRequest<T> request, 
-                                                 PipelineConfiguration<T> config,
-                                                 PipelineExecutor<T, R> executor) {
-        log.info("🚀 Universal Pipeline: Starting execution for request {}", request.getRequestId());
+    public <T extends DomainContext, R extends AIResponse> Mono<R> execute(
+            AIRequest<T> request, 
+            PipelineConfiguration configuration, 
+            Class<R> responseType) {
         
-        long startTime = System.currentTimeMillis();
-        totalExecutions.incrementAndGet();
-        activeExecutions.incrementAndGet();
-        currentStatus.set(PipelineStatus.RUNNING);
+        log.info("🚀 Universal Pipeline 실행 시작: {}", request.getRequestId());
+        
+        PipelineExecutionContext context = new PipelineExecutionContext(request.getRequestId());
         
         return Mono.fromCallable(() -> {
-                try {
-                    // 1. 파이프라인 실행 컨텍스트 생성
-                    PipelineExecutionContext context = createExecutionContext(request, config);
-                    
-                    // 2. 각 단계별 실행
-                    for (PipelineConfiguration.PipelineStep step : config.getSteps()) {
-                        log.debug("🔄 Executing pipeline step: {}", step);
-                        Object stepResult = executor.executeStep(request, step, context).block();
-                        context.addStepResult(step, stepResult);
-                    }
-                    
-                    // 3. 최종 응답 생성
-                    R finalResponse = executor.buildFinalResponse(request, context).block();
-                    
-                    // 4. 성공 처리
-                    long executionTime = System.currentTimeMillis() - startTime;
-                    recordSuccess(executionTime);
-                    
-                    log.info("✅ Universal Pipeline: Execution completed for request {} in {}ms", 
-                            request.getRequestId(), executionTime);
-                    
-                    return finalResponse;
-                    
-                } catch (Exception e) {
-                    long executionTime = System.currentTimeMillis() - startTime;
-                    recordFailure(executionTime, e);
-                    
-                    log.error("❌ Universal Pipeline: Execution failed for request {} after {}ms", 
-                             request.getRequestId(), executionTime, e);
-                    
-                    throw new PipelineExecutionException("Pipeline execution failed", e);
-                }
-            })
-            .timeout(Duration.ofSeconds(config.getTimeoutSeconds()))
-            .doFinally(signal -> {
-                activeExecutions.decrementAndGet();
-                if (activeExecutions.get() == 0) {
-                    currentStatus.set(PipelineStatus.READY);
-                }
-            })
-            .onErrorMap(throwable -> {
-                currentStatus.set(PipelineStatus.FAILED);
-                return new PipelineExecutionException("Pipeline execution error", throwable);
-            });
-    }
-    
-    @Override
-    public PipelineStatus getStatus() {
-        return currentStatus.get();
-    }
-    
-    @Override
-    public void abort() {
-        log.warn("⚠️ Universal Pipeline: Aborting pipeline execution");
-        currentStatus.set(PipelineStatus.ABORTED);
-    }
-    
-    @Override
-    public Mono<PipelineMetrics> getMetrics() {
-        return Mono.fromCallable(() -> {
-            long total = totalExecutions.get();
-            long successful = successfulExecutions.get();
-            long failed = failedExecutions.get();
-            double avgTime = total > 0 ? (double) totalExecutionTime.get() / total : 0.0;
-            long active = activeExecutions.get();
             
-            return new PipelineMetrics(total, successful, failed, avgTime, active);
+            // 1. CONTEXT_RETRIEVAL 단계 (현재 하드코딩된 RAG 검색과 동일)
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL)) {
+                log.debug("🔍 CONTEXT_RETRIEVAL 단계 실행");
+                ContextRetriever.ContextRetrievalResult contextResult = contextRetriever.retrieveContext(request);
+                context.addStepResult(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL, contextResult);
+            }
+            
+            // 2. PREPROCESSING 단계 (현재 하드코딩된 메타데이터 구성과 동일)
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.PREPROCESSING)) {
+                log.debug("📋 PREPROCESSING 단계 실행");
+                String systemMetadata = buildSystemMetadata(request);
+                context.addStepResult(PipelineConfiguration.PipelineStep.PREPROCESSING, systemMetadata);
+            }
+            
+            // 3. PROMPT_GENERATION 단계 (현재 하드코딩된 프롬프트 생성과 동일)
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.PROMPT_GENERATION)) {
+                log.debug("✏️ PROMPT_GENERATION 단계 실행");
+                
+                ContextRetriever.ContextRetrievalResult contextResult = 
+                    context.getStepResult(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL, ContextRetriever.ContextRetrievalResult.class);
+                String systemMetadata = 
+                    context.getStepResult(PipelineConfiguration.PipelineStep.PREPROCESSING, String.class);
+                
+                String contextInfo = contextResult != null ? contextResult.getContextInfo() : "";
+                String metadata = systemMetadata != null ? systemMetadata : "";
+                
+                PromptGenerator.PromptGenerationResult promptResult = 
+                    promptGenerator.generatePrompt(request, contextInfo, metadata);
+                context.addStepResult(PipelineConfiguration.PipelineStep.PROMPT_GENERATION, promptResult);
+            }
+            
+            return context;
+        })
+        .flatMap(ctx -> {
+            // 4. LLM_EXECUTION 단계 (현재 하드코딩된 AI 모델 호출과 동일)
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.LLM_EXECUTION)) {
+                log.debug("🤖 LLM_EXECUTION 단계 실행");
+                
+                PromptGenerator.PromptGenerationResult promptResult = 
+                    ctx.getStepResult(PipelineConfiguration.PipelineStep.PROMPT_GENERATION, PromptGenerator.PromptGenerationResult.class);
+                
+                if (promptResult != null) {
+                    // 스트리밍 처리 (현재 하드코딩된 로직과 동일)
+                    Flux<String> streamResponse = streamingProcessor.processStream(chatModel, promptResult.getPrompt());
+                    
+                    // 전체 응답을 수집
+                    return streamResponse
+                        .collect(StringBuilder::new, StringBuilder::append)
+                        .map(StringBuilder::toString)
+                        .map(response -> {
+                            ctx.addStepResult(PipelineConfiguration.PipelineStep.LLM_EXECUTION, response);
+                            return ctx;
+                        });
+                } else {
+                    return Mono.just(ctx);
+                }
+            } else {
+                return Mono.just(ctx);
+            }
+        })
+        .map(ctx -> {
+            // 5. RESPONSE_PARSING 단계 (현재 하드코딩된 JSON 파싱과 동일)
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.RESPONSE_PARSING)) {
+                log.debug("🔧 RESPONSE_PARSING 단계 실행");
+                
+                String llmResponse = ctx.getStepResult(PipelineConfiguration.PipelineStep.LLM_EXECUTION, String.class);
+                if (llmResponse != null) {
+                    String parsedJson = jsonResponseParser.extractAndCleanJson(llmResponse);
+                    ctx.addStepResult(PipelineConfiguration.PipelineStep.RESPONSE_PARSING, parsedJson);
+                }
+            }
+            
+            // 6. POSTPROCESSING 단계 (현재 하드코딩된 후처리와 동일)
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.POSTPROCESSING)) {
+                log.debug("✅ POSTPROCESSING 단계 실행");
+                
+                String parsedJson = ctx.getStepResult(PipelineConfiguration.PipelineStep.RESPONSE_PARSING, String.class);
+                if (parsedJson != null) {
+                    // JSON을 응답 타입으로 변환
+                    R response = jsonResponseParser.parseToType(parsedJson, responseType);
+                    ctx.addStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, response);
+                }
+            }
+            
+            return ctx;
+        })
+        .map(ctx -> {
+            // 최종 결과 반환
+            R finalResult = ctx.getStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, responseType);
+            
+            log.info("✅ Universal Pipeline 실행 완료: {}", request.getRequestId());
+            return finalResult;
+        })
+        .timeout(Duration.ofMinutes(5))
+        .onErrorResume(error -> {
+            log.error("❌ Universal Pipeline 실행 실패: {}", error.getMessage(), error);
+            return Mono.error(new RuntimeException("Pipeline execution failed", error));
         });
     }
     
-    /**
-     * 파이프라인 실행 컨텍스트를 생성합니다
-     */
-    private PipelineExecutionContext createExecutionContext(AIRequest<T> request, 
-                                                           PipelineConfiguration<T> config) {
-        return new PipelineExecutionContext(request.getRequestId(), config.getParameters());
-    }
-    
-    /**
-     * 성공 실행을 기록합니다
-     */
-    private void recordSuccess(long executionTime) {
-        successfulExecutions.incrementAndGet();
-        totalExecutionTime.addAndGet(executionTime);
-        currentStatus.set(PipelineStatus.COMPLETED);
-    }
-    
-    /**
-     * 실패 실행을 기록합니다
-     */
-    private void recordFailure(long executionTime, Exception error) {
-        failedExecutions.incrementAndGet();
-        totalExecutionTime.addAndGet(executionTime);
-        currentStatus.set(PipelineStatus.FAILED);
+    @Override
+    public <T extends DomainContext> Flux<String> executeStream(
+            AIRequest<T> request, 
+            PipelineConfiguration configuration) {
         
-        log.error("📊 Pipeline failure recorded - Error: {}, ExecutionTime: {}ms", 
-                 error.getClass().getSimpleName(), executionTime);
+        log.info("📡 Universal Pipeline 스트리밍 실행 시작: {}", request.getRequestId());
+        
+        return Mono.fromCallable(() -> {
+            PipelineExecutionContext context = new PipelineExecutionContext(request.getRequestId());
+            
+            // 1-3단계: 컨텍스트 검색, 전처리, 프롬프트 생성
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL)) {
+                ContextRetriever.ContextRetrievalResult contextResult = contextRetriever.retrieveContext(request);
+                context.addStepResult(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL, contextResult);
+            }
+            
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.PREPROCESSING)) {
+                String systemMetadata = buildSystemMetadata(request);
+                context.addStepResult(PipelineConfiguration.PipelineStep.PREPROCESSING, systemMetadata);
+            }
+            
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.PROMPT_GENERATION)) {
+                ContextRetriever.ContextRetrievalResult contextResult = 
+                    context.getStepResult(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL, ContextRetriever.ContextRetrievalResult.class);
+                String systemMetadata = 
+                    context.getStepResult(PipelineConfiguration.PipelineStep.PREPROCESSING, String.class);
+                
+                String contextInfo = contextResult != null ? contextResult.getContextInfo() : "";
+                String metadata = systemMetadata != null ? systemMetadata : "";
+                
+                PromptGenerator.PromptGenerationResult promptResult = 
+                    promptGenerator.generatePrompt(request, contextInfo, metadata);
+                context.addStepResult(PipelineConfiguration.PipelineStep.PROMPT_GENERATION, promptResult);
+            }
+            
+            return context;
+        })
+        .flatMapMany(context -> {
+            // 4단계: 스트리밍 LLM 실행
+            if (configuration.hasStep(PipelineConfiguration.PipelineStep.LLM_EXECUTION)) {
+                PromptGenerator.PromptGenerationResult promptResult = 
+                    context.getStepResult(PipelineConfiguration.PipelineStep.PROMPT_GENERATION, PromptGenerator.PromptGenerationResult.class);
+                
+                if (promptResult != null) {
+                    return streamingProcessor.processStream(chatModel, promptResult.getPrompt());
+                }
+            }
+            
+            return Flux.just("Pipeline configuration error");
+        })
+        .onErrorResume(error -> {
+            log.error("❌ Universal Pipeline 스트리밍 실행 실패: {}", error.getMessage(), error);
+            return Flux.just("ERROR: Pipeline streaming failed: " + error.getMessage());
+        });
+    }
+    
+    @Override
+    public boolean supportsConfiguration(PipelineConfiguration configuration) {
+        // 모든 기본 단계들을 지원
+        return configuration.getSteps().stream()
+            .allMatch(step -> step == PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL ||
+                             step == PipelineConfiguration.PipelineStep.PREPROCESSING ||
+                             step == PipelineConfiguration.PipelineStep.PROMPT_GENERATION ||
+                             step == PipelineConfiguration.PipelineStep.LLM_EXECUTION ||
+                             step == PipelineConfiguration.PipelineStep.RESPONSE_PARSING ||
+                             step == PipelineConfiguration.PipelineStep.POSTPROCESSING);
+    }
+    
+    @Override
+    public PipelineMetrics getMetrics() {
+        return new PipelineMetrics(
+            "DefaultUniversalPipeline",
+            "1.0.0",
+            System.currentTimeMillis(),
+            Map.of(
+                "supportedSteps", 6,
+                "componentsLoaded", 5
+            )
+        );
     }
     
     /**
-     * 파이프라인 실행 예외
+     * 시스템 메타데이터 구성 (현재 하드코딩된 로직 기반)
      */
-    public static class PipelineExecutionException extends RuntimeException {
-        public PipelineExecutionException(String message) {
-            super(message);
-        }
-        
-        public PipelineExecutionException(String message, Throwable cause) {
-            super(message, cause);
-        }
+    private <T extends DomainContext> String buildSystemMetadata(AIRequest<T> request) {
+        // 현재는 간단하게 구현, 나중에 도메인별로 확장 가능
+        return String.format("""
+            🎯 시스템 정보:
+            - 요청 ID: %s
+            - 요청 타입: %s
+            - 컨텍스트 타입: %s
+            - 처리 시간: %s
+            """, 
+            request.getRequestId(),
+            request.getClass().getSimpleName(),
+            request.getContext().getClass().getSimpleName(),
+            java.time.LocalDateTime.now()
+        );
     }
 } 

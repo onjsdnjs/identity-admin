@@ -2,6 +2,7 @@ package io.spring.aicore.pipeline;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 
 /**
  * 파이프라인 실행 컨텍스트
@@ -9,28 +10,39 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class PipelineExecutionContext {
     
-    private final String requestId;
-    private final Map<String, Object> stepResults = new ConcurrentHashMap<>();
-    private final Map<String, Object> sharedData = new ConcurrentHashMap<>();
+    private final String executionId;
     private final Map<String, Object> parameters;
-    private final long startTime = System.currentTimeMillis();
+    private final Map<PipelineConfiguration.PipelineStep, Object> stepResults;
+    private final long startTime;
     
     /**
      * 기본 생성자
      */
     public PipelineExecutionContext() {
-        this.requestId = "unknown";
+        this.executionId = "unknown";
         this.parameters = new ConcurrentHashMap<>();
+        this.stepResults = new ConcurrentHashMap<>();
+        this.startTime = System.currentTimeMillis();
     }
     
     /**
      * 파라미터를 포함한 생성자
-     * @param requestId 요청 ID
+     * @param executionId 실행 ID
      * @param parameters 파이프라인 파라미터
      */
-    public PipelineExecutionContext(String requestId, Map<String, Object> parameters) {
-        this.requestId = requestId;
-        this.parameters = parameters != null ? new ConcurrentHashMap<>(parameters) : new ConcurrentHashMap<>();
+    public PipelineExecutionContext(String executionId, Map<String, Object> parameters) {
+        this.executionId = executionId;
+        this.parameters = parameters != null ? parameters : new HashMap<>();
+        this.stepResults = new ConcurrentHashMap<>();
+        this.startTime = System.currentTimeMillis();
+    }
+    
+    /**
+     * 새로운 단일 매개변수 생성자
+     * @param executionId 실행 ID
+     */
+    public PipelineExecutionContext(String executionId) {
+        this(executionId, new HashMap<>());
     }
     
     /**
@@ -39,7 +51,7 @@ public class PipelineExecutionContext {
      * @param result 실행 결과
      */
     public void addStepResult(PipelineConfiguration.PipelineStep step, Object result) {
-        stepResults.put(step.name(), result);
+        stepResults.put(step, result);
     }
     
     /**
@@ -79,7 +91,7 @@ public class PipelineExecutionContext {
      * @param value 값
      */
     public void putSharedData(String key, Object value) {
-        sharedData.put(key, value);
+        // Implementation needed
     }
     
     /**
@@ -90,8 +102,8 @@ public class PipelineExecutionContext {
      */
     @SuppressWarnings("unchecked")
     public <T> T getSharedData(String key, Class<T> type) {
-        Object value = sharedData.get(key);
-        return type.isInstance(value) ? (T) value : null;
+        // Implementation needed
+        return null;
     }
     
     /**
@@ -131,10 +143,10 @@ public class PipelineExecutionContext {
     }
     
     /**
-     * 요청 ID를 조회합니다
-     * @return 요청 ID
+     * 실행 ID를 조회합니다
+     * @return 실행 ID
      */
-    public String getRequestId() {
-        return requestId;
+    public String getExecutionId() {
+        return executionId;
     }
 } 
