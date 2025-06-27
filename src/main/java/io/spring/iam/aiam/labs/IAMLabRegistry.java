@@ -1,12 +1,18 @@
 package io.spring.iam.aiam.labs;
 
+import io.spring.iam.aiam.labs.policy.AdvancedPolicyGenerationLab;
+import io.spring.iam.aiam.labs.risk.ComprehensiveRiskAssessmentLab;
 import io.spring.iam.aiam.protocol.IAMContext;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.List;
 import java.util.Optional;
+
+import jakarta.annotation.PostConstruct;
 
 /**
  * IAM 전문 연구소 레지스트리
@@ -19,11 +25,40 @@ import java.util.Optional;
  * 
  * @param <T> IAM 컨텍스트 타입
  */
+@Slf4j
 @Component
 public class IAMLabRegistry<T extends IAMContext> {
     
     private final Map<Class<? extends AbstractIAMLab<?>>, AbstractIAMLab<?>> labs = new ConcurrentHashMap<>();
     private final Map<String, Class<? extends AbstractIAMLab<?>>> labsByName = new ConcurrentHashMap<>();
+    
+    // ==================== 🏭 전문 연구소 인스턴스들 ====================
+    private final AdvancedPolicyGenerationLab policyGenerationLab;
+    private final ComprehensiveRiskAssessmentLab riskAssessmentLab;
+    
+    @Autowired
+    public IAMLabRegistry(AdvancedPolicyGenerationLab policyGenerationLab,
+                         ComprehensiveRiskAssessmentLab riskAssessmentLab) {
+        this.policyGenerationLab = policyGenerationLab;
+        this.riskAssessmentLab = riskAssessmentLab;
+    }
+    
+    /**
+     * 스프링 초기화 후 모든 연구소를 자동 등록합니다
+     */
+    @PostConstruct
+    public void initializeLabs() {
+        log.info("🔬 Initializing IAM Labs Registry...");
+        
+        // 전문 연구소들 등록
+        registerLab((AbstractIAMLab<T>) policyGenerationLab);
+        registerLab((AbstractIAMLab<T>) riskAssessmentLab);
+        
+        log.info("✅ IAM Labs Registry initialized with {} labs", labs.size());
+        labs.values().forEach(lab -> 
+            log.info("  📋 Registered: {} [{}]", lab.getLabName(), lab.getSpecialization().getDisplayName())
+        );
+    }
     
     /**
      * 연구소를 등록합니다

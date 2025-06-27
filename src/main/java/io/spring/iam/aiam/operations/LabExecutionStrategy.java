@@ -134,6 +134,68 @@ public class LabExecutionStrategy {
         public List<String> getRequiredValidations() { return requiredValidations; }
     }
     
+    /**
+     * Builder 패턴을 위한 정적 메서드
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+    
+    /**
+     * Builder 클래스
+     */
+    public static class Builder {
+        private String strategyId;
+        private String requestType;
+        private int complexity;
+        private String priority;
+        
+        public Builder strategyId(String strategyId) {
+            this.strategyId = strategyId;
+            return this;
+        }
+        
+        public Builder requestType(String requestType) {
+            this.requestType = requestType;
+            return this;
+        }
+        
+        public Builder complexity(int complexity) {
+            this.complexity = complexity;
+            return this;
+        }
+        
+        public Builder priority(String priority) {
+            this.priority = priority;
+            return this;
+        }
+        
+        public LabExecutionStrategy build() {
+            return new LabExecutionStrategy(
+                strategyId != null ? strategyId : "strategy-" + System.currentTimeMillis(),
+                requestType != null ? requestType : "unknown",
+                List.of(), // executionSteps
+                Map.of("complexity", complexity, "priority", priority), // strategyParameters
+                new FallbackStrategy(FallbackStrategy.FallbackType.IMMEDIATE, "default", Map.of()), // fallbackStrategy
+                new QualityGate(0.8, 5000, 0.7, List.of()) // qualityGate
+            );
+        }
+    }
+    
+    /**
+     * 전략 이름을 반환합니다
+     */
+    public String getStrategyName() {
+        return "Strategy-" + strategyId;
+    }
+    
+    /**
+     * 예상 실행 시간을 반환합니다
+     */
+    public long getExpectedDuration() {
+        return 5000; // 기본 5초
+    }
+    
     // Getters
     public String getStrategyId() { return strategyId; }
     public String getOperationType() { return operationType; }

@@ -157,7 +157,7 @@ public class DistributedStrategyExecutor<T extends IAMContext> {
             .strategyId(strategyId)
             .requestType(request.getClass().getSimpleName())
             .complexity(determineComplexity(request))
-            .priority(request.getPriority())
+            .priority(request.getPriority().name())
             .build();
     }
     
@@ -175,9 +175,9 @@ public class DistributedStrategyExecutor<T extends IAMContext> {
     public AIExecutionMetrics createExecutionMetrics(String sessionId, boolean success) {
         return AIExecutionMetrics.builder()
             .sessionId(sessionId)
-            .nodeId(getNodeId())
-            .executionTime(System.currentTimeMillis())
+            .processingTime(System.currentTimeMillis())
             .success(success)
+            .customMetrics(Map.of("nodeId", getNodeId()))
             .build();
     }
     

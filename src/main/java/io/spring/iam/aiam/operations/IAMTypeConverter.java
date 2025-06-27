@@ -278,4 +278,109 @@ public class IAMTypeConverter {
             }
         }
     }
+    
+    /**
+     * Mock 응답을 생성합니다 (실제 AI 통합 전까지 사용)
+     */
+    @SuppressWarnings("unchecked")
+    public <T extends IAMContext, R extends IAMResponse> R createMockResponse(IAMRequest<T> request, 
+                                                                             Class<R> responseType, 
+                                                                             String sessionId) {
+        try {
+            String requestId = request.getRequestId() != null ? request.getRequestId() : sessionId;
+            IAMResponse.ExecutionStatus status = IAMResponse.ExecutionStatus.SUCCESS;
+            
+            // 응답 타입별 Mock 객체 생성
+            if (responseType.getName().contains("PolicyResponse")) {
+                return (R) createMockPolicyResponse(requestId, status);
+            } else if (responseType.getName().contains("RiskAssessmentResponse")) {
+                return (R) createMockRiskAssessmentResponse(requestId, status);
+            } else if (responseType.getName().contains("ConflictDetectionResponse")) {
+                return (R) createMockConflictDetectionResponse(requestId, status);
+            } else if (responseType.getName().contains("RecommendationResponse")) {
+                return (R) createMockRecommendationResponse(requestId, status);
+            } else if (responseType.getName().contains("UserAnalysisResponse")) {
+                return (R) createMockUserAnalysisResponse(requestId, status);
+            } else if (responseType.getName().contains("OptimizationResponse")) {
+                return (R) createMockOptimizationResponse(requestId, status);
+            } else if (responseType.getName().contains("ValidationResponse")) {
+                return (R) createMockValidationResponse(requestId, status);
+            } else if (responseType.getName().contains("AuditAnalysisResponse")) {
+                return (R) createMockAuditAnalysisResponse(requestId, status);
+            } else {
+                // 기본 Mock 응답
+                return (R) createBasicMockResponse(requestId, status, responseType);
+            }
+            
+        } catch (Exception e) {
+            logger.error("Failed to create mock response for type: {}", responseType.getName(), e);
+            throw new IllegalArgumentException("Cannot create mock response for type: " + responseType.getName(), e);
+        }
+    }
+    
+    // Mock 응답 생성 헬퍼 메서드들
+    private Object createMockPolicyResponse(String requestId, IAMResponse.ExecutionStatus status) {
+        try {
+            Class<?> policyResponseClass = Class.forName("io.spring.iam.aiam.protocol.response.PolicyResponse");
+            return policyResponseClass.getConstructor(String.class, IAMResponse.ExecutionStatus.class, String.class)
+                    .newInstance(requestId, status, "MOCK_GENERATED_POLICY");
+        } catch (Exception e) {
+            logger.warn("Failed to create PolicyResponse, using reflection fallback", e);
+            return createGenericMockResponse(requestId, status, "PolicyResponse");
+        }
+    }
+    
+    private Object createMockRiskAssessmentResponse(String requestId, IAMResponse.ExecutionStatus status) {
+        try {
+            Class<?> riskResponseClass = Class.forName("io.spring.iam.aiam.protocol.response.RiskAssessmentResponse");
+            return riskResponseClass.getConstructor(String.class, IAMResponse.ExecutionStatus.class, String.class, Double.class)
+                    .newInstance(requestId, status, "LOW", 0.2);
+        } catch (Exception e) {
+            logger.warn("Failed to create RiskAssessmentResponse, using reflection fallback", e);
+            return createGenericMockResponse(requestId, status, "RiskAssessmentResponse");
+        }
+    }
+    
+    private Object createMockConflictDetectionResponse(String requestId, IAMResponse.ExecutionStatus status) {
+        return createGenericMockResponse(requestId, status, "ConflictDetectionResponse");
+    }
+    
+    private Object createMockRecommendationResponse(String requestId, IAMResponse.ExecutionStatus status) {
+        return createGenericMockResponse(requestId, status, "RecommendationResponse");
+    }
+    
+    private Object createMockUserAnalysisResponse(String requestId, IAMResponse.ExecutionStatus status) {
+        return createGenericMockResponse(requestId, status, "UserAnalysisResponse");
+    }
+    
+    private Object createMockOptimizationResponse(String requestId, IAMResponse.ExecutionStatus status) {
+        return createGenericMockResponse(requestId, status, "OptimizationResponse");
+    }
+    
+    private Object createMockValidationResponse(String requestId, IAMResponse.ExecutionStatus status) {
+        return createGenericMockResponse(requestId, status, "ValidationResponse");
+    }
+    
+    private Object createMockAuditAnalysisResponse(String requestId, IAMResponse.ExecutionStatus status) {
+        return createGenericMockResponse(requestId, status, "AuditAnalysisResponse");
+    }
+    
+    private Object createBasicMockResponse(String requestId, IAMResponse.ExecutionStatus status, Class<?> responseType) {
+        return createGenericMockResponse(requestId, status, responseType.getSimpleName());
+    }
+    
+    private Object createGenericMockResponse(String requestId, IAMResponse.ExecutionStatus status, String responseTypeName) {
+        // 기본 IAMResponse 구현체 생성
+        return new IAMResponse(requestId, status) {
+            @Override
+            public Object getData() {
+                return "MOCK_DATA_FOR_" + responseTypeName;
+            }
+            
+            @Override
+            public String getResponseType() {
+                return responseTypeName.toUpperCase();
+            }
+        };
+    }
 } 

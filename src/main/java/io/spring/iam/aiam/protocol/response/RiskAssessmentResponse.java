@@ -45,6 +45,11 @@ public class RiskAssessmentResponse extends IAMResponse {
     public Double getRiskScore() { return riskScore; }
     public void setRiskScore(Double riskScore) { this.riskScore = riskScore; }
     
+    /**
+     * getScore() 메서드 - 호환성을 위한 별칭
+     */
+    public Double getScore() { return riskScore; }
+    
     public List<RiskFactor> getIdentifiedRisks() { return identifiedRisks; }
     public void setIdentifiedRisks(List<RiskFactor> identifiedRisks) { this.identifiedRisks = identifiedRisks; }
     

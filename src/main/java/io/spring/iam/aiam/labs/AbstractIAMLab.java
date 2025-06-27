@@ -226,7 +226,7 @@ public abstract class AbstractIAMLab<T extends IAMContext> {
      * 협업 전략 수립 (서브클래스에서 오버라이드 가능)
      */
     protected CollaborationStrategy planCollaboration(List<AbstractIAMLab<T>> collaborators, IAMRequest<T> request) {
-        return CollaborationStrategy.createDefault(collaborators, request);
+        return CollaborationStrategy.createDefault((List<AbstractIAMLab<?>>) (List<?>) collaborators, request);
     }
     
     /**
