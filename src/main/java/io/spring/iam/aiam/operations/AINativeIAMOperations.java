@@ -4,6 +4,7 @@ import io.spring.aicore.operations.AICoreOperations;
 import io.spring.aicore.protocol.AIRequest;
 import io.spring.aicore.protocol.AIResponse;
 import io.spring.aicore.protocol.DomainContext;
+import io.spring.aicore.pipeline.UniversalPipeline;
 import io.spring.iam.aiam.protocol.IAMContext;
 import io.spring.iam.aiam.protocol.IAMRequest;
 import io.spring.iam.aiam.protocol.IAMResponse;
@@ -45,24 +46,38 @@ import java.util.stream.Stream;
 @Service
 public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperations<T> {
     
+    // ==================== 🎯 전략 지휘부 구성 ====================
+    private final UniversalPipeline<T> pipeline;
+    // TODO: 다음 단계에서 구현 예정
+    // private final IAMLabRegistry<T> labRegistry;
+    // private final IAMDomainAdapter<T> domainAdapter;
     private final IAMOperationConfig operationConfig;
-    private final IAMTypeConverter typeConverter;
     private final IAMAuditLogger auditLogger;
     private final IAMSecurityValidator securityValidator;
+    private final IAMTypeConverter typeConverter;
     
-    // AI Core 기능을 위한 내부 필드들
-    private final AtomicLong requestCounter = new AtomicLong(0);
-    private final AtomicLong successCounter = new AtomicLong(0);
-    private final AtomicLong failureCounter = new AtomicLong(0);
+    // ==================== 📊 전략 수립 지원 (다음 단계 구현 예정) ====================
+    // private final StrategyPlanner<T> strategyPlanner;
+    // private final QualityController<T> qualityController;
+    // private final ExceptionOrchestrator<T> exceptionOrchestrator;
     
-    public AINativeIAMOperations(IAMOperationConfig operationConfig,
-                                IAMTypeConverter typeConverter,
+    public AINativeIAMOperations(UniversalPipeline<T> pipeline,
+                                IAMOperationConfig operationConfig,
                                 IAMAuditLogger auditLogger,
-                                IAMSecurityValidator securityValidator) {
+                                IAMSecurityValidator securityValidator,
+                                IAMTypeConverter typeConverter) {
+        this.pipeline = pipeline;
         this.operationConfig = operationConfig;
-        this.typeConverter = typeConverter;
         this.auditLogger = auditLogger;
         this.securityValidator = securityValidator;
+        this.typeConverter = typeConverter;
+        
+        // TODO: 다음 단계에서 주입 예정
+        // this.labRegistry = labRegistry;
+        // this.domainAdapter = domainAdapter;
+        // this.strategyPlanner = strategyPlanner;
+        // this.qualityController = qualityController;
+        // this.exceptionOrchestrator = exceptionOrchestrator;
     }
     
     // ==================== IAM Core Operations ====================
@@ -76,15 +91,13 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
             // 2. AI Core 요청으로 변환
             AIRequest<T> coreRequest = typeConverter.toAIRequest(request);
             
-            // 3. AI Core 실행 (직접 구현)
-            requestCounter.incrementAndGet();
+            // 3. 🎯 마스터 브레인 전략 실행: 파이프라인에 위임
             Class<? extends AIResponse> coreResponseType = typeConverter.toCoreResponseType(responseType);
             Mono<? extends AIResponse> responseMono = execute(coreRequest, coreResponseType);
             AIResponse coreResponse = responseMono.block(); // 동기화
             
             // 4. IAM 응답으로 변환
             R iamResponse = typeConverter.toIAMResponse(coreResponse, responseType);
-            successCounter.incrementAndGet();
             
             // 5. 감사 로깅 완료
             auditLogger.completeAudit(auditId, request, iamResponse);
@@ -319,15 +332,16 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
     
     @Override
     public Mono<AICoreOperations.SystemMetrics> getMetrics() {
-        return Mono.fromCallable(() -> {
-            long total = requestCounter.get();
-            long success = successCounter.get();
-            long failure = failureCounter.get();
-            
-            return new AICoreOperations.SystemMetrics(
-                total, success, failure, 50.0, 100.0, 1L
-            );
-        });
+        // 🎯 마스터 브레인은 파이프라인에서 메트릭을 조회
+        return pipeline.getMetrics()
+                .map(pipelineMetrics -> new AICoreOperations.SystemMetrics(
+                    pipelineMetrics.totalExecutions(),
+                    pipelineMetrics.successfulExecutions(),
+                    pipelineMetrics.failedExecutions(),
+                    pipelineMetrics.averageExecutionTime(),
+                    100.0, // 처리량
+                    pipelineMetrics.activeExecutions()
+                ));
     }
     
     // ==================== Private Helper Methods ====================

@@ -75,7 +75,7 @@ public class RedisEventPublisher {
     /**
      * 이벤트 발행
      */
-    private void publishEvent(String topicName, Map<String, Object> event) {
+    public void publishEvent(String topicName, Map<String, Object> event) {
         try {
             ChannelTopic topic = new ChannelTopic(topicName);
             String eventJson = objectMapper.writeValueAsString(event);

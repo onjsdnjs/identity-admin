@@ -341,4 +341,12 @@ public class RedisMfaRepository implements MfaSessionRepository {
             return null;
         });
     }
+
+    public StringRedisTemplate redisTemplate() {
+        return redisTemplate;
+    }
+
+    public Duration sessionTimeout() {
+        return sessionTimeout;
+    }
 }
