@@ -1,8 +1,10 @@
 package io.spring.redis;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -78,5 +80,16 @@ public class UnifiedRedisConfiguration {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
         return container;
+    }
+
+    @Bean
+    public RedisDistributedLockService redisDistributedLockService(
+            @Autowired(required = false) RedisTemplate<String, Object> redisTemplate) {
+
+        if (redisTemplate != null) {
+            log.info("Creating RedisDistributedLockService");
+            return new RedisDistributedLockService(redisTemplate);
+        }
+        return null;
     }
 }
