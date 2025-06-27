@@ -1,13 +1,19 @@
 package io.spring.session;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.spring.iam.aiam.operations.LabExecutionStrategy;
+import io.spring.iam.aiam.session.*;
 import io.spring.iam.properties.AuthContextProperties;
+import io.spring.redis.RedisDistributedLockService;
+import io.spring.redis.RedisEventPublisher;
 import io.spring.session.generator.HttpSessionIdGenerator;
-import io.spring.session.generator.InMemorySessionIdGenerator;
 import io.spring.session.generator.RedisSessionIdGenerator;
+import io.spring.session.generator.SessionIdGenerator;
 import io.spring.session.impl.HttpSessionMfaRepository;
-import io.spring.session.impl.InMemoryMfaRepository;
 import io.spring.session.impl.RedisMfaRepository;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -20,6 +26,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,8 +49,12 @@ public class MfaRepositoryAutoConfiguration {
     private final AuthContextProperties properties;
     private final ApplicationContext applicationContext;
     private final Environment environment;
+    private final RedisEventPublisher eventPublisher;
+    private final RedisDistributedLockService lockService;
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
 
-    private final Map<String, MfaSessionRepository> repositoryCache = new ConcurrentHashMap<>();
+    private final Map<String, AIStrategySessionRepository> repositoryCache = new ConcurrentHashMap<>();
     private final Map<String, Boolean> repositoryHealthStatus = new ConcurrentHashMap<>();
 
     @PostConstruct
@@ -63,7 +74,7 @@ public class MfaRepositoryAutoConfiguration {
     @Bean
     @Primary
     @ConditionalOnMissingBean(MfaSessionRepository.class)
-    public MfaSessionRepository mfaSessionRepository() {
+    public AIStrategySessionRepository aiStrategySessionRepository() {
         if (properties.getMfa().isAutoSelectRepository()) {
             return createAutoSelectedRepository();
         } else {
@@ -71,10 +82,15 @@ public class MfaRepositoryAutoConfiguration {
         }
     }
 
+    @Bean
+    public SessionIdGenerator sessionIdGenerator() {
+            return new HttpSessionIdGenerator();
+    }
+
     /**
      * Repository 자동 선택 로직
      */
-    private MfaSessionRepository createAutoSelectedRepository() {
+    private AIStrategySessionRepository createAutoSelectedRepository() {
         log.info("Auto-selecting optimal MFA Repository based on environment: {}", detectEnvironmentType());
 
         String[] priorities = properties.getMfa().getRepositoryPriority().split(",");
@@ -83,7 +99,7 @@ public class MfaRepositoryAutoConfiguration {
             String trimmedType = repositoryType.trim().toLowerCase();
 
             try {
-                MfaSessionRepository repository = createRepositoryByType(trimmedType);
+                AIStrategySessionRepository repository = createRepositoryByType(trimmedType);
                 if (repository != null && isRepositoryHealthy(repository)) {
                     log.info("✅ Auto-selected MFA Repository: {} ({})",
                             repository.getRepositoryType(), repository.getClass().getSimpleName());
@@ -100,12 +116,12 @@ public class MfaRepositoryAutoConfiguration {
     /**
      * 설정된 Repository 생성
      */
-    private MfaSessionRepository createConfiguredRepository() {
+    private AIStrategySessionRepository createConfiguredRepository() {
         String storageType = properties.getMfa().getSessionStorageType().toLowerCase();
         log.info("Creating configured MFA Repository: {}", storageType);
 
         try {
-            MfaSessionRepository repository = createRepositoryByType(storageType);
+            AIStrategySessionRepository repository = createRepositoryByType(storageType);
             if (repository != null) {
                 return wrapWithHealthChecking(repository);
             }
@@ -120,12 +136,12 @@ public class MfaRepositoryAutoConfiguration {
     /**
      * 타입별 Repository 생성
      */
-    private MfaSessionRepository createRepositoryByType(String type) {
+    private AIStrategySessionRepository createRepositoryByType(String type) {
         return repositoryCache.computeIfAbsent(type, t -> {
             return switch (t) {
-                case "redis" -> createRedisRepository();
-                case "memory" -> createInMemoryRepository();
-                case "http-session" -> createHttpSessionRepository();
+                case "redis" -> createAIRedisRepository();
+//                case "memory" -> createInMemoryRepository();
+//                case "http-session" -> createHttpSessionRepository();
                 case "auto" -> createAutoSelectedRepository();
                 default -> {
                     log.warn("❓ Unknown repository type: {}", t);
@@ -157,10 +173,32 @@ public class MfaRepositoryAutoConfiguration {
         }
     }
 
+    private AIStrategySessionRepository createAIRedisRepository() {
+        try {
+            redisTemplate.opsForValue().get("__health_check__");
+
+            RedisAIStrategySessionRepository repository = new RedisAIStrategySessionRepository(
+                    redisTemplate,
+                    new RedisSessionIdGenerator(redisTemplate),
+                    lockService,
+                    eventPublisher,
+                    objectMapper
+            );
+            repository.setSessionTimeout(properties.getMfa().getSessionTimeout());
+
+            log.info("✅ Redis MFA Repository created successfully");
+            return repository;
+
+        } catch (Exception e) {
+            log.warn("Failed to create Redis repository: {}", e.getMessage());
+            return null;
+        }
+    }
+
     /**
      * InMemory Repository 생성
      */
-    private MfaSessionRepository createInMemoryRepository() {
+    /*private AIStrategySessionRepository createInMemoryRepository() {
         try {
             InMemoryMfaRepository repository = new InMemoryMfaRepository(new InMemorySessionIdGenerator());
             repository.setSessionTimeout(properties.getMfa().getSessionTimeout());
@@ -172,7 +210,7 @@ public class MfaRepositoryAutoConfiguration {
             log.warn("❌ Failed to create InMemory repository: {}", e.getMessage());
             return null;
         }
-    }
+    }*/
 
     /**
      * HttpSession Repository 생성
@@ -194,18 +232,18 @@ public class MfaRepositoryAutoConfiguration {
     /**
      * Fallback Repository 생성
      */
-    private MfaSessionRepository createFallbackRepository() {
+    private AIStrategySessionRepository createFallbackRepository() {
         String fallbackType = properties.getMfa().getFallbackRepositoryType().toLowerCase();
         log.info("🔄 Creating fallback MFA Repository: {}", fallbackType);
 
-        MfaSessionRepository repository = createRepositoryByType(fallbackType);
+        AIStrategySessionRepository repository = createRepositoryByType(fallbackType);
         if (repository != null) {
             log.info("✅ Fallback repository created: {}", repository.getRepositoryType());
             return wrapWithHealthChecking(repository);
         }
 
         log.warn("🚨 All repository creation failed, using final fallback: HttpSession");
-        return new HttpSessionMfaRepository(new HttpSessionIdGenerator());
+        return createAIRedisRepository();
     }
 
     /**
@@ -264,7 +302,7 @@ public class MfaRepositoryAutoConfiguration {
     /**
      * Repository를 헬스체킹으로 감싸기
      */
-    private MfaSessionRepository wrapWithHealthChecking(MfaSessionRepository repository) {
+    private AIStrategySessionRepository wrapWithHealthChecking(MfaSessionRepository repository) {
         return new HealthCheckingRepositoryWrapper(repository, this);
     }
 
@@ -312,7 +350,7 @@ public class MfaRepositoryAutoConfiguration {
  * 헬스체킹 기능을 추가한 Repository 래퍼 - 최종 완성판
  */
 @Slf4j
-static class HealthCheckingRepositoryWrapper implements MfaSessionRepository {
+static class HealthCheckingRepositoryWrapper implements AIStrategySessionRepository {
 
     private final MfaSessionRepository delegate;
     private final MfaRepositoryAutoConfiguration config;
@@ -425,6 +463,71 @@ static class HealthCheckingRepositoryWrapper implements MfaSessionRepository {
             }
         }
     }
-  }
+
+    @Override
+    public String createStrategySession(LabExecutionStrategy strategy, Map<String, Object> context, HttpServletRequest request, HttpServletResponse response) {
+        return "";
+    }
+
+    @Override
+    public void updateStrategyState(String sessionId, AIStrategyExecutionPhase phase, Map<String, Object> phaseData) {
+
+    }
+
+    @Override
+    public AIStrategySessionState getStrategyState(String sessionId) {
+        return null;
+    }
+
+    @Override
+    public void storeLabAllocation(String sessionId, String labType, String nodeId, Map<String, Object> allocation) {
+
+    }
+
+    @Override
+    public AILabAllocation getLabAllocation(String sessionId) {
+        return null;
+    }
+
+    @Override
+    public void recordExecutionMetrics(String sessionId, AIExecutionMetrics metrics) {
+
+    }
+
+    @Override
+    public List<String> getActiveStrategySessions() {
+        return List.of();
+    }
+
+    @Override
+    public List<String> getActiveSessionsByNode(String nodeId) {
+        return List.of();
+    }
+
+    @Override
+    public boolean migrateStrategySession(String sessionId, String fromNodeId, String toNodeId) {
+        return false;
+    }
+
+    @Override
+    public void storeExecutionResult(String sessionId, AIExecutionResult result) {
+
+    }
+
+    @Override
+    public AIExecutionResult getExecutionResult(String sessionId) {
+        return null;
+    }
+
+    @Override
+    public void syncSessionAcrossNodes(String sessionId) {
+
+    }
+
+    @Override
+    public AIStrategySessionStats getAIStrategyStats() {
+        return null;
+    }
+}
 }
 

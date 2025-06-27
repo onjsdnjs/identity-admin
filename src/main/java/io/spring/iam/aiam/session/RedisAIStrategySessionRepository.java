@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.iam.aiam.operations.LabExecutionStrategy;
 import io.spring.redis.RedisDistributedLockService;
 import io.spring.redis.RedisEventPublisher;
+import io.spring.session.SessionIdGenerationException;
 import io.spring.session.generator.SessionIdGenerator;
 import io.spring.session.impl.RedisMfaRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,7 +12,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
 import java.util.*;
@@ -28,8 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * - Redis 스크립트를 통한 원자성 보장
  */
 @Slf4j
-@Repository
-public class RedisAIStrategySessionRepository extends RedisMfaRepository 
+public class RedisAIStrategySessionRepository extends RedisMfaRepository
         implements AIStrategySessionRepository {
     
     private final RedisDistributedLockService lockService;

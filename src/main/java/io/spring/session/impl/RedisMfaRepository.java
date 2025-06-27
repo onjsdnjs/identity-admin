@@ -1,6 +1,7 @@
 package io.spring.session.impl;
 
 import io.spring.session.MfaSessionRepository;
+import io.spring.session.SessionIdGenerationException;
 import io.spring.session.generator.SessionIdGenerator;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -348,5 +349,9 @@ public class RedisMfaRepository implements MfaSessionRepository {
 
     public Duration sessionTimeout() {
         return sessionTimeout;
+    }
+
+    public SessionIdGenerator sessionIdGenerator() {
+        return sessionIdGenerator;
     }
 }

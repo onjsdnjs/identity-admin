@@ -129,6 +129,27 @@ public class DiagnosisStrategyRegistry {
     }
     
     /**
+     * 🔍 특정 작업이 지원되는지 확인합니다
+     * 
+     * @param operation 작업명
+     * @return 지원 여부
+     */
+    public boolean supportsOperation(String operation) {
+        if (operation == null || operation.trim().isEmpty()) {
+            return false;
+        }
+        
+        // 등록된 전략들의 이름이나 설명에서 작업명 검색
+        return strategies.values().stream()
+            .anyMatch(strategy -> {
+                String strategyName = strategy.getClass().getSimpleName().toLowerCase();
+                String operationLower = operation.toLowerCase();
+                return strategyName.contains(operationLower) || 
+                       strategy.getDescription().toLowerCase().contains(operationLower);
+            });
+    }
+    
+    /**
      * 📋 등록된 전략들을 로그로 출력합니다
      */
     private void logRegisteredStrategies() {

@@ -1,22 +1,17 @@
 package io.spring.iam.redis;
 
 import io.spring.iam.aiam.operations.LabExecutionStrategy;
-import io.spring.iam.aiam.session.AIStrategySessionRepository;
 import io.spring.redis.RedisDistributedLockService;
 import io.spring.redis.RedisEventPublisher;
-import io.spring.redis.RedisEventListener;
-
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.RedisScript;
-import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Redis 기반 분산 AI 전략 코디네이터
@@ -359,39 +354,186 @@ public class DistributedAIStrategyCoordinator {
     
     // TODO: 나머지 클래스들 구현
     public static class DistributedExecutionResult {
-        public static DistributedExecutionResult alreadyExecuting(String strategyId) { return null; }
-        public static DistributedExecutionResult resourceUnavailable(String reason) { return null; }
-        public static DistributedExecutionResult success(String executionId, NodeAllocationResult allocation) { return null; }
-        public static DistributedExecutionResult error(String message) { return null; }
+        private final boolean success;
+        private final String executionId;
+        private final String strategyId;
+        private final String reason;
+        private final NodeAllocationResult allocation;
+        
+        private DistributedExecutionResult(boolean success, String executionId, String strategyId, String reason, NodeAllocationResult allocation) {
+            this.success = success;
+            this.executionId = executionId;
+            this.strategyId = strategyId;
+            this.reason = reason;
+            this.allocation = allocation;
+        }
+        
+        public static DistributedExecutionResult alreadyExecuting(String strategyId) { 
+            return new DistributedExecutionResult(false, null, strategyId, "Already executing", null); 
+        }
+        
+        public static DistributedExecutionResult resourceUnavailable(String reason) { 
+            return new DistributedExecutionResult(false, null, null, reason, null); 
+        }
+        
+        public static DistributedExecutionResult success(String executionId, NodeAllocationResult allocation) { 
+            return new DistributedExecutionResult(true, executionId, null, null, allocation); 
+        }
+        
+        public static DistributedExecutionResult error(String message) { 
+            return new DistributedExecutionResult(false, null, null, message, null); 
+        }
+        
+        // Jackson 직렬화를 위한 getter 메서드들
+        public boolean isSuccess() { return success; }
+        public String getExecutionId() { return executionId; }
+        public String getStrategyId() { return strategyId; }
+        public String getReason() { return reason; }
+        public NodeAllocationResult getAllocation() { return allocation; }
     }
     
     public static class NodeAllocationResult {
-        public boolean isSuccessful() { return false; }
-        public String getReason() { return ""; }
-        public static NodeAllocationResult success(OptimalAllocation allocation) { return null; }
-        public static NodeAllocationResult failure(String reason) { return null; }
+        private final boolean successful;
+        private final String reason;
+        private final OptimalAllocation allocation;
+        
+        private NodeAllocationResult(boolean successful, String reason, OptimalAllocation allocation) {
+            this.successful = successful;
+            this.reason = reason;
+            this.allocation = allocation;
+        }
+        
+        public boolean isSuccessful() { return successful; }
+        public String getReason() { return reason; }
+        
+        public static NodeAllocationResult success(OptimalAllocation allocation) { 
+            return new NodeAllocationResult(true, null, allocation); 
+        }
+        
+        public static NodeAllocationResult failure(String reason) { 
+            return new NodeAllocationResult(false, reason, null); 
+        }
+        
+        // Jackson 직렬화를 위한 getter 메서드들
+        public boolean getSuccessful() { return successful; }
+        public OptimalAllocation getAllocation() { return allocation; }
     }
     
     public static class OptimalAllocation {
-        public boolean isValid() { return false; }
+        private final boolean valid;
+        private final String allocationId;
+        
+        public OptimalAllocation() {
+            this.valid = false;
+            this.allocationId = null;
+        }
+        
+        public OptimalAllocation(boolean valid, String allocationId) {
+            this.valid = valid;
+            this.allocationId = allocationId;
+        }
+        
+        public boolean isValid() { return valid; }
+        
+        // Jackson 직렬화를 위한 getter 메서드들
+        public boolean getValid() { return valid; }
+        public String getAllocationId() { return allocationId; }
     }
     
     public static class NodeMetrics {
-        public long getTotalRequests() { return 0; }
-        public long getSuccessfulRequests() { return 0; }
-        public double getAverageResponseTime() { return 0.0; }
+        private final long totalRequests;
+        private final long successfulRequests;
+        private final double averageResponseTime;
+        
+        public NodeMetrics(long totalRequests, long successfulRequests, double averageResponseTime) {
+            this.totalRequests = totalRequests;
+            this.successfulRequests = successfulRequests;
+            this.averageResponseTime = averageResponseTime;
+        }
+        
+        public long getTotalRequests() { return totalRequests; }
+        public long getSuccessfulRequests() { return successfulRequests; }
+        public double getAverageResponseTime() { return averageResponseTime; }
     }
     
     public static class DistributedMetrics {
-        public DistributedMetrics(long totalRequests, long totalSuccesses, double avgResponseTime, int nodeCount, long timestamp) {}
-        public static DistributedMetrics error(String message) { return null; }
+        private final long totalRequests;
+        private final long totalSuccesses;
+        private final double avgResponseTime;
+        private final int nodeCount;
+        private final long timestamp;
+        private final String errorMessage;
+        
+        public DistributedMetrics(long totalRequests, long totalSuccesses, double avgResponseTime, int nodeCount, long timestamp) {
+            this.totalRequests = totalRequests;
+            this.totalSuccesses = totalSuccesses;
+            this.avgResponseTime = avgResponseTime;
+            this.nodeCount = nodeCount;
+            this.timestamp = timestamp;
+            this.errorMessage = null;
+        }
+        
+        private DistributedMetrics(String errorMessage) {
+            this.totalRequests = 0;
+            this.totalSuccesses = 0;
+            this.avgResponseTime = 0.0;
+            this.nodeCount = 0;
+            this.timestamp = System.currentTimeMillis();
+            this.errorMessage = errorMessage;
+        }
+        
+        public static DistributedMetrics error(String message) { 
+            return new DistributedMetrics(message); 
+        }
+        
+        // Jackson 직렬화를 위한 getter 메서드들
+        public long getTotalRequests() { return totalRequests; }
+        public long getTotalSuccesses() { return totalSuccesses; }
+        public double getAvgResponseTime() { return avgResponseTime; }
+        public int getNodeCount() { return nodeCount; }
+        public long getTimestamp() { return timestamp; }
+        public String getErrorMessage() { return errorMessage; }
     }
     
     public static class NodeHealth {
-        public NodeHealth(String nodeId, long timestamp, String status) {}
+        private final String nodeId;
+        private final long timestamp;
+        private final String status;
+        
+        public NodeHealth(String nodeId, long timestamp, String status) {
+            this.nodeId = nodeId;
+            this.timestamp = timestamp;
+            this.status = status;
+        }
+        
+        // Jackson 직렬화를 위한 getter 메서드들
+        public String getNodeId() {
+            return nodeId;
+        }
+        
+        public long getTimestamp() {
+            return timestamp;
+        }
+        
+        public String getStatus() {
+            return status;
+        }
     }
     
     public static class ExecutionQueueItem {
-        public ExecutionQueueItem(String executionId, NodeAllocationResult allocation, String nodeId) {}
+        private final String executionId;
+        private final NodeAllocationResult allocation;
+        private final String nodeId;
+        
+        public ExecutionQueueItem(String executionId, NodeAllocationResult allocation, String nodeId) {
+            this.executionId = executionId;
+            this.allocation = allocation;
+            this.nodeId = nodeId;
+        }
+        
+        // Jackson 직렬화를 위한 getter 메서드들
+        public String getExecutionId() { return executionId; }
+        public NodeAllocationResult getAllocation() { return allocation; }
+        public String getNodeId() { return nodeId; }
     }
 }

@@ -3,6 +3,7 @@ package io.spring.aicore.operations;
 import io.spring.aicore.protocol.AIRequest;
 import io.spring.aicore.protocol.AIResponse;
 import io.spring.aicore.protocol.DomainContext;
+import io.spring.iam.aiam.protocol.IAMResponse;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -38,7 +39,7 @@ public interface AICoreOperations<T extends DomainContext> {
      * @param responseType 응답 타입
      * @return 타입화된 스트리밍 응답
      */
-    <R extends AIResponse> Flux<R> executeStreamTyped(AIRequest<T> request, Class<R> responseType);
+    <R extends IAMResponse> Flux<R> executeStreamTyped(AIRequest<T> request, Class<R> responseType);
     
     /**
      * 배치 요청을 처리합니다
@@ -46,7 +47,7 @@ public interface AICoreOperations<T extends DomainContext> {
      * @param responseType 응답 타입
      * @return 응답 목록
      */
-    <R extends AIResponse> Mono<List<R>> executeBatch(List<AIRequest<T>> requests, Class<R> responseType);
+    <R extends IAMResponse> Mono<List<R>> executeBatch(List<AIRequest<T>> requests, Class<R> responseType);
     
     /**
      * 다중 도메인 컨텍스트 요청을 처리합니다

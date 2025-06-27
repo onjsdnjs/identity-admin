@@ -1,6 +1,7 @@
 package io.spring.session.impl;
 
 import io.spring.session.MfaSessionRepository;
+import io.spring.session.SessionIdGenerationException;
 import io.spring.session.generator.SessionIdGenerator;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

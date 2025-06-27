@@ -4,16 +4,12 @@ import io.spring.iam.aiam.protocol.IAMContext;
 import io.spring.iam.aiam.protocol.IAMRequest;
 import io.spring.iam.aiam.protocol.IAMResponse;
 import io.spring.iam.aiam.session.AIStrategySessionRepository;
-import io.spring.iam.aiam.session.AIStrategySessionRepository.AIStrategyExecutionPhase;
-import io.spring.iam.aiam.session.AIStrategySessionRepository.AIStrategySessionState;
-import io.spring.iam.aiam.session.AIStrategySessionRepository.AIExecutionResult;
-import io.spring.iam.aiam.session.AIStrategySessionRepository.AIExecutionMetrics;
+import io.spring.iam.aiam.session.AIStrategyExecutionPhase;
 import io.spring.iam.redis.DistributedAIStrategyCoordinator;
 import io.spring.redis.RedisEventPublisher;
-
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.*;
@@ -27,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class DistributedSessionManager<T extends IAMContext> {
     
-    private final AIStrategySessionRepository sessionRepository;
+    private final AIStrategySessionRepository aiStrategySessionRepository;
     private final DistributedAIStrategyCoordinator strategyCoordinator;
     private final RedisEventPublisher eventPublisher;
     private final IAMAuditLogger auditLogger;
@@ -36,11 +32,11 @@ public class DistributedSessionManager<T extends IAMContext> {
     private final Map<String, String> activeStrategySessions = new ConcurrentHashMap<>();
     
     @Autowired
-    public DistributedSessionManager(AIStrategySessionRepository sessionRepository,
+    public DistributedSessionManager(AIStrategySessionRepository aiStrategySessionRepository,
                                    DistributedAIStrategyCoordinator strategyCoordinator,
                                    RedisEventPublisher eventPublisher,
                                    IAMAuditLogger auditLogger) {
-        this.sessionRepository = sessionRepository;
+        this.aiStrategySessionRepository = aiStrategySessionRepository;
         this.strategyCoordinator = strategyCoordinator;
         this.eventPublisher = eventPublisher;
         this.auditLogger = auditLogger;

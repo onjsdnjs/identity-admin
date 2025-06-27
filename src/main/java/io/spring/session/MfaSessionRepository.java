@@ -76,22 +76,6 @@ public interface MfaSessionRepository {
      */
     SessionStats getSessionStats();
 
-    /**
-     * 세션 ID 생성 실패 예외
-     */
-    class SessionIdGenerationException extends RuntimeException {
-        public SessionIdGenerationException(String message) {
-            super(message);
-        }
-
-        public SessionIdGenerationException(String message, Throwable cause) {
-            super(message, cause);
-        }
-    }
-
-    /**
-     * 세션 통계 정보 클래스
-     */
     class SessionStats {
         private final long activeSessions;
         private final long totalSessionsCreated;

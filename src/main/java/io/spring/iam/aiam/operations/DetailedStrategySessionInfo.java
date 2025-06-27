@@ -1,8 +1,8 @@
 package io.spring.iam.aiam.operations;
 
-import io.spring.iam.aiam.session.AIStrategySessionRepository.AIStrategySessionState;
-import io.spring.iam.aiam.session.AIStrategySessionRepository.AILabAllocation;
-import io.spring.iam.aiam.session.AIStrategySessionRepository.AIExecutionResult;
+import io.spring.iam.aiam.session.AIStrategySessionState;
+import io.spring.iam.aiam.session.AILabAllocation;
+import io.spring.iam.aiam.session.AIExecutionResult;
 
 /**
  * 상세 전략 세션 정보를 나타내는 데이터 클래스
