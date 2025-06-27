@@ -37,7 +37,7 @@ public class MvcResourceScanner implements ResourceScanner {
             final HandlerMethod handlerMethod = entry.getValue();
             final Class<?> beanType = handlerMethod.getBeanType();
 
-            if (!beanType.getPackageName().startsWith("io.spring.identityadmin")) continue;
+            if (!beanType.getPackageName().startsWith("io.spring.iam")) continue;
             if (!beanType.isAnnotationPresent(Controller.class) && !beanType.isAnnotationPresent(RestController.class)) continue;
 
             PathPatternsRequestCondition pathPatternsCondition = mappingInfo.getPathPatternsCondition();

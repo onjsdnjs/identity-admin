@@ -53,7 +53,7 @@ public class MethodResourceScanner implements ResourceScanner {
             Class<?> targetClass = AopUtils.getTargetClass(bean);
 
             // [핵심 수정] 스캔 대상을 우리 애플리케이션 패키지로 한정하여, 불필요한 외부 라이브러리 스캔을 방지합니다.
-            if (!targetClass.getPackageName().startsWith("io.spring.identityadmin")) {
+            if (!targetClass.getPackageName().startsWith("io.spring.iam")) {
                 continue;
             }
 

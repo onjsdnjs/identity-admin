@@ -106,7 +106,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             log.info("모든 AI 추천 배치 작업이 완료되었습니다.");
         }
-//        autoConditionTemplateService.generateConditionTemplates();
+        autoConditionTemplateService.generateConditionTemplates();
         log.info("리소스 동기화 프로세스가 완료되었습니다.");
     }
 

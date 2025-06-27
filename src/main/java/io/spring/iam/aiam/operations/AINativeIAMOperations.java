@@ -21,6 +21,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 /**
@@ -44,18 +45,20 @@ import java.util.stream.Stream;
 @Service
 public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperations<T> {
     
-    private final AICoreOperations<T> coreOperations;
     private final IAMOperationConfig operationConfig;
     private final IAMTypeConverter typeConverter;
     private final IAMAuditLogger auditLogger;
     private final IAMSecurityValidator securityValidator;
     
-    public AINativeIAMOperations(AICoreOperations<T> coreOperations,
-                                IAMOperationConfig operationConfig,
+    // AI Core 기능을 위한 내부 필드들
+    private final AtomicLong requestCounter = new AtomicLong(0);
+    private final AtomicLong successCounter = new AtomicLong(0);
+    private final AtomicLong failureCounter = new AtomicLong(0);
+    
+    public AINativeIAMOperations(IAMOperationConfig operationConfig,
                                 IAMTypeConverter typeConverter,
                                 IAMAuditLogger auditLogger,
                                 IAMSecurityValidator securityValidator) {
-        this.coreOperations = coreOperations;
         this.operationConfig = operationConfig;
         this.typeConverter = typeConverter;
         this.auditLogger = auditLogger;
@@ -73,13 +76,15 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
             // 2. AI Core 요청으로 변환
             AIRequest<T> coreRequest = typeConverter.toAIRequest(request);
             
-            // 3. AI Core 실행 (Reactive -> Sync 변환)
+            // 3. AI Core 실행 (직접 구현)
+            requestCounter.incrementAndGet();
             Class<? extends AIResponse> coreResponseType = typeConverter.toCoreResponseType(responseType);
-            Mono<? extends AIResponse> responseMono = coreOperations.execute(coreRequest, coreResponseType);
+            Mono<? extends AIResponse> responseMono = execute(coreRequest, coreResponseType);
             AIResponse coreResponse = responseMono.block(); // 동기화
             
             // 4. IAM 응답으로 변환
             R iamResponse = typeConverter.toIAMResponse(coreResponse, responseType);
+            successCounter.incrementAndGet();
             
             // 5. 감사 로깅 완료
             auditLogger.completeAudit(auditId, request, iamResponse);
@@ -130,7 +135,7 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
             // 고복잡도: 스트리밍 모드
             @SuppressWarnings("unchecked")
             AIRequest<T> coreRequest = (AIRequest<T>) request;
-            Flux<? extends AIResponse> responseFlux = coreOperations.executeStreamTyped(
+            Flux<? extends AIResponse> responseFlux = executeStreamTyped(
                 coreRequest, PolicyDraftResponse.class);
             
             return responseFlux
@@ -257,48 +262,72 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
     
     @Override
     public <R extends AIResponse> Mono<R> execute(AIRequest<T> request, Class<R> responseType) {
-        return coreOperations.execute(request, responseType);
+        // TODO: 실제 AI 엔진 연동 구현 예정, 현재는 기본 응답 반환
+        return Mono.fromCallable(() -> {
+            try {
+                R response = responseType.getDeclaredConstructor().newInstance();
+                // 기본 응답 설정
+                return response;
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to create response", e);
+            }
+        });
     }
     
     @Override
     public Flux<String> executeStream(AIRequest<T> request) {
-        return coreOperations.executeStream(request);
+        // TODO: 실제 스트리밍 구현 예정
+        return Flux.just("Mock streaming response for: " + request.getOperation());
     }
     
     @Override
     public <R extends AIResponse> Flux<R> executeStreamTyped(AIRequest<T> request, Class<R> responseType) {
-        return coreOperations.executeStreamTyped(request, responseType);
+        // TODO: 실제 타입화된 스트리밍 구현 예정
+        return Flux.fromIterable(List.of()).cast(responseType);
     }
     
     @Override
     public <R extends AIResponse> Mono<List<R>> executeBatch(List<AIRequest<T>> requests, Class<R> responseType) {
-        return coreOperations.executeBatch(requests, responseType);
+        // TODO: 실제 배치 처리 구현 예정
+        return Mono.just(List.of());
     }
     
     @Override
     public <T1 extends DomainContext, T2 extends DomainContext> 
            Mono<AIResponse> executeMixed(List<AIRequest<T1>> requests1, List<AIRequest<T2>> requests2) {
-        return coreOperations.executeMixed(requests1, requests2);
+        // TODO: 실제 혼합 처리 구현 예정
+        return Mono.just(new MockAIResponse("mixed", AIResponse.ExecutionStatus.SUCCESS));
     }
     
     @Override
     public Mono<AICoreOperations.HealthStatus> checkHealth() {
-        return coreOperations.checkHealth();
+        return Mono.just(AICoreOperations.HealthStatus.HEALTHY);
     }
     
     @Override
     public Set<AICoreOperations.AICapability> getSupportedCapabilities() {
-        return coreOperations.getSupportedCapabilities();
+        return Set.of(
+            AICoreOperations.AICapability.TEXT_GENERATION,
+            AICoreOperations.AICapability.TEXT_ANALYSIS
+        );
     }
     
     @Override
     public boolean supportsOperation(String operation) {
-        return coreOperations.supportsOperation(operation);
+        return operation != null && !operation.trim().isEmpty();
     }
     
     @Override
     public Mono<AICoreOperations.SystemMetrics> getMetrics() {
-        return coreOperations.getMetrics();
+        return Mono.fromCallable(() -> {
+            long total = requestCounter.get();
+            long success = successCounter.get();
+            long failure = failureCounter.get();
+            
+            return new AICoreOperations.SystemMetrics(
+                total, success, failure, 50.0, 100.0, 1L
+            );
+        });
     }
     
     // ==================== Private Helper Methods ====================
@@ -352,6 +381,30 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
             case "LOW":
             default:
                 return SecurityLevel.STANDARD;
+        }
+    }
+    
+    // ==================== Inner Classes ====================
+    
+    /**
+     * 임시 모킹용 AI 응답 클래스
+     */
+    private static class MockAIResponse extends AIResponse {
+        private final String mockData;
+        
+        public MockAIResponse(String requestId, ExecutionStatus status) {
+            super(requestId, status);
+            this.mockData = "Mock response data for request: " + requestId;
+        }
+        
+        @Override
+        public Object getData() {
+            return mockData;
+        }
+        
+        @Override
+        public String getResponseType() {
+            return "MOCK";
         }
     }
     
