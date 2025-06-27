@@ -68,6 +68,41 @@ spring:
     serialization:
       fail-on-self-references: false
 
+  auth:
+    mfa:
+      session-timeout-ms: 600000      # 10분
+      max-retry-attempts: 5
+      minimum-delay-ms: 500
+      circuit-breaker-failure-threshold: 5
+      detailed-logging-enabled: true
+      metrics-enabled: true
+      audit-logging-enabled: true
+      session-storage-type: redis
+
+  cache:
+    type: redis
+    redis:
+      cache-null-values: false # null 값 캐싱 여부
+      time-to-live: 3600000 # 1시간 (밀리초)
+
+  # Spring Data Redis 설정
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      #      password: # Redis 비밀번호 (필요한 경우)
+      timeout: 200000
+      # 연결 풀 설정
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: 5s
+      # SSL 설정
+      ssl:
+        enabled: false
+
 logging:
   level:
     # Hibernate SQL 로깅
