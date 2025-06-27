@@ -12,7 +12,8 @@ public class PipelineExecutionContext {
     
     private final String executionId;
     private final Map<String, Object> parameters;
-    private final Map<PipelineConfiguration.PipelineStep, Object> stepResults;
+    private final Map<String, Object> stepResults;
+    private final Map<String, Object> sharedData;
     private final long startTime;
     
     /**
@@ -22,6 +23,7 @@ public class PipelineExecutionContext {
         this.executionId = "unknown";
         this.parameters = new ConcurrentHashMap<>();
         this.stepResults = new ConcurrentHashMap<>();
+        this.sharedData = new ConcurrentHashMap<>();
         this.startTime = System.currentTimeMillis();
     }
     
@@ -34,6 +36,7 @@ public class PipelineExecutionContext {
         this.executionId = executionId;
         this.parameters = parameters != null ? parameters : new HashMap<>();
         this.stepResults = new ConcurrentHashMap<>();
+        this.sharedData = new ConcurrentHashMap<>();
         this.startTime = System.currentTimeMillis();
     }
     
@@ -51,7 +54,7 @@ public class PipelineExecutionContext {
      * @param result 실행 결과
      */
     public void addStepResult(PipelineConfiguration.PipelineStep step, Object result) {
-        stepResults.put(step, result);
+        stepResults.put(step.name(), result);
     }
     
     /**
@@ -91,7 +94,7 @@ public class PipelineExecutionContext {
      * @param value 값
      */
     public void putSharedData(String key, Object value) {
-        // Implementation needed
+        sharedData.put(key, value);
     }
     
     /**
@@ -102,8 +105,8 @@ public class PipelineExecutionContext {
      */
     @SuppressWarnings("unchecked")
     public <T> T getSharedData(String key, Class<T> type) {
-        // Implementation needed
-        return null;
+        Object value = sharedData.get(key);
+        return type.isInstance(value) ? (T) value : null;
     }
     
     /**

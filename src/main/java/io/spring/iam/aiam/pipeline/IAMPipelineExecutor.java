@@ -112,14 +112,13 @@ public class IAMPipelineExecutor<T extends IAMContext> implements PipelineExecut
         log.debug("📋 Preprocessing IAM request: {}", request.getRequestId());
         
         // IAM 요청 검증 및 정규화
-        Map<String, Object> preprocessedData = Map.of(
+
+        return Map.<String, Object>of(
             "requestId", request.getRequestId(),
             "requestType", request.getClass().getSimpleName(),
             "contextType", request.getContext().getClass().getSimpleName(),
             "timestamp", System.currentTimeMillis()
         );
-        
-        return preprocessedData;
     }
     
     /**
@@ -129,14 +128,13 @@ public class IAMPipelineExecutor<T extends IAMContext> implements PipelineExecut
         log.debug("🔍 Retrieving context for IAM request: {}", request.getRequestId());
         
         // IAM 컨텍스트 기반 관련 정보 검색
-        Map<String, Object> contextData = Map.of(
+
+        return Map.of(
             "userContext", request.getContext(),
             "organizationId", request.getContext().getOrganizationId(),
             "sessionId", request.getContext().getSessionId(),
             "retrievalTime", System.currentTimeMillis()
         );
-        
-        return contextData;
     }
     
     /**
@@ -202,15 +200,14 @@ public class IAMPipelineExecutor<T extends IAMContext> implements PipelineExecut
         Object llmResult = context.getStepResult(PipelineConfiguration.PipelineStep.LLM_EXECUTION, Object.class);
         
         // LLM 응답을 구조화된 IAM 데이터로 파싱
-        Map<String, Object> parsedResult = Map.of(
+
+        return Map.of(
             "decision", "APPROVE",
             "securityLevel", "MEDIUM",
             "confidence", 0.85,
             "recommendations", java.util.List.of("Enable monitoring", "Review in 30 days"),
             "parseTime", System.currentTimeMillis()
         );
-        
-        return parsedResult;
     }
     
     /**
@@ -222,14 +219,13 @@ public class IAMPipelineExecutor<T extends IAMContext> implements PipelineExecut
         Object parsedResult = context.getStepResult(PipelineConfiguration.PipelineStep.RESPONSE_PARSING, Object.class);
         
         // IAM 특화 후처리 (감사 로그, 보안 검증 등)
-        Map<String, Object> postProcessedResult = Map.of(
+
+        return Map.of(
             "auditLogged", true,
             "securityValidated", true,
             "complianceChecked", true,
             "finalResult", parsedResult,
             "postProcessTime", System.currentTimeMillis()
         );
-        
-        return postProcessedResult;
     }
 } 

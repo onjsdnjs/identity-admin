@@ -27,14 +27,14 @@ import java.util.UUID;
 @Service
 public class DistributedStrategyExecutor<T extends IAMContext> {
     
-    private final UniversalPipeline<T> pipeline;
+    private final UniversalPipeline pipeline;
     private final AIStrategySessionRepository sessionRepository;
     private final DistributedAIStrategyCoordinator strategyCoordinator;
     private final RedisEventPublisher eventPublisher;
     private final IAMTypeConverter typeConverter;
     
     @Autowired
-    public DistributedStrategyExecutor(UniversalPipeline<T> pipeline,
+    public DistributedStrategyExecutor(UniversalPipeline pipeline,
                                      AIStrategySessionRepository sessionRepository,
                                      DistributedAIStrategyCoordinator strategyCoordinator,
                                      RedisEventPublisher eventPublisher,
@@ -95,13 +95,10 @@ public class DistributedStrategyExecutor<T extends IAMContext> {
                                                        String sessionId) {
         try {
             // 파이프라인 설정 생성
-            PipelineConfiguration<T> config = createPipelineConfiguration();
+            PipelineConfiguration config = createPipelineConfiguration();
             
-            // IAM 전용 파이프라인 실행자 생성 (임시)
-            IAMPipelineExecutor<T> executor = new IAMPipelineExecutor<>(null); // labRegistry는 나중에 주입
-            
-            // 파이프라인 실행 (동기식)
-            IAMResponse result = pipeline.execute(request, config, executor)
+            // 파이프라인 실행 (새로운 시그니처 사용)
+            IAMResponse result = pipeline.execute(request, config, responseType)
                 .block(); // 동기식 실행
             
             // 타입 캐스팅
@@ -117,23 +114,20 @@ public class DistributedStrategyExecutor<T extends IAMContext> {
     /**
      * 파이프라인 설정 생성
      */
-    private PipelineConfiguration<T> createPipelineConfiguration() {
-        List<PipelineConfiguration.PipelineStep> steps = List.of(
-            PipelineConfiguration.PipelineStep.PREPROCESSING,
-            PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL,
-            PipelineConfiguration.PipelineStep.PROMPT_GENERATION,
-            PipelineConfiguration.PipelineStep.LLM_EXECUTION,
-            PipelineConfiguration.PipelineStep.RESPONSE_PARSING,
-            PipelineConfiguration.PipelineStep.POSTPROCESSING
-        );
-        
-        Map<String, Object> parameters = Map.of(
-            "enableCaching", true,
-            "timeoutSeconds", 30,
-            "retryCount", 3
-        );
-        
-        return new PipelineConfiguration<>(steps, parameters, 30, true, false);
+    private PipelineConfiguration createPipelineConfiguration() {
+        return PipelineConfiguration.builder()
+            .addStep(PipelineConfiguration.PipelineStep.PREPROCESSING)
+            .addStep(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL)
+            .addStep(PipelineConfiguration.PipelineStep.PROMPT_GENERATION)
+            .addStep(PipelineConfiguration.PipelineStep.LLM_EXECUTION)
+            .addStep(PipelineConfiguration.PipelineStep.RESPONSE_PARSING)
+            .addStep(PipelineConfiguration.PipelineStep.POSTPROCESSING)
+            .addParameter("enableCaching", true)
+            .addParameter("timeoutSeconds", 30)
+            .addParameter("retryCount", 3)
+            .timeoutSeconds(30)
+            .enableCaching(true)
+            .build();
     }
     
     /**
