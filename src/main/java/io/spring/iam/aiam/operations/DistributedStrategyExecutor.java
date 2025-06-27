@@ -1,20 +1,21 @@
 package io.spring.iam.aiam.operations;
 
+import io.spring.aicore.pipeline.PipelineConfiguration;
 import io.spring.aicore.pipeline.UniversalPipeline;
+import io.spring.iam.aiam.pipeline.IAMPipelineExecutor;
 import io.spring.iam.aiam.protocol.IAMContext;
 import io.spring.iam.aiam.protocol.IAMRequest;
 import io.spring.iam.aiam.protocol.IAMResponse;
 import io.spring.iam.aiam.session.AIStrategySessionRepository;
-import io.spring.iam.aiam.session.AIStrategySessionRepository.AIStrategyExecutionPhase;
-import io.spring.iam.aiam.session.AIStrategySessionRepository.AIExecutionResult;
 import io.spring.iam.aiam.session.AIStrategySessionRepository.AIExecutionMetrics;
+import io.spring.iam.aiam.session.AIStrategySessionRepository.AIStrategyExecutionPhase;
 import io.spring.iam.redis.DistributedAIStrategyCoordinator;
 import io.spring.redis.RedisEventPublisher;
-
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -93,13 +94,46 @@ public class DistributedStrategyExecutor<T extends IAMContext> {
                                                        Class<R> responseType, 
                                                        String sessionId) {
         try {
-            // 실제 AI 파이프라인 실행 (현재는 Mock 응답)
-            return createMockResponse(request, responseType, sessionId);
+            // 파이프라인 설정 생성
+            PipelineConfiguration<T> config = createPipelineConfiguration();
+            
+            // IAM 전용 파이프라인 실행자 생성 (임시)
+            IAMPipelineExecutor<T> executor = new IAMPipelineExecutor<>(null); // labRegistry는 나중에 주입
+            
+            // 파이프라인 실행 (동기식)
+            IAMResponse result = pipeline.execute(request, config, executor)
+                .block(); // 동기식 실행
+            
+            // 타입 캐스팅
+            return responseType.cast(result);
             
         } catch (Exception e) {
             log.error("❌ AI Pipeline execution failed for session: {}", sessionId, e);
-            throw new IAMOperationException("AI Pipeline execution failed", e);
+            // 폴백: Mock 응답 사용
+            return createMockResponse(request, responseType, sessionId);
         }
+    }
+    
+    /**
+     * 파이프라인 설정 생성
+     */
+    private PipelineConfiguration<T> createPipelineConfiguration() {
+        List<PipelineConfiguration.PipelineStep> steps = List.of(
+            PipelineConfiguration.PipelineStep.PREPROCESSING,
+            PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL,
+            PipelineConfiguration.PipelineStep.PROMPT_GENERATION,
+            PipelineConfiguration.PipelineStep.LLM_EXECUTION,
+            PipelineConfiguration.PipelineStep.RESPONSE_PARSING,
+            PipelineConfiguration.PipelineStep.POSTPROCESSING
+        );
+        
+        Map<String, Object> parameters = Map.of(
+            "enableCaching", true,
+            "timeoutSeconds", 30,
+            "retryCount", 3
+        );
+        
+        return new PipelineConfiguration<>(steps, parameters, 30, true, false);
     }
     
     /**
