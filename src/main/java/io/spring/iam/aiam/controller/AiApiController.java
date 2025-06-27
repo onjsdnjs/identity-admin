@@ -1,6 +1,6 @@
 package io.spring.iam.aiam.controller;
 
-import io.spring.iam.aiam.AINativeIAMSynapseArbiterFromOllama;
+import io.spring.iam.aiam.operations.AINativeIAMOperations;
 import io.spring.iam.aiam.dto.PolicyGenerationRequest;
 import io.spring.iam.domain.dto.AiGeneratedPolicyDraftDto;
 import io.spring.iam.domain.entity.ConditionTemplate;
@@ -28,7 +28,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.stream.Collectors;
 
-// 기존 AiApiController를 참고하여 스트리밍 메서드를 추가하는 예시
+// 🎯 AI Native IAM Operations를 통한 진짜 파이프라인 기반 AI 컨트롤러
 
 @RestController
 @RequestMapping("/api/ai/policies")
@@ -36,14 +36,16 @@ import java.util.stream.Collectors;
 @Slf4j
 public class AiApiController {
 
-    private final AINativeIAMSynapseArbiterFromOllama aiNativeIAMAdvisor;
+    private final AINativeIAMOperations aiNativeIAMOperations;  // ✅ Master Brain 사용
     private final ConditionTemplateRepository conditionTemplateRepository;
     private final ManagedResourceRepository managedResourceRepository;
     private final ConditionCompatibilityService conditionCompatibilityService;
 
     /**
-     * AI로 정책 초안을 스트리밍 방식으로 생성합니다.
-     * Server-Sent Events (SSE) 형식으로 응답을 스트리밍합니다.
+     * 🔥 AI로 정책 초안을 스트리밍 방식으로 생성합니다.
+     * 
+     * 🎯 진짜 파이프라인 구조:
+     * Controller → AINativeIAMOperations → UniversalPipeline → 전문 컴포넌트들
      */
     @PostMapping(value = "/generate-from-text/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> generatePolicyFromTextStream(@RequestBody PolicyGenerationRequest request) {
@@ -55,7 +57,7 @@ public class AiApiController {
                     .build());
         }
 
-        log.info("🔥 AI 스트리밍 정책 생성 요청: {}", naturalLanguageQuery);
+        log.info("🎭 Controller: AI 스트리밍 정책 생성 요청을 Master Brain에 위임 - {}", naturalLanguageQuery);
         if (request.availableItems() != null) {
             log.info("🎯 사용 가능한 항목들: 역할 {}개, 권한 {}개, 조건 {}개", 
                 request.availableItems().roles() != null ? request.availableItems().roles().size() : 0,
@@ -64,8 +66,8 @@ public class AiApiController {
         }
 
         try {
-            // 사용 가능한 항목들을 AI 서비스에 전달 (임시로 기존 메서드 사용)
-            return aiNativeIAMAdvisor.generatePolicyFromTextStream(naturalLanguageQuery)
+            // 🧠 Master Brain(AINativeIAMOperations)에 작업 위임
+            return aiNativeIAMOperations.generatePolicyFromTextStream(naturalLanguageQuery, request.availableItems())
                     .map(chunk -> {
                         // 청크를 SSE 형식으로 변환
                         return ServerSentEvent.<String>builder()
@@ -79,14 +81,14 @@ public class AiApiController {
                                     .build())
                     )
                     .onErrorResume(error -> {
-                        log.error("🔥 스트리밍 중 오류 발생", error);
+                        log.error("🔥 Master Brain 스트리밍 중 오류 발생", error);
                         return Flux.just(ServerSentEvent.<String>builder()
                                 .data("ERROR: " + error.getMessage())
                                 .build());
                     });
 
         } catch (Exception e) {
-            log.error("🔥 AI 스트리밍 정책 생성 실패", e);
+            log.error("🔥 Controller: Master Brain 위임 실패", e);
             return Flux.just(ServerSentEvent.<String>builder()
                     .data("ERROR: " + e.getMessage())
                     .build());
@@ -115,7 +117,7 @@ public class AiApiController {
 
         try {
             // 사용 가능한 항목들을 AI 서비스에 전달 (임시로 기존 메서드 사용)
-            AiGeneratedPolicyDraftDto result = aiNativeIAMAdvisor.generatePolicyFromTextByAi(naturalLanguageQuery);
+            AiGeneratedPolicyDraftDto result = aiNativeIAMOperations.generatePolicyFromTextByAi(naturalLanguageQuery);
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("AI 정책 생성 실패", e);
@@ -127,7 +129,7 @@ public class AiApiController {
 
     
     /**
-     * �� 3단계: 특정 리소스에 대한 실시간 조건 추천 API
+     * 🔄 3단계: 특정 리소스에 대한 실시간 조건 추천 API
      */
     @PostMapping("/recommend-conditions")
     public ResponseEntity<Map<String, Object>> recommendConditions(@RequestBody RecommendConditionsRequest request) {

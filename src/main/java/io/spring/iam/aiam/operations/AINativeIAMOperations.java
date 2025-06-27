@@ -13,6 +13,7 @@ import io.spring.iam.aiam.protocol.types.PolicyContext;
 import io.spring.iam.aiam.protocol.types.RiskContext;
 import io.spring.iam.aiam.protocol.types.UserContext;
 
+import io.spring.iam.aiam.strategy.DiagnosisStrategyRegistry;
 import io.spring.redis.RedisDistributedLockService;
 
 import org.springframework.security.core.context.SecurityContext;
@@ -33,11 +34,11 @@ import java.util.stream.Stream;
  * 
  * 🏛️ 성스러운 전략 지휘부 - 오직 전략 지휘와 조율만 담당
  * 
- * 🎯 마스터 브레인 핵심 원칙:
- * - 전략 기획 → 자원 할당 → 실행 지휘 → 결과 검증
- * - 분산 환경에서의 완벽한 조율
- * - 예외 상황에 대한 즉각적 대응
- * - 모든 작업의 감사 추적성 보장
+ * 🌿 자연의 이치:
+ * - 외부 세계가 아무리 변해도 절대 흔들리지 않음
+ * - 오직 IAMRequest → IAMResponse 변환이라는 자연의 이치만 수행
+ * - 구체적 구현은 알지도 모르고 알 필요도 없음
+ * - DiagnosisStrategyRegistry를 통해 모든 전략을 위임
  * 
  * @param <T> IAM 컨텍스트 타입
  */
@@ -46,10 +47,12 @@ import java.util.stream.Stream;
 public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperations<T> {
     
     // ==================== 🎯 전략 지휘부 핵심 구성 ====================
-    private final DistributedStrategyExecutor<T> strategyExecutor;
     private final DistributedSessionManager<T> sessionManager;
     private final RedisDistributedLockService distributedLockService;
     private final IAMSecurityValidator securityValidator;
+    
+    // ==================== 🏭 전략 레지스트리 (유일한 의존성) ====================
+    private final DiagnosisStrategyRegistry strategyRegistry; // ✅ 오직 이것만 의존
     
     // ==================== 📊 전략 실행 상태 추적 ====================
     private final AtomicLong totalStrategicOperations = new AtomicLong(0);
@@ -61,19 +64,20 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
     private static final String STRATEGIC_LOCK_PREFIX = "ai:strategy:master:";
     
     @Autowired
-    public AINativeIAMOperations(DistributedStrategyExecutor<T> strategyExecutor,
-                                DistributedSessionManager<T> sessionManager,
+    public AINativeIAMOperations(DistributedSessionManager<T> sessionManager,
                                 RedisDistributedLockService distributedLockService,
-                                IAMSecurityValidator securityValidator) {
-        this.strategyExecutor = strategyExecutor;
+                                IAMSecurityValidator securityValidator,
+                                DiagnosisStrategyRegistry strategyRegistry) {
         this.sessionManager = sessionManager;
         this.distributedLockService = distributedLockService;
         this.securityValidator = securityValidator;
+        this.strategyRegistry = strategyRegistry; // ✅ 오직 전략 레지스트리만 주입
         
         log.info("🎭 AI Native IAM Operations Master Brain initialized");
+        log.info("🏭 DiagnosisStrategyRegistry integrated - Natural Order Maintained");
     }
     
-    // ==================== 🏛️ 최고 전략 지휘 메서드 ====================
+    // ==================== 🏛️ 최고 전략 지휘 메서드 (불변의 자연 법칙) ====================
     
     @Override
     public <R extends IAMResponse> R executeWithAudit(IAMRequest<T> request, Class<R> responseType) {
@@ -89,7 +93,9 @@ public class AINativeIAMOperations<T extends IAMContext> implements AIAMOperatio
         
         try {
             String sessionId = sessionManager.createDistributedStrategySession(request, strategyId);
-            R result = strategyExecutor.executeDistributedStrategy(request, responseType, sessionId, strategyId);
+            
+            R result = strategyRegistry.executeStrategy(request, responseType);
+            
             sessionManager.completeDistributedExecution(sessionId, strategyId, request, result, true);
             successfulStrategicOperations.incrementAndGet();
             

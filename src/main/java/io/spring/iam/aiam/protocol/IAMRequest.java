@@ -2,6 +2,7 @@ package io.spring.iam.aiam.protocol;
 
 import io.spring.aicore.protocol.AIRequest;
 import io.spring.iam.aiam.protocol.enums.AuditRequirement;
+import io.spring.iam.aiam.protocol.enums.DiagnosisType;
 import io.spring.iam.aiam.protocol.enums.SecurityLevel;
 import org.springframework.security.core.context.SecurityContext;
 
@@ -17,6 +18,7 @@ public class IAMRequest<T extends IAMContext> extends AIRequest<T> {
     private String tenantId;
     private boolean requiresApproval;
     private AuditRequirement auditLevel;
+    private DiagnosisType diagnosisType;
     
     public IAMRequest(T context, String operation) {
         super(context, operation);
@@ -28,6 +30,16 @@ public class IAMRequest<T extends IAMContext> extends AIRequest<T> {
         super(context, operation, priority, requestType);
         this.auditLevel = context.getAuditRequirement();
         this.requiresApproval = context.requiresSecurityApproval();
+    }
+    
+    /**
+     * ✅ AI 진단 타입을 설정합니다
+     * @param diagnosisType 진단 타입
+     * @return 체이닝을 위한 현재 객체
+     */
+    public IAMRequest<T> withDiagnosisType(DiagnosisType diagnosisType) {
+        this.diagnosisType = diagnosisType;
+        return this;
     }
     
     /**
@@ -106,11 +118,12 @@ public class IAMRequest<T extends IAMContext> extends AIRequest<T> {
     public String getTenantId() { return tenantId; }
     public boolean isRequiresApproval() { return requiresApproval; }
     public AuditRequirement getAuditLevel() { return auditLevel; }
+    public DiagnosisType getDiagnosisType() { return diagnosisType; }
     
     @Override
     public String toString() {
-        return String.format("IAMRequest{id='%s', operation='%s', iamType='%s', security=%s, audit=%s}", 
-                getRequestId(), getOperation(), getContext().getIAMContextType(),
+        return String.format("IAMRequest{id='%s', operation='%s', iamType='%s', diagnosisType='%s', security=%s, audit=%s}", 
+                getRequestId(), getOperation(), getContext().getIAMContextType(), diagnosisType,
                 getContext().getSecurityLevel(), auditLevel);
     }
 } 
