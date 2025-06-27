@@ -109,6 +109,25 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
         autoConditionTemplateService.generateConditionTemplates();
         log.info("리소스 동기화 프로세스가 완료되었습니다.");
     }
+    
+    /**
+     * 📊 리소스 스캔 통계를 반환합니다.
+     */
+    public Map<String, Object> getResourceScanStats() {
+        List<ManagedResource> allResources = managedResourceRepository.findAll();
+        
+        Map<String, Long> typeStats = allResources.stream()
+            .collect(Collectors.groupingBy(
+                ManagedResource::getResourceType,
+                Collectors.counting()
+            ));
+        
+        return Map.of(
+            "totalResources", allResources.size(),
+            "typeBreakdown", typeStats,
+            "lastScanTime", System.currentTimeMillis()
+        );
+    }
 
     /**
      * [구현 완료] 단일 신규 리소스에 대한 AI 추천 및 저장 로직.

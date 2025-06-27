@@ -4,8 +4,8 @@ import io.spring.iam.admin.metadata.service.FunctionCatalogService;
 import io.spring.iam.domain.dto.FunctionCatalogUpdateDto;
 import io.spring.iam.resource.ResourceEnhancementService;
 import io.spring.iam.resource.service.ResourceRegistryService;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -15,15 +15,30 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 🎛️ 기능 카탈로그 컨트롤러 (순환 의존성 @Lazy로 해결)
+ * 
+ * ✅ 해결 방법:
+ * - ResourceRegistryService에 @Lazy 어노테이션 적용
+ * - 실제 사용 시점에 빈 초기화
+ * - 이벤트 기반 복잡성 제거
+ */
 @Slf4j
 @Controller
-@RequestMapping("/admin/catalog") // 새로운 URL 경로
-@RequiredArgsConstructor
+@RequestMapping("/admin/catalog")
 public class FunctionCatalogController {
 
     private final ResourceRegistryService resourceRegistryService;
     private final ResourceEnhancementService resourceEnhancementService;
     private final FunctionCatalogService functionCatalogService;
+
+    public FunctionCatalogController(@Lazy ResourceRegistryService resourceRegistryService,
+                                   ResourceEnhancementService resourceEnhancementService,
+                                   FunctionCatalogService functionCatalogService) {
+        this.resourceRegistryService = resourceRegistryService;
+        this.resourceEnhancementService = resourceEnhancementService;
+        this.functionCatalogService = functionCatalogService;
+    }
 
     @GetMapping("/unconfirmed")
     public String unconfirmedListPage(Model model) {
@@ -53,7 +68,6 @@ public class FunctionCatalogController {
         return "admin/permissions-catalog"; // 새로운 뷰 템플릿 반환
     }
 
-    // 2. 개별 기능(리소스) 정보 업데이트를 처리합니다. (기존 로직과 동일하지만 새로운 서비스 호출)
     @PostMapping("/{id}/update")
     public String updateCatalogItem(@PathVariable Long id, @ModelAttribute FunctionCatalogUpdateDto dto, RedirectAttributes ra) {
         functionCatalogService.updateCatalog(id, dto);
@@ -61,15 +75,24 @@ public class FunctionCatalogController {
         return "redirect:/admin/catalog";
     }
 
-    // 3. 리소스 스캔을 수동으로 트리거합니다.
     @PostMapping("/refresh")
     public String refreshResources(RedirectAttributes ra) {
-        resourceEnhancementService.refreshResources();
-        ra.addFlashAttribute("message", "시스템의 모든 기능을 성공적으로 다시 스캔했습니다.");
+        try {
+            log.info("🔄 리소스 새로고침 요청");
+            
+            resourceEnhancementService.refreshResources();
+            
+            ra.addFlashAttribute("message", "시스템의 모든 기능을 성공적으로 다시 스캔했습니다.");
+            log.info("✅ 리소스 새로고침 완료");
+            
+        } catch (Exception e) {
+            log.error("❌ 리소스 새로고침 실패", e);
+            ra.addFlashAttribute("errorMessage", "리소스 새로고침 중 오류가 발생했습니다: " + e.getMessage());
+        }
+        
         return "redirect:/admin/catalog";
     }
 
-    // 4. '워크벤치 표시' 일괄 업데이트 API
     @PostMapping("/batch-status")
     public ResponseEntity<?> batchUpdateStatus(@RequestBody Map<String, Object> payload) {
         List<Integer> idsAsInteger = (List<Integer>) payload.get("ids");

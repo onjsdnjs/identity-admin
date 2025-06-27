@@ -1,7 +1,7 @@
 package io.spring.iam.aiam.labs;
 
-import io.spring.iam.aiam.labs.condition.ConditionTemplateGenerationLab;
-import io.spring.iam.aiam.labs.policy.AdvancedPolicyGenerationLab;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -18,13 +18,11 @@ import java.util.Optional;
  */
 @Slf4j
 @Component
+@Getter
+@RequiredArgsConstructor
 public class LabAccessor {
     
     private final IAMLabRegistry labRegistry;
-    
-    public LabAccessor(IAMLabRegistry labRegistry) {
-        this.labRegistry = labRegistry;
-    }
     
     /**
      * 타입으로 Lab을 조회합니다 (완전 제네릭)

@@ -12,9 +12,14 @@ import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * IAM 전문 연구소 레지스트리
+ * 🏛️ IAM 전문 연구소 레지스트리 (순환 의존성 완전 해결)
  * 
- * 🏛️ Pipeline 기반 AI-Native IAM 연구소들을 동적 통합 관리
+ * ✅ 완전 독립적 설계:
+ * - 다른 어떤 비즈니스 컴포넌트에도 의존하지 않음
+ * - 오직 Lab 등록/조회/관리만 담당
+ * - 순수한 레지스트리 역할만 수행
+ * 
+ * 🎯 Pipeline 기반 AI-Native IAM 연구소들을 동적 통합 관리:
  * - 모든 Lab을 List로 자동 주입받아 동적 등록
  * - 클래스 이름 기반 자동 식별
  * - Lab 추가/제거시 코드 수정 불필요
@@ -69,6 +74,14 @@ public class IAMLabRegistry {
         
         String className = obj.getClass().getSimpleName();
         
+        // ✅ 순환 의존성 방지: 자기 자신과 다른 레지스트리는 제외
+        if (className.equals("IAMLabRegistry") || 
+            className.equals("LabAccessor") ||
+            className.contains("Registry") ||
+            className.contains("Accessor")) {
+            return false;
+        }
+        
         // Lab으로 끝나는 클래스명을 가진 컴포넌트들을 Lab으로 인식
         boolean isLab = className.endsWith("Lab");
         
@@ -99,6 +112,12 @@ public class IAMLabRegistry {
      * @param lab 연구소 인스턴스
      */
     public void registerLab(String name, Object lab) {
+        // ✅ 순환 의존성 방지 체크
+        if (!isLabComponent(lab)) {
+            log.warn("⚠️ Rejected lab registration (not a Lab component): {}", name);
+            return;
+        }
+        
         labs.put(name, lab);
         labsByType.put(lab.getClass(), lab);
         log.debug("🔬 Lab registered manually: {} -> {}", name, lab.getClass().getSimpleName());
@@ -222,12 +241,45 @@ public class IAMLabRegistry {
         stats.put("labTypes", labs.values().stream()
             .map(lab -> lab.getClass().getSimpleName())
             .distinct()
-            .toList());
-        stats.put("packages", labs.values().stream()
-            .map(lab -> lab.getClass().getPackage().getName())
-            .distinct()
+            .sorted()
             .toList());
         
+        // 패키지별 분류
+        Map<String, Long> packageStats = labs.values().stream()
+            .collect(java.util.stream.Collectors.groupingBy(
+                lab -> lab.getClass().getPackage().getName(),
+                java.util.stream.Collectors.counting()
+            ));
+        stats.put("packageDistribution", packageStats);
+        
+        // 초기화 상태
+        stats.put("initialized", !labs.isEmpty());
+        stats.put("lastUpdate", System.currentTimeMillis());
+        
         return stats;
+    }
+    
+    /**
+     * ✅ 순환 의존성 디버깅 정보
+     * @return 디버깅 정보
+     */
+    public Map<String, Object> getCircularDependencyDebugInfo() {
+        Map<String, Object> debugInfo = new ConcurrentHashMap<>();
+        
+        debugInfo.put("registryClass", this.getClass().getName());
+        debugInfo.put("totalInjectedObjects", allLabs.size());
+        debugInfo.put("filteredLabCount", labs.size());
+        debugInfo.put("rejectedObjects", allLabs.size() - labs.size());
+        
+        // 거부된 객체들 (Lab이 아닌 것들)
+        List<String> rejectedClasses = allLabs.stream()
+            .filter(obj -> !isLabComponent(obj))
+            .map(obj -> obj.getClass().getSimpleName())
+            .distinct()
+            .sorted()
+            .toList();
+        debugInfo.put("rejectedClasses", rejectedClasses);
+        
+        return debugInfo;
     }
 } 
