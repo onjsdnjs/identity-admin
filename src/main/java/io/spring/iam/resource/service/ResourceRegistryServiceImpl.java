@@ -44,7 +44,8 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     @Async
     @Override
     @Transactional
-    public void refreshAndSynchronizeResources() {
+    public void
+    refreshAndSynchronizeResources() {
         log.info("비동기 리소스 스캐닝 및 DB 동기화를 시작합니다...");
 
         // 1. [수정] 모든 스캐너에서 발견된 리소스를 중복을 허용하여 List로 받습니다.
@@ -110,25 +111,6 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
         log.info("리소스 동기화 프로세스가 완료되었습니다.");
     }
     
-    /**
-     * 📊 리소스 스캔 통계를 반환합니다.
-     */
-    public Map<String, Object> getResourceScanStats() {
-        List<ManagedResource> allResources = managedResourceRepository.findAll();
-        
-        Map<String, Long> typeStats = allResources.stream()
-            .collect(Collectors.groupingBy(
-                ManagedResource::getResourceType,
-                Collectors.counting()
-            ));
-        
-        return Map.of(
-            "totalResources", allResources.size(),
-            "typeBreakdown", typeStats,
-            "lastScanTime", System.currentTimeMillis()
-        );
-    }
-
     /**
      * [구현 완료] 단일 신규 리소스에 대한 AI 추천 및 저장 로직.
      * 비동기 작업 내에서 별도의 트랜잭션으로 실행되도록 설정합니다.

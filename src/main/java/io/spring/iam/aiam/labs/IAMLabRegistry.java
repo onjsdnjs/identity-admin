@@ -75,10 +75,9 @@ public class IAMLabRegistry {
         String className = obj.getClass().getSimpleName();
         
         // ✅ 순환 의존성 방지: 자기 자신과 다른 레지스트리는 제외
+        // LabAccessor는 ApplicationContext 사용으로 순환참조 해결됨
         if (className.equals("IAMLabRegistry") || 
-            className.equals("LabAccessor") ||
-            className.contains("Registry") ||
-            className.contains("Accessor")) {
+            className.contains("Registry")) {
             return false;
         }
         
@@ -112,7 +111,7 @@ public class IAMLabRegistry {
      * @param lab 연구소 인스턴스
      */
     public void registerLab(String name, Object lab) {
-        // ✅ 순환 의존성 방지 체크
+        // ✅ Lab 컴포넌트 여부 체크 (LabAccessor 순환참조 해결됨)
         if (!isLabComponent(lab)) {
             log.warn("⚠️ Rejected lab registration (not a Lab component): {}", name);
             return;

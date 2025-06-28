@@ -4,11 +4,9 @@ import io.spring.aicore.pipeline.PipelineConfiguration;
 import io.spring.aicore.pipeline.PipelineExecutionContext;
 import io.spring.aicore.pipeline.PipelineExecutor;
 import io.spring.aicore.protocol.AIRequest;
-import io.spring.iam.aiam.labs.IAMLabRegistry;
 import io.spring.iam.aiam.protocol.IAMContext;
 import io.spring.iam.aiam.protocol.IAMResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -25,13 +23,6 @@ import java.util.Map;
 @Slf4j
 @Component
 public class IAMPipelineExecutor<T extends IAMContext> implements PipelineExecutor<T, IAMResponse> {
-    
-    private final IAMLabRegistry labRegistry;
-    
-    @Autowired
-    public IAMPipelineExecutor(IAMLabRegistry labRegistry) {
-        this.labRegistry = labRegistry;
-    }
     
     @Override
     public Mono<Object> executeStep(AIRequest<T> request, 

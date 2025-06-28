@@ -14,8 +14,8 @@ import java.util.Set;
 public record AiResponseDto(
         @JsonProperty("policyName") String policyName,
         @JsonProperty("description") String description,
-        @JsonProperty("roleIds") Set<Object> roleIds, // 숫자 또는 문자열
-        @JsonProperty("permissionIds") Set<Object> permissionIds, // 숫자 또는 문자열
+        @JsonProperty("roleIds") Set<Long> roleIds, // 숫자 또는 문자열
+        @JsonProperty("permissionIds") Set<Long> permissionIds, // 숫자 또는 문자열
         @JsonProperty("conditional") boolean conditional,
         @JsonProperty("conditions") Map<String, List<String>> conditions, // templateId는 문자열일 수 있음
         @JsonProperty("aiRiskAssessmentEnabled") boolean aiRiskAssessmentEnabled,
