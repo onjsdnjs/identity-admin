@@ -2,7 +2,15 @@ package io.spring.iam.resource.service;
 
 import com.google.common.collect.Lists;
 import io.spring.iam.admin.metadata.service.PermissionCatalogService;
-import io.spring.iam.aiam.AINativeIAMAdvisor;
+import io.spring.aicore.protocol.AIResponse;
+import io.spring.iam.aiam.operations.AINativeIAMOperations;
+import io.spring.iam.aiam.protocol.IAMRequest;
+import io.spring.iam.aiam.protocol.IAMResponse;
+import io.spring.iam.aiam.protocol.enums.AuditRequirement;
+import io.spring.iam.aiam.protocol.enums.DiagnosisType;
+import io.spring.iam.aiam.protocol.enums.SecurityLevel;
+import io.spring.iam.aiam.protocol.types.ResourceNamingContext;
+import io.spring.iam.aiam.strategy.impl.ResourceNamingDiagnosisStrategy;
 import io.spring.iam.aiam.dto.ResourceNameSuggestion;
 import io.spring.iam.domain.dto.ResourceManagementDto;
 import io.spring.iam.domain.dto.ResourceMetadataDto;
@@ -34,7 +42,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     private final List<ResourceScanner> scanners;
     private final ManagedResourceRepository managedResourceRepository;
     private final PermissionCatalogService permissionCatalogService;
-    private final AINativeIAMAdvisor aINativeIAMAdvisor;
+    private final AINativeIAMOperations aiNativeOperations;
     private final AutoConditionTemplateService autoConditionTemplateService;
 
     /**
@@ -107,7 +115,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             log.info("모든 AI 추천 배치 작업이 완료되었습니다.");
         }
-        autoConditionTemplateService.generateConditionTemplates();
+//        autoConditionTemplateService.generateConditionTemplates();
         log.info("리소스 동기화 프로세스가 완료되었습니다.");
     }
     
@@ -119,10 +127,19 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     public void processSingleResource(ManagedResource resource) {
         log.info("1개의 새로운 리소스 '{}'에 대한 AI 추천을 요청합니다...", resource.getResourceIdentifier());
         try {
-            ResourceNameSuggestion suggestion = aINativeIAMAdvisor.suggestResourceName(
-                    resource.getResourceIdentifier(),
-                    resource.getServiceOwner()
+            // 🔥 신버전: AINativeIAMOperations를 통한 AI 진단 요청 (AiApiController 패턴)
+            List<Map<String, String>> singleResourceList = List.of(
+                Map.of("identifier", resource.getResourceIdentifier(), 
+                       "owner", resource.getServiceOwner() != null ? resource.getServiceOwner() : "Unknown")
             );
+            
+            IAMRequest<ResourceNamingContext> request = createResourceNamingRequest(singleResourceList);
+            AIResponse response = (AIResponse) aiNativeOperations.execute(request, AIResponse.class).block();
+            IAMResponse iamResponse = (IAMResponse) response;
+            
+            // 응답에서 추천 결과 추출
+            Map<String, ResourceNameSuggestion> suggestions = extractResourceNamingSuggestions(iamResponse);
+            ResourceNameSuggestion suggestion = suggestions.get(resource.getResourceIdentifier());
             resource.setFriendlyName(suggestion.friendlyName());
             resource.setDescription(suggestion.description());
             managedResourceRepository.save(resource);
@@ -174,8 +191,13 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
         log.info("🔥 {}개의 유효한 리소스에 대해 AI 추천을 요청합니다.", resourcesToSuggest.size());
 
         try {
-            // AI 추천 요청
-            Map<String, ResourceNameSuggestion> suggestionsMap = aINativeIAMAdvisor.suggestResourceNamesInBatch(resourcesToSuggest);
+            // 🔥 신버전: AINativeIAMOperations를 통한 AI 진단 요청 (AiApiController 패턴)
+            IAMRequest<ResourceNamingContext> request = createResourceNamingRequest(resourcesToSuggest);
+            AIResponse response = (AIResponse) aiNativeOperations.execute(request, AIResponse.class).block();
+            IAMResponse iamResponse = (IAMResponse) response;
+            
+            // 응답에서 추천 결과 추출
+            Map<String, ResourceNameSuggestion> suggestionsMap = extractResourceNamingSuggestions(iamResponse);
 
             log.info("🔥 AI로부터 {}개의 추천을 받았습니다.", suggestionsMap.size());
 
@@ -372,5 +394,45 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
 
         managedResourceRepository.saveAll(resourcesToUpdate);
         log.info("Batch updated status for {} resources to {}", resourcesToUpdate.size(), status);
+    }
+
+    /**
+     * 🔥 신버전: 리소스 네이밍 진단 요청 생성
+     */
+    /**
+     * AiApiController 패턴을 따라 ResourceNaming 요청을 생성합니다
+     */
+    private IAMRequest<ResourceNamingContext> createResourceNamingRequest(List<Map<String, String>> resources) {
+        // ResourceNamingContext 생성 (AiApiController 패턴)
+        ResourceNamingContext context = new ResourceNamingContext.Builder(
+            SecurityLevel.STANDARD,
+            AuditRequirement.BASIC
+        ).withResourceBatch(resources).build();
+
+        // IAMRequest 생성 (AiApiController 패턴)
+        return (IAMRequest<ResourceNamingContext>) new IAMRequest<>(context, "suggestResourceNames")
+            .withDiagnosisType(DiagnosisType.RESOURCE_NAMING)
+            .withParameter("resources", resources)
+            .withParameter("batchSize", resources.size());
+    }
+
+    /**
+     * IAMResponse에서 ResourceNaming 추천 결과를 추출합니다
+     */
+    private Map<String, ResourceNameSuggestion> extractResourceNamingSuggestions(IAMResponse iamResponse) {
+        try {
+            Object responseData = iamResponse.getData();
+            if (responseData instanceof ResourceNamingDiagnosisStrategy.ResourceNamingResponse resourceResponse) {
+                return resourceResponse.getNamingResult().toResourceNameSuggestionMap();
+            }
+            
+            // 응답 데이터가 예상과 다른 경우 로깅
+            log.warn("🔥 예상치 못한 응답 타입: {}", responseData != null ? responseData.getClass() : "null");
+            return new HashMap<>();
+            
+        } catch (Exception e) {
+            log.error("🔥 ResourceNaming 응답 추출 중 오류 발생", e);
+            return new HashMap<>();
+        }
     }
 }

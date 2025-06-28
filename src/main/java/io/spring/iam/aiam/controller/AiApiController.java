@@ -81,9 +81,8 @@ public class AiApiController {
             AIResponse response = (AIResponse) aiNativeIAMOperations.execute(
                 iamRequest, // IAMRequest는 AIRequest를 상속하므로 업캐스팅 가능
                 AIResponse.class
-            ).block(); // Mono를 동기적으로 변환
+            ).block();
             
-            // AIResponse를 IAMResponse로 다운캐스팅
             IAMResponse iamResponse = (IAMResponse) response;
             
             // 응답 데이터를 스트리밍으로 변환
