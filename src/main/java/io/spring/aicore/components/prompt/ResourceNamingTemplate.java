@@ -1,5 +1,7 @@
 package io.spring.aicore.components.prompt;
 
+import io.spring.aicore.protocol.AIRequest;
+import io.spring.aicore.protocol.DomainContext;
 import io.spring.iam.aiam.protocol.request.ResourceNamingSuggestionRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -13,8 +15,35 @@ import java.util.stream.IntStream;
  */
 @Slf4j
 @Component
-public class ResourceNamingTemplate {
+@PromptTemplateConfig(
+    key = "resource_naming_suggestion",
+    aliases = {"resource_naming", "리소스네이밍"},
+    description = "리소스 친화적 이름 생성용 프롬프트"
+)
+public class ResourceNamingTemplate implements PromptTemplate {
 
+    @Override
+    public String generateSystemPrompt(AIRequest<? extends DomainContext> request, String systemMetadata) {
+        return buildSystemPrompt();
+    }
+
+    @Override
+    public String generateUserPrompt(AIRequest<? extends DomainContext> request, String contextInfo) {
+        // AIRequest에서 리소스 정보 추출
+        @SuppressWarnings("unchecked")
+        List<String> identifiers = request.getParameter("identifiers", List.class);
+        
+        if (identifiers == null || identifiers.isEmpty()) {
+            log.warn("리소스 목록이 비어있습니다");
+            return "오류: 처리할 리소스가 없습니다";
+        }
+
+        return buildUserPromptFromIdentifiers(identifiers, contextInfo);
+    }
+
+    /**
+     * 🔥 구버전 호환: 직접 ResourceNamingSuggestionRequest 처리
+     */
     public PromptGenerationResult generatePrompt(ResourceNamingSuggestionRequest request, String context) {
         if (request.getResources() == null || request.getResources().isEmpty()) {
             log.warn("리소스 목록이 비어있습니다");
@@ -94,6 +123,33 @@ public class ResourceNamingTemplate {
                     userPrompt.append(i + 1)
                              .append(". ")
                              .append(resource.getIdentifier())
+                             .append("\n");
+                });
+        
+        return userPrompt.toString();
+    }
+
+    /**
+     * 🔥 AIRequest identifiers에서 프롬프트 생성
+     */
+    private String buildUserPromptFromIdentifiers(List<String> identifiers, String context) {
+        StringBuilder userPrompt = new StringBuilder();
+        
+        // RAG 컨텍스트가 있으면 추가
+        if (context != null && !context.trim().isEmpty()) {
+            userPrompt.append("**참고 컨텍스트:**\n")
+                     .append(context)
+                     .append("\n\n");
+        }
+        
+        // identifier만 번호 매기기
+        userPrompt.append("다음 ").append(identifiers.size()).append("개의 기술 항목에 대해 모두 응답하세요:\n\n");
+        
+        IntStream.range(0, identifiers.size())
+                .forEach(i -> {
+                    userPrompt.append(i + 1)
+                             .append(". ")
+                             .append(identifiers.get(i))
                              .append("\n");
                 });
         

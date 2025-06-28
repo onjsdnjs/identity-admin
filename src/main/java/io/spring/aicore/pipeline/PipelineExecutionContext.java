@@ -54,7 +54,16 @@ public class PipelineExecutionContext {
      * @param result 실행 결과
      */
     public void addStepResult(PipelineConfiguration.PipelineStep step, Object result) {
-        stepResults.put(step.name(), result);
+        if (step == null) {
+            throw new IllegalArgumentException("Pipeline step cannot be null");
+        }
+        String stepName = step.name();
+        if (stepName == null) {
+            throw new IllegalArgumentException("Pipeline step name cannot be null");
+        }
+        // ConcurrentHashMap은 null 값을 허용하지 않으므로 null 체크
+        Object safeResult = result != null ? result : "NULL_RESULT";
+        stepResults.put(stepName, safeResult);
     }
     
     /**
@@ -63,7 +72,12 @@ public class PipelineExecutionContext {
      * @param result 실행 결과
      */
     public void putStepResult(String stepName, Object result) {
-        stepResults.put(stepName, result);
+        if (stepName == null) {
+            throw new IllegalArgumentException("Step name cannot be null");
+        }
+        // ConcurrentHashMap은 null 값을 허용하지 않으므로 null 체크
+        Object safeResult = result != null ? result : "NULL_RESULT";
+        stepResults.put(stepName, safeResult);
     }
     
     /**
@@ -75,6 +89,10 @@ public class PipelineExecutionContext {
     @SuppressWarnings("unchecked")
     public <T> T getStepResult(String stepName, Class<T> type) {
         Object result = stepResults.get(stepName);
+        // "NULL_RESULT"는 실제로는 null을 의미함
+        if ("NULL_RESULT".equals(result)) {
+            return null;
+        }
         return type.isInstance(result) ? (T) result : null;
     }
     
@@ -94,7 +112,12 @@ public class PipelineExecutionContext {
      * @param value 값
      */
     public void putSharedData(String key, Object value) {
-        sharedData.put(key, value);
+        if (key == null) {
+            throw new IllegalArgumentException("Shared data key cannot be null");
+        }
+        // ConcurrentHashMap은 null 값을 허용하지 않으므로 null 체크
+        Object safeValue = value != null ? value : "NULL_VALUE";
+        sharedData.put(key, safeValue);
     }
     
     /**
@@ -106,6 +129,10 @@ public class PipelineExecutionContext {
     @SuppressWarnings("unchecked")
     public <T> T getSharedData(String key, Class<T> type) {
         Object value = sharedData.get(key);
+        // "NULL_VALUE"는 실제로는 null을 의미함
+        if ("NULL_VALUE".equals(value)) {
+            return null;
+        }
         return type.isInstance(value) ? (T) value : null;
     }
     

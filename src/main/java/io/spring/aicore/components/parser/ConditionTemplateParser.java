@@ -2,7 +2,6 @@ package io.spring.aicore.components.parser;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -21,11 +20,11 @@ import java.util.regex.Pattern;
  */
 @Slf4j
 @Component
-public class JsonResponseParser {
+public class ConditionTemplateParser implements ResponseParser {
 
     private final ObjectMapper objectMapper;
     
-    public JsonResponseParser() {
+    public ConditionTemplateParser() {
         this.objectMapper = createLenientObjectMapper();
     }
 
@@ -76,9 +75,9 @@ public class JsonResponseParser {
             return matcher.group(1).trim();
         }
         
-        // 대체 패턴들 시도
+        // 대체 패턴들 시도 (🔥 수정: 모든 패턴에 그룹 추가)
         String[] patterns = {
-            "\\{[^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\}",
+            "(\\{[^{}]*(?:\\{[^{}]*\\}[^{}]*)*\\})",  // 🔥 그룹 추가
             "```json\\s*(\\{.*?\\})\\s*```",
             "```\\s*(\\{.*?\\})\\s*```"
         };
@@ -87,7 +86,7 @@ public class JsonResponseParser {
             Pattern pattern = Pattern.compile(patternStr, Pattern.DOTALL);
             Matcher m = pattern.matcher(aiResponse);
             if (m.find()) {
-                return m.group(1).trim();
+                return m.group(1).trim();  // 이제 group(1)이 존재함
             }
         }
         
@@ -152,6 +151,11 @@ public class JsonResponseParser {
             log.warn("JSON 구조 수정 실패: {}", e.getMessage());
             return json;
         }
+    }
+
+    @Override
+    public <T> T parse(String jsonResponse, T target) {
+        return null;
     }
 
     /**

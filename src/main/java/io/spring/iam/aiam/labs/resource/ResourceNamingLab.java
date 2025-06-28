@@ -75,6 +75,7 @@ public class ResourceNamingLab extends AbstractIAMLab<IAMContext> {
         this.promptTemplate = promptTemplate;
         this.chatModel = chatModel;
         this.jsonParser = jsonParser;
+        this.universalPipeline.jsonResponseParser(jsonParser);
         
         log.info("🔬 ResourceNamingLab initialized with 6-stage pipeline");
     }
@@ -155,37 +156,86 @@ public class ResourceNamingLab extends AbstractIAMLab<IAMContext> {
     }
 
     /**
-     * 🔥 ConditionTemplateGenerationLab과 동일한 진짜 파이프라인 기반 배치 처리
+     * 🔥 6단계 파이프라인 기반 배치 처리 (설계 구조 준수)
      */
     private ResourceNamingSuggestionResponse processBatch(List<ResourceNamingSuggestionRequest.ResourceItem> batch) {
-        log.info("🤖 AI 리소스 네이밍 생성 시작 - Pipeline 활용 (배치 크기: {})", batch.size());
+        log.info("🤖 AI 리소스 네이밍 생성 시작 - 6단계 Pipeline 활용 (배치 크기: {})", batch.size());
 
         try {
             // 1. 🔬 도메인 전문성: 전문 AIRequest 구성
-            AIRequest<IAMContext> aiRequest = createResourceNamingRequest(batch);
+            AIRequest<ResourceNamingContext> aiRequest = createResourceNamingRequest(batch);
             
-            // 2. 🚀 표준 AI 처리: Pipeline에 완전 위임 (ConditionTemplateGenerationLab과 동일)
+            // 2. 🚀 표준 AI 처리: Pipeline에 완전 위임 (ConditionTemplateGenerationLab 패턴)
             PipelineConfiguration config = createResourceNamingPipelineConfig();
             Mono<AIResponse> pipelineResult = universalPipeline.execute(aiRequest, config, AIResponse.class);
             
             AIResponse response = pipelineResult.block(); // 동기 처리
             
-            // 3. 🔬 도메인 전문성: 리소스 네이밍 후처리 및 검증 (구버전 로직 완전 이식)
+            // 3. 🔬 도메인 전문성: 파이프라인 결과 추출 (ConditionTemplateGenerationLab과 완전 동일)
             String jsonResponse = (String) response.getData();
             
-            log.info("🔥 Pipeline AI 원본 응답 길이: {}", jsonResponse.length());
-            log.debug("🔥 Pipeline AI 원본 응답: {}", jsonResponse);
+            // 4. 🔬 도메인 전문성: 리소스 네이밍 후처리 및 검증 (ConditionTemplateGenerationLab 패턴)
+            return validateAndOptimizeResourceNaming(jsonResponse, batch);
 
-            // 🔥 4단계: RESPONSE_PARSING - 신버전 JsonParser 사용
+        } catch (Exception e) {
+            log.error("🔥 6단계 파이프라인 배치 처리 실패", e);
+            return createFallbackResponse(batch, e.getMessage());
+        }
+    }
+    
+
+    
+    /**
+     * 🚀 Pipeline 설정 구성 (ConditionTemplateGenerationLab과 동일한 6단계)
+     */
+    private PipelineConfiguration createResourceNamingPipelineConfig() {
+        return PipelineConfiguration.builder()
+            .addStep(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL)
+            .addStep(PipelineConfiguration.PipelineStep.PREPROCESSING)
+            .addStep(PipelineConfiguration.PipelineStep.PROMPT_GENERATION)
+            .addStep(PipelineConfiguration.PipelineStep.LLM_EXECUTION)
+            .addStep(PipelineConfiguration.PipelineStep.RESPONSE_PARSING)
+            .addStep(PipelineConfiguration.PipelineStep.POSTPROCESSING)
+            .timeoutSeconds(60) // 리소스 배치 처리는 더 긴 시간 필요
+            .build();
+    }
+
+    /**
+     * 🔬 도메인 전문성: ConditionTemplateGenerationLab과 완전 동일한 파이프라인 결과 후처리
+     */
+    private ResourceNamingSuggestionResponse validateAndOptimizeResourceNaming(String jsonResponse, List<ResourceNamingSuggestionRequest.ResourceItem> batch) {
+        if (jsonResponse == null || jsonResponse.trim().isEmpty()) {
+            log.warn("🔥 Pipeline에서 빈 응답 수신, 폴백 사용");
+            return createFallbackResponse(batch, "Empty response from pipeline");
+        }
+
+        try {
+            // 🔥 ConditionTemplateGenerationLab과 완전 동일: 파이프라인 결과를 도메인별 파서로 처리
+            log.info("✅ 파이프라인에서 JSON 응답 수신 - 길이: {}", jsonResponse.length());
+            
+            // 🔬 도메인 전문성: ResourceNamingJsonParser로 구버전 완전 파싱
             ResourceNamingSuggestionRequest batchRequest = ResourceNamingSuggestionRequest.builder()
                     .resources(batch)
                     .batchSize(batch.size())
                     .build();
             
             ResourceNamingSuggestionResponse parsedResponse = jsonParser.parse(jsonResponse, batchRequest);
+            
+            // 🔬 도메인 전문성: 리소스 네이밍 결과 검증 및 최적화
+            return validateResourceNamingResults(parsedResponse, batch);
 
-            // 🔥 5단계: 구버전 완전 이식 - 응답 검증 및 로깅
-            log.info("🔥 배치 크기: {}, 파싱된 항목 수: {}", batch.size(), parsedResponse.getSuggestions().size());
+        } catch (Exception e) {
+            log.error("🔥 파이프라인 결과 파싱 실패", e);
+            return createFallbackResponse(batch, e.getMessage());
+        }
+    }
+    
+    /**
+     * 🔬 도메인 전문성: 리소스 네이밍 결과 검증 및 최적화 (ConditionTemplateGenerationLab 패턴)
+     */
+    private ResourceNamingSuggestionResponse validateResourceNamingResults(ResourceNamingSuggestionResponse parsedResponse, List<ResourceNamingSuggestionRequest.ResourceItem> batch) {
+        try {
+            // 🔬 리소스 네이밍 전문 검증 로직
             if (parsedResponse.getSuggestions().size() < batch.size()) {
                 log.error("🔥 [AI 오류] 일부 항목 누락! 요청: {}, 응답: {}", batch.size(), parsedResponse.getSuggestions().size());
 
@@ -195,14 +245,12 @@ public class ResourceNamingLab extends AbstractIAMLab<IAMContext> {
                 requested.removeAll(responded);
                 log.error("🔥 [AI 오류] 누락된 항목들: {}", requested);
             }
-
-            log.info("✅ 진짜 6단계 파이프라인 배치 처리 완료 - 성공: {}, 실패: {}", 
-                    parsedResponse.getSuggestions().size(), parsedResponse.getFailedIdentifiers().size());
-
+            
+            log.debug("✅ 리소스 네이밍 결과 검증 완료");
             return parsedResponse;
-
+            
         } catch (Exception e) {
-            log.error("🔥 진짜 6단계 파이프라인 배치 처리 실패", e);
+            log.error("🔥 리소스 네이밍 결과 검증 실패", e);
             return createFallbackResponse(batch, e.getMessage());
         }
     }
@@ -210,10 +258,10 @@ public class ResourceNamingLab extends AbstractIAMLab<IAMContext> {
     /**
      * 🔬 도메인 전문성: 리소스 네이밍 요청 구성 (ConditionTemplateGenerationLab과 동일 패턴)
      */
-    private AIRequest<IAMContext> createResourceNamingRequest(List<ResourceNamingSuggestionRequest.ResourceItem> batch) {
-        IAMContext context = new ResourceNamingContext(SecurityLevel.STANDARD, AuditRequirement.BASIC);
+    private AIRequest<ResourceNamingContext> createResourceNamingRequest(List<ResourceNamingSuggestionRequest.ResourceItem> batch) {
+        ResourceNamingContext context = new ResourceNamingContext(SecurityLevel.STANDARD, AuditRequirement.BASIC);
         
-        AIRequest<IAMContext> request = new AIRequest<>(context, "resource_naming_suggestion");
+        AIRequest<ResourceNamingContext> request = new AIRequest<>(context, "resource_naming_suggestion");
         
         // 🔬 리소스 네이밍 전문 메타데이터 설정
         request.withParameter("requestType", "resource_naming");
@@ -237,20 +285,7 @@ public class ResourceNamingLab extends AbstractIAMLab<IAMContext> {
         return request;
     }
     
-    /**
-     * 🚀 Pipeline 설정 구성 (ConditionTemplateGenerationLab과 동일)
-     */
-    private PipelineConfiguration createResourceNamingPipelineConfig() {
-        return PipelineConfiguration.builder()
-            .addStep(PipelineConfiguration.PipelineStep.CONTEXT_RETRIEVAL)
-            .addStep(PipelineConfiguration.PipelineStep.PREPROCESSING)
-            .addStep(PipelineConfiguration.PipelineStep.PROMPT_GENERATION)
-            .addStep(PipelineConfiguration.PipelineStep.LLM_EXECUTION)
-            .addStep(PipelineConfiguration.PipelineStep.RESPONSE_PARSING)
-            .addStep(PipelineConfiguration.PipelineStep.POSTPROCESSING)
-            .timeoutSeconds(30) // 30초
-            .build();
-    }
+
     
     /**
      * 🛡️ 도메인 전문성: 안전한 폴백 응답

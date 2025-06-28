@@ -1,6 +1,6 @@
 package io.spring.aicore.pipeline;
 
-import io.spring.aicore.components.parser.JsonResponseParser;
+import io.spring.aicore.components.parser.ResponseParser;
 import io.spring.aicore.components.prompt.PromptGenerator;
 import io.spring.aicore.components.retriever.ContextRetriever;
 import io.spring.aicore.components.streaming.StreamingProcessor;
@@ -35,19 +35,17 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
     private final ContextRetriever contextRetriever;
     private final PromptGenerator promptGenerator;
     private final StreamingProcessor streamingProcessor;
-    private final JsonResponseParser jsonResponseParser;
+    private ResponseParser responseParser;
     private final ChatModel chatModel;
     
     @Autowired
     public DefaultUniversalPipeline(ContextRetriever contextRetriever,
                                    PromptGenerator promptGenerator,
                                    StreamingProcessor streamingProcessor,
-                                   JsonResponseParser jsonResponseParser,
                                    ChatModel chatModel) {
         this.contextRetriever = contextRetriever;
         this.promptGenerator = promptGenerator;
         this.streamingProcessor = streamingProcessor;
-        this.jsonResponseParser = jsonResponseParser;
         this.chatModel = chatModel;
     }
     
@@ -129,9 +127,17 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
                 log.debug("🔧 RESPONSE_PARSING 단계 실행");
                 
                 String llmResponse = ctx.getStepResult(PipelineConfiguration.PipelineStep.LLM_EXECUTION, String.class);
-                if (llmResponse != null) {
-                    String parsedJson = jsonResponseParser.extractAndCleanJson(llmResponse);
-                    ctx.addStepResult(PipelineConfiguration.PipelineStep.RESPONSE_PARSING, parsedJson);
+                if (llmResponse != null && !llmResponse.trim().isEmpty()) {
+                    String parsedJson = responseParser.extractAndCleanJson(llmResponse);
+                    if (parsedJson != null && !parsedJson.trim().isEmpty()) {
+                        ctx.addStepResult(PipelineConfiguration.PipelineStep.RESPONSE_PARSING, parsedJson);
+                    } else {
+                        log.warn("🔥 JSON 파싱 결과가 비어있음, 빈 JSON 사용");
+                        ctx.addStepResult(PipelineConfiguration.PipelineStep.RESPONSE_PARSING, "{}");
+                    }
+                } else {
+                    log.warn("🔥 LLM 응답이 비어있음, 빈 JSON 사용");
+                    ctx.addStepResult(PipelineConfiguration.PipelineStep.RESPONSE_PARSING, "{}");
                 }
             }
             
@@ -140,10 +146,37 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
                 log.debug("✅ POSTPROCESSING 단계 실행");
                 
                 String parsedJson = ctx.getStepResult(PipelineConfiguration.PipelineStep.RESPONSE_PARSING, String.class);
-                if (parsedJson != null) {
-                    // JSON을 응답 타입으로 변환
-                    R response = jsonResponseParser.parseToType(parsedJson, responseType);
-                    ctx.addStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, response);
+                if (parsedJson != null && !parsedJson.trim().isEmpty()) {
+                    try {
+                        // JSON을 응답 타입으로 변환
+                        R response = responseParser.parseToType(parsedJson, responseType);
+                        if (response != null) {
+                            ctx.addStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, response);
+                        } else {
+                            log.warn("🔥 parseToType 결과가 null, 기본 응답 생성 시도");
+                            // 빈 응답 객체 생성 시도
+                            try {
+                                // AIResponse는 추상 클래스이므로 특별 처리
+                                if (responseType == AIResponse.class || AIResponse.class.isAssignableFrom(responseType)) {
+                                    // 기본 StringAIResponse 생성
+                                    DefaultStringAIResponse defaultResponse = new DefaultStringAIResponse("pipeline-default", "{}");
+                                    ctx.addStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, defaultResponse);
+                                } else {
+                                    R defaultResponse = responseType.getDeclaredConstructor().newInstance();
+                                    ctx.addStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, defaultResponse);
+                                }
+                            } catch (Exception e) {
+                                log.error("🔥 기본 응답 생성 실패, NULL_RESULT 사용", e);
+                                ctx.addStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, "PARSING_FAILED");
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.error("🔥 POSTPROCESSING 중 오류 발생", e);
+                        ctx.addStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, "PROCESSING_ERROR");
+                    }
+                } else {
+                    log.warn("🔥 파싱된 JSON이 비어있음, 처리 건너뜀");
+                    ctx.addStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, "NO_JSON_TO_PROCESS");
                 }
             }
             
@@ -152,6 +185,24 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
         .map(ctx -> {
             // 최종 결과 반환
             R finalResult = ctx.getStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, responseType);
+            
+            // null 체크 강화
+            if (finalResult == null) {
+                log.warn("🔥 POSTPROCESSING 결과가 null, 기본 응답 생성 시도");
+                try {
+                    // AIResponse는 추상 클래스이므로 특별 처리
+                    if (responseType == AIResponse.class || AIResponse.class.isAssignableFrom(responseType)) {
+                        // 기본 StringAIResponse 생성
+                        DefaultStringAIResponse defaultResponse = new DefaultStringAIResponse("pipeline-final-default", "{}");
+                        finalResult = responseType.cast(defaultResponse);
+                    } else {
+                        finalResult = responseType.getDeclaredConstructor().newInstance();
+                    }
+                } catch (Exception e) {
+                    log.error("🔥 기본 응답 생성 실패", e);
+                    throw new RuntimeException("Failed to create default response", e);
+                }
+            }
             
             log.info("✅ Universal Pipeline 실행 완료: {}", request.getRequestId());
             return finalResult;
@@ -262,4 +313,30 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
             java.time.LocalDateTime.now()
         );
     }
-} 
+
+    public void jsonResponseParser(ResponseParser responseParser) {
+        this.responseParser = responseParser;
+    }
+    
+    /**
+     * 기본 문자열 응답을 위한 간단한 AIResponse 구현체
+     */
+    private static class DefaultStringAIResponse extends AIResponse {
+        private final String data;
+        
+        public DefaultStringAIResponse(String requestId, String data) {
+            super(requestId, AIResponse.ExecutionStatus.SUCCESS);
+            this.data = data;
+        }
+        
+        @Override
+        public Object getData() {
+            return data;
+        }
+        
+        @Override
+        public String getResponseType() {
+            return "DEFAULT_STRING_RESPONSE";
+        }
+    }
+}

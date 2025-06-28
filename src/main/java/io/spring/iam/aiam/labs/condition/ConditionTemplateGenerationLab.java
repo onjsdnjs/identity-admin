@@ -1,5 +1,6 @@
 package io.spring.iam.aiam.labs.condition;
 
+import io.spring.aicore.components.parser.ConditionTemplateParser;
 import io.spring.aicore.pipeline.DefaultUniversalPipeline;
 import io.spring.aicore.pipeline.PipelineConfiguration;
 import io.spring.aicore.protocol.AIRequest;
@@ -24,9 +25,12 @@ import reactor.core.publisher.Mono;
 public class ConditionTemplateGenerationLab {
     
     private final DefaultUniversalPipeline universalPipeline;
+    private final ConditionTemplateParser jsonParser;
     
-    public ConditionTemplateGenerationLab(DefaultUniversalPipeline universalPipeline) {
+    public ConditionTemplateGenerationLab(DefaultUniversalPipeline universalPipeline, ConditionTemplateParser jsonParser) {
         this.universalPipeline = universalPipeline;
+        this.jsonParser = jsonParser;
+        this.universalPipeline.jsonResponseParser(jsonParser);
         log.info("🔬 ConditionTemplateGenerationLab initialized - Pipeline integrated");
     }
     

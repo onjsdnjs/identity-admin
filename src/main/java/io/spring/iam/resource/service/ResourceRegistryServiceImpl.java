@@ -12,6 +12,7 @@ import io.spring.iam.aiam.protocol.enums.SecurityLevel;
 import io.spring.iam.aiam.protocol.types.ResourceNamingContext;
 import io.spring.iam.aiam.strategy.impl.ResourceNamingDiagnosisStrategy;
 import io.spring.iam.aiam.dto.ResourceNameSuggestion;
+import io.spring.iam.aiam.protocol.response.ResourceNamingSuggestionResponse;
 import io.spring.iam.domain.dto.ResourceManagementDto;
 import io.spring.iam.domain.dto.ResourceMetadataDto;
 import io.spring.iam.domain.dto.ResourceSearchCriteria;
@@ -134,18 +135,32 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
             );
             
             IAMRequest<ResourceNamingContext> request = createResourceNamingRequest(singleResourceList);
-            AIResponse response = (AIResponse) aiNativeOperations.execute(request, AIResponse.class).block();
-            IAMResponse iamResponse = (IAMResponse) response;
+            
+            // 🔥 수정: Object로 받아서 캐스팅
+            Object rawResponse = aiNativeOperations.execute(request, ResourceNamingDiagnosisStrategy.ResourceNamingResponse.class).block();
+            IAMResponse iamResponse = (IAMResponse) rawResponse;
             
             // 응답에서 추천 결과 추출
             Map<String, ResourceNameSuggestion> suggestions = extractResourceNamingSuggestions(iamResponse);
             ResourceNameSuggestion suggestion = suggestions.get(resource.getResourceIdentifier());
-            resource.setFriendlyName(suggestion.friendlyName());
-            resource.setDescription(suggestion.description());
+            
+            if (suggestion != null) {
+                resource.setFriendlyName(suggestion.friendlyName());
+                resource.setDescription(suggestion.description());
+                log.info("AI 추천 적용 완료: '{}' -> '{}'", resource.getResourceIdentifier(), suggestion.friendlyName());
+            } else {
+                // AI가 추천을 제공하지 않은 경우 기본값 설정
+                resource.setFriendlyName(generateFallbackFriendlyName(resource.getResourceIdentifier()));
+                resource.setDescription("AI 추천을 받지 못한 리소스입니다.");
+                log.warn("AI가 추천을 제공하지 않아 기본값을 사용합니다: {}", resource.getResourceIdentifier());
+            }
+            
             managedResourceRepository.save(resource);
-            log.info("AI 추천 적용 완료: '{}' -> '{}'", resource.getResourceIdentifier(), suggestion.friendlyName());
+            
         } catch (Exception e) {
             log.warn("AI 리소스 이름 추천 실패: {}. 기본값을 사용합니다.", resource.getResourceIdentifier(), e);
+            resource.setFriendlyName(generateFallbackFriendlyName(resource.getResourceIdentifier()));
+            resource.setDescription("AI 추천 실패로 기본값을 사용합니다.");
             managedResourceRepository.save(resource); // 추천 실패 시에도 리소스는 저장
         }
     }
@@ -193,8 +208,10 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
         try {
             // 🔥 신버전: AINativeIAMOperations를 통한 AI 진단 요청 (AiApiController 패턴)
             IAMRequest<ResourceNamingContext> request = createResourceNamingRequest(resourcesToSuggest);
-            AIResponse response = (AIResponse) aiNativeOperations.execute(request, AIResponse.class).block();
-            IAMResponse iamResponse = (IAMResponse) response;
+            
+            // 🔥 수정: Object로 받아서 캐스팅
+            Object rawResponse = aiNativeOperations.execute(request, ResourceNamingDiagnosisStrategy.ResourceNamingResponse.class).block();
+            IAMResponse iamResponse = (IAMResponse) rawResponse;
             
             // 응답에서 추천 결과 추출
             Map<String, ResourceNameSuggestion> suggestionsMap = extractResourceNamingSuggestions(iamResponse);
@@ -409,11 +426,14 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
             AuditRequirement.BASIC
         ).withResourceBatch(resources).build();
 
-        // IAMRequest 생성 (AiApiController 패턴)
-        return (IAMRequest<ResourceNamingContext>) new IAMRequest<>(context, "suggestResourceNames")
-            .withDiagnosisType(DiagnosisType.RESOURCE_NAMING)
-            .withParameter("resources", resources)
-            .withParameter("batchSize", resources.size());
+        // 🔥 수정: IAMRequest 직접 생성 (캐스팅 없이)
+        IAMRequest<ResourceNamingContext> request = new IAMRequest<>(context, "suggestResourceNames");
+        request.withDiagnosisType(DiagnosisType.RESOURCE_NAMING);
+        request.withParameter("resources", resources);
+        request.withParameter("batchSize", resources.size());
+        
+        log.debug("🔥 DiagnosisType 설정 확인: {}", request.getDiagnosisType());
+        return request;
     }
 
     /**
@@ -421,13 +441,32 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
      */
     private Map<String, ResourceNameSuggestion> extractResourceNamingSuggestions(IAMResponse iamResponse) {
         try {
-            Object responseData = iamResponse.getData();
-            if (responseData instanceof ResourceNamingDiagnosisStrategy.ResourceNamingResponse resourceResponse) {
+            // 🔥 수정: iamResponse 자체가 ResourceNamingResponse인지 체크
+            if (iamResponse instanceof ResourceNamingDiagnosisStrategy.ResourceNamingResponse resourceResponse) {
                 return resourceResponse.getNamingResult().toResourceNameSuggestionMap();
             }
             
+            // 🔥 fallback: getData()에서 Map으로 직접 추출
+            Object responseData = iamResponse.getData();
+            if (responseData instanceof Map<?, ?> dataMap) {
+                @SuppressWarnings("unchecked")
+                List<ResourceNamingSuggestionResponse.ResourceNamingSuggestion> suggestions = 
+                    (List<ResourceNamingSuggestionResponse.ResourceNamingSuggestion>) dataMap.get("suggestions");
+                
+                if (suggestions != null) {
+                    Map<String, ResourceNameSuggestion> result = new HashMap<>();
+                    for (ResourceNamingSuggestionResponse.ResourceNamingSuggestion suggestion : suggestions) {
+                        result.put(suggestion.getIdentifier(), 
+                                new ResourceNameSuggestion(suggestion.getFriendlyName(), suggestion.getDescription()));
+                    }
+                    return result;
+                }
+            }
+            
             // 응답 데이터가 예상과 다른 경우 로깅
-            log.warn("🔥 예상치 못한 응답 타입: {}", responseData != null ? responseData.getClass() : "null");
+            log.warn("🔥 예상치 못한 응답 타입: iamResponse={}, data={}", 
+                    iamResponse != null ? iamResponse.getClass() : "null",
+                    responseData != null ? responseData.getClass() : "null");
             return new HashMap<>();
             
         } catch (Exception e) {
