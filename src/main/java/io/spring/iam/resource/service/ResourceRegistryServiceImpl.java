@@ -2,17 +2,17 @@ package io.spring.iam.resource.service;
 
 import com.google.common.collect.Lists;
 import io.spring.iam.admin.metadata.service.PermissionCatalogService;
-import io.spring.aicore.protocol.AIResponse;
+import io.spring.iam.aiam.dto.ResourceNameSuggestion;
 import io.spring.iam.aiam.operations.AINativeIAMOperations;
 import io.spring.iam.aiam.protocol.IAMRequest;
 import io.spring.iam.aiam.protocol.IAMResponse;
 import io.spring.iam.aiam.protocol.enums.AuditRequirement;
 import io.spring.iam.aiam.protocol.enums.DiagnosisType;
 import io.spring.iam.aiam.protocol.enums.SecurityLevel;
-import io.spring.iam.aiam.protocol.types.ResourceNamingContext;
-import io.spring.iam.aiam.strategy.impl.ResourceNamingDiagnosisStrategy;
-import io.spring.iam.aiam.dto.ResourceNameSuggestion;
 import io.spring.iam.aiam.protocol.response.ResourceNamingSuggestionResponse;
+import io.spring.iam.aiam.protocol.types.ResourceNamingContext;
+import io.spring.iam.aiam.protocol.response.StringResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.iam.domain.dto.ResourceManagementDto;
 import io.spring.iam.domain.dto.ResourceMetadataDto;
 import io.spring.iam.domain.dto.ResourceSearchCriteria;
@@ -39,12 +39,13 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ResourceRegistryServiceImpl implements ResourceRegistryService {
-
+    
     private final List<ResourceScanner> scanners;
     private final ManagedResourceRepository managedResourceRepository;
     private final PermissionCatalogService permissionCatalogService;
     private final AINativeIAMOperations aiNativeOperations;
     private final AutoConditionTemplateService autoConditionTemplateService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * [구현 완료] 리소스 스캔, 신규/변경/삭제 리소스 구분 및 AI 추천까지 모든 로직을 완벽하게 구현합니다.
@@ -116,7 +117,7 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
             CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
             log.info("모든 AI 추천 배치 작업이 완료되었습니다.");
         }
-//        autoConditionTemplateService.generateConditionTemplates();
+        autoConditionTemplateService.generateConditionTemplates();
         log.info("리소스 동기화 프로세스가 완료되었습니다.");
     }
     
@@ -136,12 +137,12 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
             
             IAMRequest<ResourceNamingContext> request = createResourceNamingRequest(singleResourceList);
             
-            // 🔥 수정: Object로 받아서 캐스팅
-            Object rawResponse = aiNativeOperations.execute(request, ResourceNamingDiagnosisStrategy.ResourceNamingResponse.class).block();
-            IAMResponse iamResponse = (IAMResponse) rawResponse;
+            // 🔥 수정: StringResponse로 받아서 처리
+            Object rawResponse = aiNativeOperations.execute(request, StringResponse.class).block();
+            StringResponse stringResponse = (StringResponse) rawResponse;
             
             // 응답에서 추천 결과 추출
-            Map<String, ResourceNameSuggestion> suggestions = extractResourceNamingSuggestions(iamResponse);
+            Map<String, ResourceNameSuggestion> suggestions = extractResourceNamingSuggestions(stringResponse);
             ResourceNameSuggestion suggestion = suggestions.get(resource.getResourceIdentifier());
             
             if (suggestion != null) {
@@ -209,12 +210,12 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
             // 🔥 신버전: AINativeIAMOperations를 통한 AI 진단 요청 (AiApiController 패턴)
             IAMRequest<ResourceNamingContext> request = createResourceNamingRequest(resourcesToSuggest);
             
-            // 🔥 수정: Object로 받아서 캐스팅
-            Object rawResponse = aiNativeOperations.execute(request, ResourceNamingDiagnosisStrategy.ResourceNamingResponse.class).block();
-            IAMResponse iamResponse = (IAMResponse) rawResponse;
+            // 🔥 수정: StringResponse로 받아서 처리
+            Object rawResponse = aiNativeOperations.execute(request, StringResponse.class).block();
+            StringResponse stringResponse = (StringResponse) rawResponse;
             
             // 응답에서 추천 결과 추출
-            Map<String, ResourceNameSuggestion> suggestionsMap = extractResourceNamingSuggestions(iamResponse);
+            Map<String, ResourceNameSuggestion> suggestionsMap = extractResourceNamingSuggestions(stringResponse);
 
             log.info("🔥 AI로부터 {}개의 추천을 받았습니다.", suggestionsMap.size());
 
@@ -437,40 +438,43 @@ public class ResourceRegistryServiceImpl implements ResourceRegistryService {
     }
 
     /**
-     * IAMResponse에서 ResourceNaming 추천 결과를 추출합니다
+     * StringResponse에서 ResourceNaming 추천 결과를 추출합니다
      */
-    private Map<String, ResourceNameSuggestion> extractResourceNamingSuggestions(IAMResponse iamResponse) {
+    private Map<String, ResourceNameSuggestion> extractResourceNamingSuggestions(StringResponse stringResponse) {
         try {
-            // 🔥 수정: iamResponse 자체가 ResourceNamingResponse인지 체크
-            if (iamResponse instanceof ResourceNamingDiagnosisStrategy.ResourceNamingResponse resourceResponse) {
-                return resourceResponse.getNamingResult().toResourceNameSuggestionMap();
+            if (stringResponse == null || stringResponse.getContent() == null) {
+                log.warn("🔥 StringResponse가 null이거나 content가 없습니다");
+                return new HashMap<>();
             }
             
-            // 🔥 fallback: getData()에서 Map으로 직접 추출
-            Object responseData = iamResponse.getData();
-            if (responseData instanceof Map<?, ?> dataMap) {
-                @SuppressWarnings("unchecked")
-                List<ResourceNamingSuggestionResponse.ResourceNamingSuggestion> suggestions = 
-                    (List<ResourceNamingSuggestionResponse.ResourceNamingSuggestion>) dataMap.get("suggestions");
-                
-                if (suggestions != null) {
-                    Map<String, ResourceNameSuggestion> result = new HashMap<>();
-                    for (ResourceNamingSuggestionResponse.ResourceNamingSuggestion suggestion : suggestions) {
-                        result.put(suggestion.getIdentifier(), 
-                                new ResourceNameSuggestion(suggestion.getFriendlyName(), suggestion.getDescription()));
+            // JSON 문자열을 파싱해서 Map으로 변환
+            Map<String, Object> responseData = objectMapper.readValue(stringResponse.getContent(), Map.class);
+            
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> suggestions = (List<Map<String, Object>>) responseData.get("suggestions");
+            
+            if (suggestions != null) {
+                Map<String, ResourceNameSuggestion> result = new HashMap<>();
+                for (Map<String, Object> suggestionMap : suggestions) {
+                    String identifier = (String) suggestionMap.get("identifier");
+                    String friendlyName = (String) suggestionMap.get("friendlyName");
+                    String description = (String) suggestionMap.get("description");
+                    
+                    if (identifier != null && friendlyName != null && description != null) {
+                        result.put(identifier, new ResourceNameSuggestion(friendlyName, description));
                     }
-                    return result;
                 }
+                return result;
             }
             
             // 응답 데이터가 예상과 다른 경우 로깅
-            log.warn("🔥 예상치 못한 응답 타입: iamResponse={}, data={}", 
-                    iamResponse != null ? iamResponse.getClass() : "null",
-                    responseData != null ? responseData.getClass() : "null");
+            log.warn("🔥 예상치 못한 응답 형식: suggestions 필드가 없습니다. content={}", 
+                    stringResponse.getContent());
             return new HashMap<>();
             
         } catch (Exception e) {
-            log.error("🔥 ResourceNaming 응답 추출 중 오류 발생", e);
+            log.error("🔥 ResourceNaming 응답 추출 중 오류 발생: content={}", 
+                    stringResponse != null ? stringResponse.getContent() : "null", e);
             return new HashMap<>();
         }
     }

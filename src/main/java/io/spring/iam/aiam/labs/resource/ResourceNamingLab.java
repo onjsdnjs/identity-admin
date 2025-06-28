@@ -75,9 +75,12 @@ public class ResourceNamingLab extends AbstractIAMLab<IAMContext> {
         this.promptTemplate = promptTemplate;
         this.chatModel = chatModel;
         this.jsonParser = jsonParser;
-        this.universalPipeline.jsonResponseParser(jsonParser);
         
-        log.info("🔬 ResourceNamingLab initialized with 6-stage pipeline");
+        // ✅ 리소스 네이밍 전용 Parser 등록
+        this.universalPipeline.registerParser(ResourceNamingSuggestionResponse.class, jsonParser);
+        this.universalPipeline.jsonResponseParser(jsonParser); // 기본 Parser로도 등록 (호환성)
+        
+        log.info("🔬 ResourceNamingLab initialized - ResourceNamingJsonParser registered");
     }
 
     @Override

@@ -1,5 +1,6 @@
 package io.spring.iam.aiam.strategy.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.spring.iam.aiam.labs.LabAccessor;
 import io.spring.iam.aiam.labs.resource.ResourceNamingLab;
 import io.spring.iam.aiam.protocol.IAMContext;
@@ -8,6 +9,7 @@ import io.spring.iam.aiam.protocol.IAMResponse;
 import io.spring.iam.aiam.protocol.enums.DiagnosisType;
 import io.spring.iam.aiam.protocol.request.ResourceNamingSuggestionRequest;
 import io.spring.iam.aiam.protocol.response.ResourceNamingSuggestionResponse;
+import io.spring.iam.aiam.protocol.response.StringResponse;
 import io.spring.iam.aiam.strategy.DiagnosisException;
 import io.spring.iam.aiam.strategy.DiagnosisStrategy;
 import io.spring.aicore.protocol.AIResponse.ExecutionStatus;
@@ -35,9 +37,11 @@ import java.util.Optional;
 public class ResourceNamingDiagnosisStrategy implements DiagnosisStrategy<IAMContext, IAMResponse> {
 
     private final LabAccessor labAccessor;
+    private final ObjectMapper objectMapper;
 
     public ResourceNamingDiagnosisStrategy(LabAccessor labAccessor) {
         this.labAccessor = labAccessor;
+        this.objectMapper = new ObjectMapper();
         log.info("🔬 ResourceNamingDiagnosisStrategy initialized with dynamic LabAccessor");
     }
 
@@ -74,12 +78,18 @@ public class ResourceNamingDiagnosisStrategy implements DiagnosisStrategy<IAMCon
             // 4. Lab에 작업 위임 (6단계 파이프라인 실행)
             ResourceNamingSuggestionResponse namingResponse = resourceNamingLab.processResourceNaming(namingRequest);
 
-            // 5. 응답 생성
-            ResourceNamingResponse response = new ResourceNamingResponse(
-                    request.getRequestId(),
-                    ExecutionStatus.SUCCESS,
-                    namingResponse
+            // 5. ✅ StringResponse로 응답 생성 (JSON 직렬화)
+            Map<String, Object> responseData = Map.of(
+                    "suggestions", namingResponse.getSuggestions(),
+                    "stats", namingResponse.getStats(),
+                    "failedIdentifiers", namingResponse.getFailedIdentifiers(),
+                    "timestamp", System.currentTimeMillis(),
+                    "requestId", request.getRequestId(),
+                    "responseType", "RESOURCE_NAMING"
             );
+            
+            String jsonContent = objectMapper.writeValueAsString(responseData);
+            StringResponse response = new StringResponse(request.getRequestId(), jsonContent);
 
             log.info("✅ 리소스 네이밍 진단 전략 실행 완료 - 요청: {}", request.getRequestId());
             return response;
@@ -123,40 +133,4 @@ public class ResourceNamingDiagnosisStrategy implements DiagnosisStrategy<IAMCon
         }
     }
 
-    /**
-     * 리소스 네이밍 응답 클래스
-     */
-    public static class ResourceNamingResponse extends IAMResponse {
-        private final ResourceNamingSuggestionResponse namingResult;
-
-        public ResourceNamingResponse(String requestId, ExecutionStatus status,
-                                     ResourceNamingSuggestionResponse namingResult) {
-            super(requestId, status);
-            this.namingResult = namingResult;
-        }
-
-        @Override
-        public String getResponseType() {
-            return "RESOURCE_NAMING";
-        }
-
-        @Override
-        public Object getData() {
-            return Map.of(
-                    "suggestions", namingResult.getSuggestions(),
-                    "stats", namingResult.getStats(),
-                    "failedIdentifiers", namingResult.getFailedIdentifiers(),
-                    "timestamp", getTimestamp(),
-                    "requestId", getRequestId()
-            );
-        }
-
-        public ResourceNamingSuggestionResponse getNamingResult() { return namingResult; }
-
-        @Override
-        public String toString() {
-            return String.format("ResourceNamingResponse{requestId='%s', status='%s', suggestions=%d}",
-                    getResponseId(), getStatus(), namingResult.getSuggestions().size());
-        }
-    }
 } 

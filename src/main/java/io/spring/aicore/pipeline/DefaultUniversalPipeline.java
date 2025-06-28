@@ -15,6 +15,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -35,7 +36,7 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
     private final ContextRetriever contextRetriever;
     private final PromptGenerator promptGenerator;
     private final StreamingProcessor streamingProcessor;
-    private ResponseParser responseParser;
+    private final Map<Class<?>, ResponseParser> parserMap = new HashMap<>();
     private final ChatModel chatModel;
     
     @Autowired
@@ -128,7 +129,8 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
                 
                 String llmResponse = ctx.getStepResult(PipelineConfiguration.PipelineStep.LLM_EXECUTION, String.class);
                 if (llmResponse != null && !llmResponse.trim().isEmpty()) {
-                    String parsedJson = responseParser.extractAndCleanJson(llmResponse);
+                    ResponseParser parser = selectParser(responseType);
+                    String parsedJson = parser.extractAndCleanJson(llmResponse);
                     if (parsedJson != null && !parsedJson.trim().isEmpty()) {
                         ctx.addStepResult(PipelineConfiguration.PipelineStep.RESPONSE_PARSING, parsedJson);
                     } else {
@@ -149,7 +151,8 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
                 if (parsedJson != null && !parsedJson.trim().isEmpty()) {
                     try {
                         // JSON을 응답 타입으로 변환
-                        R response = responseParser.parseToType(parsedJson, responseType);
+                        ResponseParser parser = selectParser(responseType);
+                        R response = parser.parseToType(parsedJson, responseType);
                         if (response != null) {
                             ctx.addStepResult(PipelineConfiguration.PipelineStep.POSTPROCESSING, response);
                         } else {
@@ -314,8 +317,50 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
         );
     }
 
+    /**
+     * 🔧 응답 타입별 Parser 등록
+     */
+    public void registerParser(Class<?> responseType, ResponseParser parser) {
+        parserMap.put(responseType, parser);
+        log.debug("🔧 Parser 등록: {} -> {}", responseType.getSimpleName(), parser.getClass().getSimpleName());
+    }
+    
+    /**
+     * 🔧 기본 Parser 등록 (호환성)
+     */
     public void jsonResponseParser(ResponseParser responseParser) {
-        this.responseParser = responseParser;
+        // 기본 ResponseParser로 등록 (ResourceNaming 호환성)
+        parserMap.put(Object.class, responseParser);
+        log.debug("🔧 기본 Parser 등록: {}", responseParser.getClass().getSimpleName());
+    }
+    
+    /**
+     * 🔍 응답 타입에 맞는 Parser 선택
+     */
+    private ResponseParser selectParser(Class<?> responseType) {
+        // 1. 정확한 타입 매치
+        ResponseParser parser = parserMap.get(responseType);
+        if (parser != null) {
+            log.debug("🎯 정확한 Parser 선택: {} -> {}", responseType.getSimpleName(), parser.getClass().getSimpleName());
+            return parser;
+        }
+        
+        // 2. 상속 관계 확인
+        for (Map.Entry<Class<?>, ResponseParser> entry : parserMap.entrySet()) {
+            if (entry.getKey().isAssignableFrom(responseType)) {
+                log.debug("🎯 상속 관계 Parser 선택: {} -> {}", responseType.getSimpleName(), entry.getValue().getClass().getSimpleName());
+                return entry.getValue();
+            }
+        }
+        
+        // 3. 기본 Parser 사용
+        ResponseParser defaultParser = parserMap.get(Object.class);
+        if (defaultParser != null) {
+            log.debug("🔧 기본 Parser 사용: {} -> {}", responseType.getSimpleName(), defaultParser.getClass().getSimpleName());
+            return defaultParser;
+        }
+        
+        throw new RuntimeException("No parser registered for response type: " + responseType.getSimpleName());
     }
     
     /**

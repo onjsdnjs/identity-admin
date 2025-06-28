@@ -3,6 +3,8 @@ package io.spring.aicore.components.parser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.spring.aicore.protocol.AIResponse;
+import io.spring.iam.aiam.protocol.response.ConditionTemplateGenerationResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -160,14 +162,119 @@ public class ConditionTemplateParser implements ResponseParser {
 
     /**
      * 타입별 JSON 파싱을 수행합니다
+     * 
+     * ✅ ResourceNaming 실책 방지: 조건 템플릿 특화 타입 처리
      */
     public <T> T parseToType(String jsonStr, Class<T> targetType) {
         try {
+            if (jsonStr == null || jsonStr.trim().isEmpty()) {
+                log.warn("🔥 parseToType 입력이 비어있음, null 반환");
+                return null;
+            }
+            
+            log.debug("🔍 parseToType 시작: targetType={}, json length={}", targetType.getSimpleName(), jsonStr.length());
+            
+            // ConditionTemplateGenerationResponse 직접 처리
+            if (targetType.isAssignableFrom(ConditionTemplateGenerationResponse.class)) {
+                log.debug("🎯 ConditionTemplateGenerationResponse 타입 감지, 조건 템플릿 파싱 시작");
+                return parseConditionTemplateResponse(jsonStr, targetType);
+            }
+            
+            // AIResponse는 추상 클래스이므로 구체 타입으로 변환
+            if (targetType == AIResponse.class || AIResponse.class.isAssignableFrom(targetType)) {
+                log.debug("🎯 AIResponse 추상 타입 감지, ConditionTemplateGenerationResponse로 변환");
+                return parseConditionTemplateResponse(jsonStr, targetType);
+            }
+            
+            // 기본 JSON 파싱
             String cleanJson = extractAndCleanJson(jsonStr);
             return objectMapper.readValue(cleanJson, targetType);
-        } catch (JsonProcessingException e) {
-            log.error("JSON 파싱 실패: {}", e.getMessage());
-            throw new RuntimeException("JSON 파싱 실패", e);
+            
+        } catch (Exception e) {
+            log.error("🔥 parseToType 실패: targetType={}, json length={}", targetType.getSimpleName(), jsonStr.length(), e);
+            return null;
+        }
+    }
+    
+    /**
+     * 조건 템플릿 응답을 파싱합니다
+     */
+    @SuppressWarnings("unchecked")
+    private <T> T parseConditionTemplateResponse(String jsonStr, Class<T> targetType) {
+        try {
+            log.debug("🔍 조건 템플릿 응답 파싱 시작");
+            
+            // JSON에서 템플릿 배열 추출
+            String templateJson = extractTemplateArrayFromResponse(jsonStr);
+            
+            if (templateJson == null || templateJson.trim().isEmpty()) {
+                log.warn("🔥 템플릿 JSON이 비어있음, 실패 응답 생성");
+                ConditionTemplateGenerationResponse failureResponse = ConditionTemplateGenerationResponse.failure(
+                        "unknown", "unknown", null, "Empty template JSON");
+                return targetType.cast(failureResponse);
+            }
+            
+            // 성공 응답 생성
+            ConditionTemplateGenerationResponse response = ConditionTemplateGenerationResponse.success(
+                    "pipeline-generated", templateJson, "auto-detected", null);
+            
+            log.debug("✅ 조건 템플릿 응답 파싱 완료: hasTemplates={}", response.hasTemplates());
+            return targetType.cast(response);
+            
+        } catch (Exception e) {
+            log.error("🔥 조건 템플릿 응답 파싱 실패", e);
+            
+            // 실패 응답 생성
+            ConditionTemplateGenerationResponse failureResponse = ConditionTemplateGenerationResponse.failure(
+                    "unknown", "unknown", null, "Parsing failed: " + e.getMessage());
+            return targetType.cast(failureResponse);
+        }
+    }
+    
+    /**
+     * AI 응답에서 템플릿 배열을 추출합니다
+     */
+    private String extractTemplateArrayFromResponse(String jsonStr) {
+        try {
+            log.debug("🔍 템플릿 배열 추출 시작");
+            
+            // 1. 마크다운 코드 블록 제거
+            String cleaned = jsonStr.replaceAll("```json\\s*", "").replaceAll("```\\s*", "");
+            
+            // 2. JSON 배열 패턴 찾기
+            Pattern arrayPattern = Pattern.compile("\\[\\s*\\{.*?\\}\\s*\\]", Pattern.DOTALL);
+            Matcher arrayMatcher = arrayPattern.matcher(cleaned);
+            
+            if (arrayMatcher.find()) {
+                String found = arrayMatcher.group().trim();
+                log.debug("✅ JSON 배열 패턴으로 추출 성공: {} characters", found.length());
+                return found;
+            }
+            
+            // 3. 전체가 배열인지 확인
+            cleaned = cleaned.trim();
+            if (cleaned.startsWith("[") && cleaned.endsWith("]")) {
+                log.debug("✅ 전체 JSON이 배열 형태: {} characters", cleaned.length());
+                return cleaned;
+            }
+            
+            // 4. 단일 객체를 배열로 감싸기
+            Pattern objectPattern = Pattern.compile("\\{.*?\\}", Pattern.DOTALL);
+            Matcher objectMatcher = objectPattern.matcher(cleaned);
+            
+            if (objectMatcher.find()) {
+                String objectJson = objectMatcher.group().trim();
+                String arrayJson = "[" + objectJson + "]";
+                log.debug("✅ 단일 객체를 배열로 변환: {} characters", arrayJson.length());
+                return arrayJson;
+            }
+            
+            log.warn("🔥 유효한 JSON 구조를 찾을 수 없음");
+            return "[]";
+            
+        } catch (Exception e) {
+            log.error("🔥 템플릿 배열 추출 실패", e);
+            return "[]";
         }
     }
 
