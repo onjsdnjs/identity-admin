@@ -70,7 +70,7 @@ public class LabCapabilities {
             50, // maxConcurrentRequests
             2000, // maxResponseTimeMs (2초)
             0.95, // minAccuracyThreshold (95%)
-            Set.of("GPT-4", "Claude-3", "Exaone-3.5", "Gemini-Pro", "Custom-Model"), 
+            Set.of("GPT-4", "Claude-4", "Exaone-3.5", "Gemini-Pro", "Custom-Model"),
             Set.of("JSON", "XML", "YAML", "Protobuf", "Avro"),
             List.of(
                 CapabilityFeature.REAL_TIME_PROCESSING,

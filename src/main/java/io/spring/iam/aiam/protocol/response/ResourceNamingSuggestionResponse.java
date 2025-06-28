@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 
 /**
  * 리소스 네이밍 AI 진단 응답 DTO
- * 구버전의 Map<String, ResourceNameSuggestion> 형식을 대체
+ * 시스템 내부의 Map<String, ResourceNameSuggestion> 형식과 상호 변환 지원
  */
 @Data
 @Builder
@@ -122,8 +122,8 @@ public class ResourceNamingSuggestionResponse implements AIAMResponse {
                 .toList();
                 
         ProcessingStats stats = ProcessingStats.builder()
-                .totalRequested(legacyMap.size())
-                .successfullyProcessed(legacyMap.size())
+                .totalRequested(suggestionMap.size())
+                .successfullyProcessed(suggestionMap.size())
                 .failed(0)
                 .build();
                 

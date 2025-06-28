@@ -114,8 +114,8 @@ public class ResourceNamingDiagnosisStrategy implements DiagnosisStrategy<IAMCon
             @SuppressWarnings("unchecked") 
             List<Map<String, String>> legacyResources = (List<Map<String, String>>) request.getParameter("resources", List.class);
             
-            // 구버전 형식에서 신버전 형식으로 변환
-            return ResourceNamingSuggestionRequest.fromLegacyFormat(legacyResources);
+            // Map 리스트에서 신버전 형식으로 변환
+            return ResourceNamingSuggestionRequest.fromMapList(legacyResources);
             
         } catch (ClassCastException e) {
             throw new DiagnosisException("RESOURCE_NAMING", "INVALID_RESOURCES_FORMAT",

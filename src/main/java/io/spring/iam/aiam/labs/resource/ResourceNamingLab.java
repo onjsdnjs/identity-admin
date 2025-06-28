@@ -33,9 +33,7 @@ import java.util.stream.Collectors;
 
 /**
  * 🔬 리소스 네이밍 전문 연구소
- *
  * 🎯 전문 분야: 기술적 리소스 식별자를 사용자 친화적 이름으로 변환
- * 
  * 📋 6단계 AI 파이프라인 실행:
  * 1. CONTEXT_RETRIEVAL: ResourceNamingContextRetriever - RAG 검색
  * 2. PREPROCESSING: 메타데이터 구성  
@@ -43,7 +41,6 @@ import java.util.stream.Collectors;
  * 4. LLM_EXECUTION: ChatModel - AI 모델 실행
  * 5. RESPONSE_PARSING: ResourceNamingJsonParser - JSON 추출/정제
  * 6. POSTPROCESSING: 후처리 및 검증
- *
  * 🔄 구버전 호환성:
  * - suggestResourceNamesInBatch() 로직을 6단계 파이프라인으로 분산
  * - 배치 크기 5개 제한 유지
@@ -157,9 +154,6 @@ public class ResourceNamingLab extends AbstractIAMLab<IAMContext> {
         }
     }
 
-    /**
-     * 🔥 구버전 완전 이식: processBatch 메서드 (AINativeIAMSynapseArbiterFromOllama와 100% 동일)
-     */
     /**
      * 🔥 ConditionTemplateGenerationLab과 동일한 진짜 파이프라인 기반 배치 처리
      */
@@ -396,7 +390,7 @@ public class ResourceNamingLab extends AbstractIAMLab<IAMContext> {
         
         // 첫 번째 결과를 반환하거나 빈 결과 생성
         IAMResponse firstResult = results.values().stream().findFirst().orElse(null);
-        if (firstResult != null && responseType.isInstance(firstResult)) {
+        if (responseType.isInstance(firstResult)) {
             return responseType.cast(firstResult);
         }
         

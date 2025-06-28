@@ -12,7 +12,7 @@ import java.util.Map;
 
 /**
  * 리소스 네이밍 AI 진단 요청 DTO
- * 구버전의 List<Map<String, String>> 형식을 대체
+ * 시스템 내부의 List<Map<String, String>> 형식과 상호 변환 지원
  */
 @Data
 @Builder
@@ -26,7 +26,7 @@ public class ResourceNamingSuggestionRequest implements AIAMRequest {
     private List<ResourceItem> resources;
     
     /**
-     * 배치 크기 (기본값: 5, 구버전과 동일)
+     * 배치 크기 (기본값: 5)
      */
     @Builder.Default
     private int batchSize = 5;
@@ -61,22 +61,22 @@ public class ResourceNamingSuggestionRequest implements AIAMRequest {
         private Map<String, String> metadata;
         
         /**
-         * 구버전 호환성을 위한 팩토리 메서드
+         * Map에서 ResourceItem 생성
          */
-        public static ResourceItem fromLegacyMap(Map<String, String> legacyMap) {
+        public static ResourceItem fromMap(Map<String, String> resourceMap) {
             return ResourceItem.builder()
-                    .identifier(legacyMap.get("identifier"))
-                    .owner(legacyMap.get("owner"))
+                    .identifier(resourceMap.get("identifier"))
+                    .owner(resourceMap.get("owner"))
                     .build();
         }
     }
     
     /**
-     * 구버전 호환성을 위한 팩토리 메서드
+     * List<Map<String, String>>에서 변환하는 팩토리 메서드
      */
-    public static ResourceNamingSuggestionRequest fromLegacyFormat(List<Map<String, String>> legacyResources) {
-        List<ResourceItem> items = legacyResources.stream()
-                .map(ResourceItem::fromLegacyMap)
+    public static ResourceNamingSuggestionRequest fromMapList(List<Map<String, String>> resourceMaps) {
+        List<ResourceItem> items = resourceMaps.stream()
+                .map(ResourceItem::fromMap)
                 .toList();
                 
         return ResourceNamingSuggestionRequest.builder()
