@@ -7,6 +7,7 @@ import io.spring.aicore.components.streaming.StreamingProcessor;
 import io.spring.aicore.protocol.AIRequest;
 import io.spring.aicore.protocol.AIResponse;
 import io.spring.aicore.protocol.DomainContext;
+import io.spring.iam.aiam.protocol.response.StringResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -193,8 +194,14 @@ public class DefaultUniversalPipeline implements UniversalPipeline {
             if (finalResult == null) {
                 log.warn("🔥 POSTPROCESSING 결과가 null, 기본 응답 생성 시도");
                 try {
+                    // ✅ StringResponse 특별 처리 (최우선)
+                    if (responseType.isAssignableFrom(StringResponse.class)) {
+                        log.debug("🎯 StringResponse 기본 응답 생성");
+                        StringResponse defaultStringResponse = new StringResponse("pipeline-final-default", "{}");
+                        finalResult = responseType.cast(defaultStringResponse);
+                    }
                     // AIResponse는 추상 클래스이므로 특별 처리
-                    if (responseType == AIResponse.class || AIResponse.class.isAssignableFrom(responseType)) {
+                    else if (responseType == AIResponse.class || AIResponse.class.isAssignableFrom(responseType)) {
                         // 기본 StringAIResponse 생성
                         DefaultStringAIResponse defaultResponse = new DefaultStringAIResponse("pipeline-final-default", "{}");
                         finalResult = responseType.cast(defaultResponse);

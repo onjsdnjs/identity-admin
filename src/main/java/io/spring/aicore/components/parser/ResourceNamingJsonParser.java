@@ -8,6 +8,7 @@ import io.spring.aicore.protocol.AIResponse;
 import io.spring.iam.aiam.dto.ResourceNameSuggestion;
 import io.spring.iam.aiam.protocol.request.ResourceNamingSuggestionRequest;
 import io.spring.iam.aiam.protocol.response.ResourceNamingSuggestionResponse;
+import io.spring.iam.aiam.protocol.response.StringResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -724,6 +725,36 @@ public class ResourceNamingJsonParser implements ResponseParser {
         try {
             if (jsonStr == null || jsonStr.trim().isEmpty()) {
                 return null;
+            }
+            
+            log.debug("🔍 parseToType 시작: targetType={}, json length={}", targetType.getSimpleName(), jsonStr.length());
+            
+            // ✅ StringResponse 직접 처리 (최우선)
+            if (targetType.isAssignableFrom(StringResponse.class)) {
+                log.debug("🎯 StringResponse 타입 감지, JSON 직렬화 후 StringResponse 생성");
+                
+                // 기존 parse 로직으로 ResourceNamingSuggestionResponse 생성
+                ResourceNamingSuggestionRequest dummyRequest = ResourceNamingSuggestionRequest.builder()
+                        .resources(List.of())
+                        .build();
+                
+                ResourceNamingSuggestionResponse response = parse(jsonStr, dummyRequest);
+                
+                // ResourceNamingSuggestionResponse를 JSON으로 직렬화하여 StringResponse 생성
+                Map<String, Object> responseData = Map.of(
+                        "suggestions", response.getSuggestions(),
+                        "stats", response.getStats(),
+                        "failedIdentifiers", response.getFailedIdentifiers(),
+                        "timestamp", System.currentTimeMillis(),
+                        "requestId", "resource-naming-parsed",
+                        "responseType", "RESOURCE_NAMING"
+                );
+                
+                String jsonContent = objectMapper.writeValueAsString(responseData);
+                StringResponse stringResponse = new StringResponse("resource-naming-parsed", jsonContent);
+                
+                log.debug("✅ StringResponse 생성 완료: contentLength={}", jsonContent.length());
+                return targetType.cast(stringResponse);
             }
             
             // AIResponse는 추상 클래스이므로 구체 타입으로 변환
